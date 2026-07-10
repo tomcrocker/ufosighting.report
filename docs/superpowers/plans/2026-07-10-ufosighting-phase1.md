@@ -334,7 +334,7 @@ def db_conn(tmp_path):
 def _insert_sighting(conn, **over):
     row = {
         "reddit_username": "tester", "title": "Bright orb over the lake",
-        "description": "A silent orange orb hovered for two minutes.",
+        "description": "A silent orange light hovered for two minutes.",
         "sighted_at": "2026-07-01T05:00:00Z", "location_text": "Lake Cowichan, BC",
     }
     row.update(over)

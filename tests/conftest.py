@@ -31,3 +31,12 @@ def _fresh_settings():
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def db_conn(tmp_path):
+    from app import db
+    conn = db.connect(str(tmp_path / "test.db"))
+    db.init_db(conn)
+    yield conn
+    conn.close()

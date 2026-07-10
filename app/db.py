@@ -94,7 +94,10 @@ END;
 
 def connect(db_path: str) -> sqlite3.Connection:
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    # check_same_thread=False: FastAPI resolves sync dependencies in threadpool
+    # threads while async handlers run on the event loop — each per-request
+    # connection is still used by only one request at a time.
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")

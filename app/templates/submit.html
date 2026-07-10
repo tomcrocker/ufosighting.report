@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Report a sighting — ufosighting.report{% endblock %}
+{% block content %}
+<div class="wizard">
+  <div class="wizard-main">
+    <div class="wizard-progress"><div class="bar" id="progressbar"></div></div>
+    <p class="muted">Posting to r/UFOs as <strong>u/{{ user.username }}</strong> — replies land in your Reddit inbox.</p>
+    {% for e in errors %}<p class="flash error">{{ e }}</p>{% endfor %}
+    <form method="post" action="/submit" id="sighting-form" {% if show_all %}data-show-all="1"{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="media_json" id="media_json" value="{{ values.media_json or '[]' }}">
+      <input type="hidden" name="tz_name" id="tz_name" value="{{ values.tz_name or '' }}">
+      <input type="hidden" name="lat" id="lat" value="{{ values.lat or '' }}">
+      <input type="hidden" name="lon" id="lon" value="{{ values.lon or '' }}">
+      <input type="hidden" name="city" id="city" value="{{ values.city or '' }}">
+      <input type="hidden" name="country" id="country" value="{{ values.country or '' }}">
+      <input type="hidden" name="duration_value" id="duration_value" value="{{ values.duration_value or '' }}">
+      <input type="hidden" name="duration_unit" value="seconds">
+      <input type="hidden" name="shape" value="{{ values.shape or '' }}">
+      <input type="hidden" name="num_objects" value="{{ values.num_objects or '' }}">
+      <input type="hidden" name="distance" value="{{ values.distance or '' }}">
+      <input type="hidden" name="apparent_size" value="{{ values.apparent_size or '' }}">
+      <input type="hidden" name="movement_json" value="{{ values.movement_json or '[]' }}">
+      <input type="hidden" name="sensors_json" value="{{ values.sensors_json or '[]' }}">
+      <input type="hidden" name="background_json" value="{{ values.background_json or '[]' }}">
+      <input type="hidden" name="has_wings" value="{{ values.has_wings or '' }}">
+      <input type="hidden" name="has_rotors" value="{{ values.has_rotors or '' }}">
+      <input type="hidden" name="has_plume" value="{{ values.has_plume or '' }}">
+      <input type="hidden" name="makes_noise" value="{{ values.makes_noise or '' }}">
+
+      <section class="step" data-step="1">
+        <h1>Where did this sighting occur?</h1>
+        <p class="muted">Don't remember the exact address? The town or area is fine.</p>
+        <input name="location_text" id="location_text" required minlength="2" autocomplete="off"
+               placeholder="Search a place…" value="{{ values.location_text or '' }}">
+        <div class="suggestions" id="geo-suggestions"></div>
+        <div id="pinmap"></div>
+        <p class="muted">…or click the map to drop a pin where it happened.</p>
+        <label class="check">
+          <input type="checkbox" id="obscure" name="location_obscured" value="1"
+                 {% if values.location_obscured %}checked{% endif %}>
+          This is my home or another personally identifiable location — obscure the exact spot
+        </label>
+      </section>
+
+      <section class="step" data-step="2">
+        <h1>When did the sighting happen?</h1>
+        <p class="muted">If you don't remember exactly, your best guess is okay.</p>
+        <div class="row">
+          <label>Date <input type="date" name="sighted_date" required value="{{ values.sighted_date or '' }}"></label>
+          <label>Local time <input type="time" name="sighted_time" required value="{{ values.sighted_time or '' }}"></label>
+        </div>
+        <p class="muted">Timezone: <span id="tzlabel"></span></p>
+        <h2>How long did the sighting last?</h2>
+        <div class="row3">
+          <label><input type="number" id="dur_h" min="0" max="24" placeholder="0"> h</label>
+          <label><input type="number" id="dur_m" min="0" max="59" placeholder="0"> m</label>
+          <label><input type="number" id="dur_s" min="0" max="59" placeholder="0"> s</label>
+        </div>
+      </section>
+
+      <section class="step" data-step="3">
+        <h1>Share your sighting story</h1>
+        <p class="muted">Questions to consider:</p>
+        <ul class="muted prompts">
+          <li>Where were you and what were you doing?</li>
+          <li>How was the weather and visibility?</li>
+          <li>What did the object look like and how did it move?</li>
+          <li>How did the sighting end?</li>
+        </ul>
+        <label>Report title
+          <input name="title" required minlength="5" maxlength="300" value="{{ values.title or '' }}"
+                 placeholder="e.g. Three orange orbs in triangle formation over Victoria, BC">
+        </label>
+        <label>Your story
+          <textarea name="description" required minlength="150"
+                    placeholder="Tell us more about your sighting.">{{ values.description or '' }}</textarea>
+        </label>
+        <p class="muted">Min 150 characters — <span id="charcount">0 / 150 min</span></p>
+      </section>
+
+      <section class="step" data-step="4">
+        <h1>Tell us about the object(s)</h1>
+        <div class="madlib"><span>I saw</span>
+          <div class="chips" data-target="num_objects">
+            {% for o in opts.num_objects %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
+          </div><span>object(s)</span></div>
+        <div class="madlib"><span>They were</span>
+          <div class="chips" data-target="shape">
+            {% for o in opts.shapes %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
+          </div><span>shaped</span></div>
+        <div class="madlib"><span>At their closest, they were</span>
+          <div class="chips" data-target="distance">
+            {% for o in opts.distances %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
+          </div></div>
+        <div class="madlib"><span>Viewed at arm's length, they were about a</span>
+          <div class="chips" data-target="apparent_size">
+            {% for o in opts.sizes %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
+          </div><span>in size</span></div>
+        <div class="madlib"><span>They had</span>
+          <div class="chips" data-target="movement_json" data-multi="1">
+            {% for o in opts.movements %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
+          </div><span>movement</span></div>
+      </section>
+
+      <section class="step" data-step="5">
+        <h1>Describe if the object…</h1>
+        {% for key, label in [('has_wings', 'Has wings?'), ('has_rotors', 'Has rotors?'),
+                              ('has_plume', 'Has an exhaust plume?'), ('makes_noise', 'Makes noise?')] %}
+        <div class="feature-row"><span>{{ label }}</span>
+          <div class="chips" data-target="{{ key }}">
+            <button type="button" class="chip" data-value="yes">Yes</button>
+            <button type="button" class="chip" data-value="no">No</button>
+            <button type="button" class="chip" data-value="unsure">Not sure</button>
+          </div>
+        </div>
+        {% endfor %}
+      </section>
+
+      <section class="step" data-step="6">
+        <h1>Did you capture any photos or video?</h1>
+        <p class="muted">Up to {{ max_files }} files — images ≤ 25MB, video ≤ 500MB. Skip this step if you didn't capture anything.</p>
+        <div class="dropzone" id="dropzone">Drop files here or click to choose</div>
+        <input type="file" id="filepick" multiple hidden
+               accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm">
+        <div class="filelist" id="filelist"></div>
+      </section>
+
+      <section class="step" data-step="7">
+        <h1>Witnesses &amp; context</h1>
+        <label>How many witnesses, including yourself?
+          <input type="number" name="witnesses" min="1" max="1000" value="{{ values.witnesses or '' }}">
+        </label>
+        <h2>Did any sensors detect the object?</h2>
+        <div class="chips" data-target="sensors_json" data-multi="1">
+          {% for o in opts.sensors %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
+        </div>
+        <h2>Are you any of the following?</h2>
+        <div class="chips" data-target="background_json" data-multi="1">
+          {% for o in opts.backgrounds %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
+        </div>
+      </section>
+
+      <div class="wizard-nav">
+        <button type="button" class="btn" id="prevbtn">&larr; Previous</button>
+        <button type="button" class="btn primary" id="nextbtn">Next &rarr;</button>
+        <button type="submit" class="btn primary" id="submitbtn">Submit &amp; post to r/UFOs</button>
+      </div>
+    </form>
+  </div>
+  <aside class="wizard-visual" aria-hidden="true"><div class="stars"></div></aside>
+</div>
+{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="/static/js/wizard.js"></script>
+<script defer src="/static/js/upload.js"></script>
+{% endblock %}

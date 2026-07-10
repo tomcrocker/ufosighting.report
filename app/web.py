@@ -3,11 +3,13 @@ from pathlib import Path
 from fastapi import Depends, HTTPException, Request
 from fastapi.templating import Jinja2Templates
 
-from app import auth, db, r2
+from app import auth, db, helpers, r2
 from app.config import get_settings
 
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 templates.env.globals["media_url"] = r2.public_url
+templates.env.filters["duration_h"] = helpers.humanize_duration
+templates.env.globals["slugify"] = helpers.slugify
 
 
 def current_user(request: Request, conn=Depends(db.get_db)) -> auth.Session | None:

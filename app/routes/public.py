@@ -3,6 +3,7 @@ import math
 import urllib.parse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import PlainTextResponse, Response
 
 from app import auth, db, helpers, r2
 from app.config import get_settings
@@ -138,3 +139,74 @@ def detail(
         {"user": user, "s": s, "media": media_items, "reddit_url": reddit_url, "admin": admin,
          "csrf_token": auth.csrf_for(user.id) if user else ""},
     )
+
+
+@router.get("/map")
+def map_page(request: Request, user=Depends(current_user)):
+    return templates.TemplateResponse(request, "map.html", {"user": user})
+
+
+@router.get("/api/pins")
+def pins(conn=Depends(db.get_db)):
+    rows, _ = query_sightings(conn, page=1, per_page=5000)
+    return {
+        "pins": [
+            {
+                "id": r["id"],
+                "title": r["title"],
+                "lat": r["lat"],
+                "lon": r["lon"],
+                "url": f"/sighting/{r['id']}/{helpers.slugify(r['title'])}",
+                "thumb": r2.public_url(r["thumb_key"]) if r["thumb_key"] else None,
+                "date": r["sighted_at"][:10],
+                "shape": r["shape"],
+            }
+            for r in rows
+            if r["lat"] is not None and r["lon"] is not None
+        ]
+    }
+
+
+@router.get("/search")
+def search(request: Request, q: str = "", conn=Depends(db.get_db), user=Depends(current_user)):
+    results = []
+    query = q.strip()
+    if query:
+        match = " ".join('"' + term.replace('"', "") + '"' for term in query.split())
+        rows = conn.execute(
+            """SELECT s.*,
+                  (SELECT m.thumb_key FROM media m WHERE m.sighting_id = s.id
+                     ORDER BY m.sort_order LIMIT 1) AS thumb_key,
+                  (SELECT m.kind FROM media m WHERE m.sighting_id = s.id
+                     ORDER BY m.sort_order LIMIT 1) AS first_kind
+               FROM sightings_fts f
+               JOIN sightings s ON s.id = f.rowid
+               WHERE sightings_fts MATCH ? AND s.status = 'live'
+               ORDER BY f.rank LIMIT 60""",
+            (match,),
+        ).fetchall()
+        results = [card(r) for r in rows]
+    return templates.TemplateResponse(
+        request, "search.html", {"user": user, "q": q, "cards": results}
+    )
+
+
+@router.get("/sitemap.xml")
+def sitemap(conn=Depends(db.get_db)):
+    base = get_settings().base_url
+    urls = [f"{base}/", f"{base}/map", f"{base}/search"]
+    for r in conn.execute("SELECT id, title FROM sightings WHERE status='live' ORDER BY id"):
+        urls.append(f"{base}/sighting/{r['id']}/{helpers.slugify(r['title'])}")
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "\n".join(f"  <url><loc>{u}</loc></url>" for u in urls)
+        + "\n</urlset>"
+    )
+    return Response(content=body, media_type="application/xml")
+
+
+@router.get("/robots.txt")
+def robots():
+    base = get_settings().base_url
+    return PlainTextResponse(f"User-agent: *\nAllow: /\nSitemap: {base}/sitemap.xml\n")

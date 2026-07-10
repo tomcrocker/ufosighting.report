@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Sightings map — ufosighting.report{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script defer src="/static/js/map.js"></script>
+{% endblock %}
+{% block content %}
+<h1>Sightings map</h1>
+<p class="muted">Only sightings submitted with a location pin appear here.</p>
+<div id="map"></div>
+{% endblock %}

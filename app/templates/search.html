@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Search sightings — ufosighting.report{% endblock %}
+{% block content %}
+<form class="filters" method="get" action="/search">
+  <input name="q" value="{{ q }}" placeholder="Search titles, stories, locations…" style="flex:1; min-width: 260px;">
+  <button class="btn primary">Search</button>
+</form>
+{% if q %}
+  {% include "_cards.html" %}
+{% else %}
+  <p class="empty">Type a query to search all sighting reports.</p>
+{% endif %}
+{% endblock %}

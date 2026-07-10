@@ -1,0 +1,14 @@
+[Unit]
+Description=ufosighting.report web app
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ufosighting
+EnvironmentFile=/home/ubuntu/ufosighting/.env
+ExecStart=/home/ubuntu/ufosighting/.venv/bin/uvicorn app.main:create_app --factory --host 127.0.0.1 --port 8010 --workers 1
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

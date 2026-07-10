@@ -1,0 +1,9 @@
+[Unit]
+Description=ufosighting.report daily cleanup
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ufosighting
+EnvironmentFile=/home/ubuntu/ufosighting/.env
+ExecStart=/home/ubuntu/ufosighting/.venv/bin/python cleanup.py

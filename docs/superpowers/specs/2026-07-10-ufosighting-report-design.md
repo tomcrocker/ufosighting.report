@@ -53,34 +53,78 @@ Browser ── presigned PUT ─────────────────
   service. Commit after every change session so the VM cannot drift from the
   repo (the report-bot-v2 lesson).
 
-## 3. Submission flow (Phase 1)
+## 3. Submission flow (Phase 1) — multi-step wizard
 
-1. Visitor clicks **Submit a sighting** → "Login with Reddit" → OAuth consent
-   (`identity` + `submit`) → callback stores username + access token in a
-   **server-side session** (opaque HttpOnly cookie, ~1h lifetime). Tokens never
-   go into the cookie.
-2. Form fields:
-   - Title, description
-   - Date + time + timezone (defaults from browser)
-   - Location: free text + optional **map pin** (lat/lon) — guidance text says
-     "drop the pin where the sighting happened, not where you live"
-   - Shape (dropdown), duration, number of witnesses
-   - Media: drag-drop; images ≤25MB, video ≤500MB, up to 10 files
-3. Per file: browser asks the server for a presigned URL → PUTs directly to R2
-   → server records the key. Per-file upload progress in the UI.
-4. On submit: sighting row created → **Reddit post created as the user** with
-   their token — user's title, body = structured summary + media links + link
-   back to the gallery page, Sighting flair set → `reddit_post_id` saved →
-   entry live → redirect to its gallery page.
-5. Token expired mid-form: draft saved server-side, user bounces through
-   re-auth, form restored. No lost 20-minute writeups.
+**UX model (inspired by Enigma Labs' submission form):** a full-screen,
+one-question-per-screen wizard with a progress bar, Previous/Next navigation,
+and a split layout (form on the left, atmospheric visual pane on the right —
+CSS starfield; the location step shows a live map instead). Implemented as a
+single HTML form whose sections are stepped through with vanilla JS; one POST
+at the end. No SPA framework.
+
+0. **Auth gate**: Visitor clicks **Report a sighting** → "Login with Reddit" →
+   OAuth consent (`identity` + `submit`) → callback stores username + access
+   token in a **server-side session** (opaque HttpOnly cookie, ~1h lifetime).
+   Tokens never go into the cookie.
+
+**Wizard steps:**
+
+1. **Where** — location search box with autocomplete (server proxies
+   OSM/Nominatim at `GET /api/geocode?q=`; picks fill location text, city,
+   country, lat/lon and preview on a Leaflet map) or drop a pin manually.
+   Privacy toggle: *"Is this your home or another personally identifiable
+   location?"* — if yes, coordinates are **rounded to ~11km (1 decimal)**
+   server-side and the stored location text is reduced to city + country.
+2. **When** — date + local time (browser timezone auto-detected and shown),
+   plus *"How long did the sighting last?"* as h/m/s inputs.
+3. **Story** — report title + free-text story (min 150 characters), with
+   "questions to consider" prompts (where were you, weather/visibility, how it
+   moved, how it disappeared).
+4. **The object(s)** — mad-libs style chip pickers:
+   - "I saw **[1 / 2 / 3 / 4 / 5+]** objects"
+   - "They were **[shape]** shaped" — changing, chevron, cigar, circle, cone,
+     cross, cube, cylinder, diamond, disk, egg, fireball, flash, formation,
+     light, oval, rectangle, saucer, sphere, teardrop, triangle, unknown
+   - "At their closest they were **[distance]**" — very close (&lt;50 ft),
+     within a football field, a few miles, as far as the horizon, above the
+     trees, as high as a plane, as high as a star
+   - "Viewed at arm's length they were **[size]**" — pinhead, pea, dime,
+     quarter, golf ball, baseball, grapefruit, basketball, larger
+   - "They had **[movement]**" (multi-select) — hovering, floating around,
+     straight and steady, circular, slowly descending, unpredictable/erratic,
+     random smooth, extremely fast, abrupt changes in direction
+5. **Object features** — yes / no / not sure rows: has wings? has rotors? has
+   an exhaust plume? makes noise?
+6. **Media** — drag-drop direct-to-R2 (presigned PUT; images ≤25MB, video
+   ≤500MB, up to 10 files) with per-file progress, or "I didn't capture
+   anything".
+7. **Witnesses & context** — witness count (including yourself), *"Did any
+   sensors detect the object?"* (infrared, night vision, radar, sonar, other,
+   none), *"Are you any of the following?"* (active duty military, veteran,
+   pilot, scientist, law enforcement, none) — then **Submit**.
+
+Every structured question is **optional except location, date/time, title, and
+story** — skippable steps lower abandonment; nulls are fine in the gallery.
+
+On submit: sighting row created → **Reddit post created as the user** with
+their token — user's title, body = structured summary + media links + link
+back to the gallery page, Sighting flair set → `reddit_post_id` saved → entry
+live → redirect to its gallery page.
+
+Token expired mid-wizard: draft saved server-side, user bounces through
+re-auth, wizard restored with their answers. No lost 20-minute writeups.
 
 ## 4. Data model
 
 ```sql
 sightings: id, source ('site'|'reddit'), reddit_username, title, description,
            sighted_at (UTC) + tz_name, duration_seconds, shape, witnesses,
-           location_text, city, country, lat, lon,
+           num_objects ('1'|'2'|'3'|'4'|'5+'),
+           distance (category), apparent_size (category),
+           movement (JSON array of pattern strings),
+           has_wings, has_rotors, has_plume, makes_noise ('yes'|'no'|'unsure'|NULL),
+           sensors (JSON array), witness_background (JSON array),
+           location_text, city, country, lat, lon, location_obscured (bool),
            reddit_post_id, reddit_score, reddit_num_comments,
            status ('live'|'removed_on_reddit'|'deleted_by_user'|'hidden_by_admin'),
            featured (bool), created_at

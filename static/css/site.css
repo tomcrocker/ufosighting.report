@@ -146,3 +146,6 @@ table.admin td, table.admin th { padding: 8px; border-bottom: 1px solid var(--li
 }
 .stars::after { background-size: 320px 320px; animation-duration: 180s; opacity: .5; }
 @keyframes drift { from { transform: translateY(0); } to { transform: translateY(-240px); } }
+
+.detail { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 900px) { .detail { grid-template-columns: 1fr; } }

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{{ s.title }} — ufosighting.report{% endblock %}
+{% block head %}
+<meta property="og:title" content="{{ s.title }}">
+<meta property="og:description" content="{{ s.description[:200] }}">
+{% if media and media[0].thumb_url %}<meta property="og:image" content="{{ media[0].thumb_url }}">{% endif %}
+{% endblock %}
+{% block content %}
+<article class="detail">
+  <div class="viewer-col">
+    {% if media %}
+    <div class="viewer" id="viewer">
+      {% set first = media[0] %}
+      {% if first.kind == 'video' %}
+      <video controls preload="metadata" {% if first.thumb_url %}poster="{{ first.thumb_url }}"{% endif %} src="{{ first.url }}"></video>
+      {% else %}
+      <img src="{{ first.url }}" alt="{{ s.title }}">
+      {% endif %}
+    </div>
+    {% if media | length > 1 %}
+    <div class="thumbstrip">
+      {% for m in media %}
+      <img src="{{ m.thumb_url or m.url }}" data-url="{{ m.url }}" data-kind="{{ m.kind }}"
+           class="{% if loop.first %}active{% endif %}" alt="">
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="noimg" style="aspect-ratio: 16/9; border-radius: 10px;">&#128065;&#65039; No media captured</div>
+    {% endif %}
+    <h1>{{ s.title }}</h1>
+    <p style="white-space: pre-line">{{ s.description }}</p>
+  </div>
+  <aside>
+    <table class="facts">
+      <tr><td>Reported by</td><td><a href="https://www.reddit.com/user/{{ s.reddit_username }}">u/{{ s.reddit_username }}</a></td></tr>
+      <tr><td>When</td><td>{{ s.sighted_local }} ({{ s.tz_name }})</td></tr>
+      <tr><td>Where</td><td>{{ s.location_text }}{% if s.country and s.country not in s.location_text %}, {{ s.country }}{% endif %}
+        {% if s.location_obscured %}<span class="muted"> (location obscured for privacy)</span>{% endif %}</td></tr>
+      {% if s.num_objects %}<tr><td>Objects</td><td>{{ s.num_objects }}</td></tr>{% endif %}
+      {% if s.shape %}<tr><td>Shape</td><td>{{ s.shape }}</td></tr>{% endif %}
+      {% if s.distance %}<tr><td>Closest distance</td><td>{{ s.distance }}</td></tr>{% endif %}
+      {% if s.apparent_size %}<tr><td>Apparent size</td><td>{{ s.apparent_size }} (at arm's length)</td></tr>{% endif %}
+      {% if s.movement %}<tr><td>Movement</td><td>{{ s.movement | join(', ') }}</td></tr>{% endif %}
+      {% if s.duration_seconds %}<tr><td>Duration</td><td>{{ s.duration_seconds | duration_h }}</td></tr>{% endif %}
+      {% if s.has_wings or s.has_rotors or s.has_plume or s.makes_noise %}
+      <tr><td>Features</td><td>
+        {% if s.has_wings %}wings: {{ s.has_wings }}<br>{% endif %}
+        {% if s.has_rotors %}rotors: {{ s.has_rotors }}<br>{% endif %}
+        {% if s.has_plume %}exhaust plume: {{ s.has_plume }}<br>{% endif %}
+        {% if s.makes_noise %}noise: {{ s.makes_noise }}{% endif %}
+      </td></tr>
+      {% endif %}
+      {% if s.witnesses %}<tr><td>Witnesses</td><td>{{ s.witnesses }}</td></tr>{% endif %}
+      {% if s.sensors %}<tr><td>Sensors</td><td>{{ s.sensors | join(', ') }}</td></tr>{% endif %}
+      {% if s.witness_background %}<tr><td>Reporter background</td><td>{{ s.witness_background | join(', ') }}</td></tr>{% endif %}
+      <tr><td>Status</td><td>{{ s.status }}</td></tr>
+    </table>
+    {% if reddit_url %}
+    <p><a class="btn primary" href="{{ reddit_url }}">Discuss on Reddit</a><br>
+       <span class="muted">&#9650; {{ s.reddit_score }} · {{ s.reddit_num_comments }} comments</span></p>
+    {% endif %}
+    {% if admin %}
+    <div class="panel">
+      <h3>Admin</h3>
+      {% for action, label in [('hide', 'Hide'), ('unhide', 'Unhide'),
+                               ('feature', 'Feature'), ('unfeature', 'Unfeature')] %}
+      <form method="post" action="/admin/sighting/{{ s.id }}/action" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="action" value="{{ action }}">
+        <input type="hidden" name="next" value="/sighting/{{ s.id }}/{{ s.slug }}">
+        <button class="btn {% if action == 'hide' %}danger{% endif %}">{{ label }}</button>
+      </form>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </aside>
+</article>
+<script>
+document.querySelectorAll(".thumbstrip img").forEach(function (thumb) {
+  thumb.addEventListener("click", function () {
+    var viewer = document.getElementById("viewer");
+    document.querySelectorAll(".thumbstrip img").forEach(function (t) { t.classList.remove("active"); });
+    thumb.classList.add("active");
+    if (thumb.dataset.kind === "video") {
+      viewer.innerHTML = '<video controls autoplay src="' + thumb.dataset.url + '"></video>';
+    } else {
+      viewer.innerHTML = '<img src="' + thumb.dataset.url + '" alt="">';
+    }
+  });
+});
+</script>
+{% endblock %}

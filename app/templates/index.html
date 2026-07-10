@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<form class="filters" method="get" action="/">
+  <select name="shape">
+    <option value="">Any shape</option>
+    {% for sh in shapes %}<option value="{{ sh }}" {% if sh == f.shape %}selected{% endif %}>{{ sh | capitalize }}</option>{% endfor %}
+  </select>
+  <select name="country">
+    <option value="">Any country</option>
+    {% for c in countries %}<option value="{{ c }}" {% if c == f.country %}selected{% endif %}>{{ c }}</option>{% endfor %}
+  </select>
+  <input type="date" name="from" value="{{ f['from'] }}">
+  <input type="date" name="to" value="{{ f['to'] }}">
+  <select name="media">
+    <option value="">Any media</option>
+    <option value="image" {% if f.media == 'image' %}selected{% endif %}>Images</option>
+    <option value="video" {% if f.media == 'video' %}selected{% endif %}>Video</option>
+  </select>
+  <button class="btn">Filter</button>
+</form>
+{% include "_cards.html" %}
+{% if pages > 1 %}
+<div class="pager">
+  {% if page > 1 %}<a class="btn" href="/?{{ qs }}{% if qs %}&amp;{% endif %}page={{ page - 1 }}">&larr; Newer</a>{% endif %}
+  <span class="muted">Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}<a class="btn" href="/?{{ qs }}{% if qs %}&amp;{% endif %}page={{ page + 1 }}">Older &rarr;</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,16 @@
+<div class="grid">
+  {% for c in cards %}
+  <a class="card" href="/sighting/{{ c.id }}/{{ c.slug }}">
+    {% if c.thumb_url %}<img loading="lazy" src="{{ c.thumb_url }}" alt="">
+    {% else %}<div class="noimg">&#128065;&#65039;</div>{% endif %}
+    {% if c.kind == 'video' %}<span class="badge-video">&#9654;</span>{% endif %}
+    <div class="meta">
+      <h3>{{ c.title }}</h3>
+      <p>{{ c.location_text }}{% if c.country and c.country not in c.location_text %} · {{ c.country }}{% endif %}</p>
+      <p class="sub">{{ c.sighted_at[:10] }}{% if c.shape %} · {{ c.shape }}{% endif %} · &#9650;{{ c.reddit_score }}</p>
+    </div>
+  </a>
+  {% else %}
+  <p class="empty">No sightings match those filters yet.</p>
+  {% endfor %}
+</div>

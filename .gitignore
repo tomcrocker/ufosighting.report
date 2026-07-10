@@ -4,6 +4,7 @@ oracle2.key
 *.pem
 .env
 .env.*
+!.env.example
 
 # Data
 data/

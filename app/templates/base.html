@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}UFO Sighting Reports — ufosighting.report{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/site.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="/">&#128065;&#65039; ufosighting<span>.report</span></a>
+  <nav>
+    <a href="/">Gallery</a>
+    <a href="/map">Map</a>
+    <a href="/search">Search</a>
+    <a class="btn primary" href="/submit">Report a sighting</a>
+    {% if user %}
+      <span class="whoami">u/{{ user.username }}</span>
+      <a href="/auth/logout">Log out</a>
+    {% endif %}
+  </nav>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer class="site-footer">
+  <p>Sighting reports from the <a href="https://www.reddit.com/r/UFOs/">r/UFOs</a> community.</p>
+</footer>
+</body>
+</html>

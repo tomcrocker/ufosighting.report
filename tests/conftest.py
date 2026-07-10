@@ -45,3 +45,30 @@ def db_conn(tmp_path):
     db.init_db(conn)
     yield conn
     conn.close()
+
+
+@pytest.fixture
+def client(tmp_path, monkeypatch):
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "app.db"))
+    get_settings.cache_clear()
+    from fastapi.testclient import TestClient
+    from app.main import create_app
+    with TestClient(create_app(start_thumb_worker=False)) as c:
+        yield c
+
+
+@pytest.fixture
+def app_db(client):
+    from app import db
+    conn = db.connect(os.environ["DB_PATH"])
+    yield conn
+    conn.close()
+
+
+@pytest.fixture
+def logged_in(client, app_db):
+    from app import auth
+    sid = auth.create_session(app_db, "tester", "tok-abc", 3600)
+    client.cookies.set("sid", sid)
+    client.sid = sid
+    return client

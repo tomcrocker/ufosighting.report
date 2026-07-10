@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Log in with Reddit — ufosighting.report{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Log in with Reddit</h1>
+  {% if error %}<p class="flash error">{{ error }}</p>{% endif %}
+  <p>To report a sighting you log in with your Reddit account. Your report is
+     posted to the subreddit <strong>as you</strong>, so replies land in your
+     Reddit inbox.</p>
+  <p class="muted">We see only your username and a one-hour posting permission.
+     No password, nothing stored long-term.</p>
+  <a class="btn primary" href="/auth/login?next={{ next_url or '/submit' }}">Continue with Reddit</a>
+</section>
+{% endblock %}

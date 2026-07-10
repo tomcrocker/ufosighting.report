@@ -966,7 +966,7 @@ git commit -m "feat: reddit oauth client, server-side sessions, csrf, drafts"
 
 **Interfaces:**
 - Consumes: `db.get_db`, `auth.*`, `reddit_oauth.*` from Tasks 2/4.
-- Produces: `app.main.create_app(start_thumb_worker: bool = True) -> FastAPI` (uvicorn factory); `app.web.templates` (Jinja2Templates with global `media_url = r2.public_url`); `app.web.current_user(request, conn) -> auth.Session | None` dependency; `app.web.is_admin(user) -> bool`; `app.web.require_admin` dependency (raises 404 for non-admins); routes `GET /auth/login?next=`, `GET /auth/callback`, `GET /auth/logout`; session cookie named `sid`, state cookie `oauth_state` with value `"{state}|{next}"`.
+- Produces: `app.main.create_app(start_thumb_worker: bool = True) -> FastAPI` (uvicorn factory); `app.web.templates` (Jinja2Templates with global `media_url = r2.public_url`); `app.web.current_user(request, conn) -> auth.Session | None` dependency; `app.web.is_admin(user) -> bool`; `app.web.require_admin` dependency (raises 404 for non-admins); routes `GET /auth/login?next=`, `GET /auth/callback`, `GET /auth/logout`; session cookie named `sid`; two OAuth cookies `oauth_state` (CSRF state token) and `oauth_next` (post-login redirect) — kept separate because a combined `state|next` value gets quote-wrapped by SimpleCookie (the `/` in paths is outside its legal charset), which breaks state comparison in test clients.
 - Produces (conftest): `client` fixture (TestClient, tmp DB via `DB_PATH` env, thumb worker off); `app_db` fixture (connection to the client's DB); `logged_in` fixture (client with a session for user `tester`, exposes `client.sid`).
 - Note: every `templates.TemplateResponse` context must include `"user"` (base.html renders it).
 
@@ -1167,10 +1167,8 @@ def _safe_next(next_url: str) -> str:
 def login(next: str = "/submit"):
     state = secrets.token_urlsafe(16)
     resp = RedirectResponse(reddit_oauth.login_url(state), status_code=302)
-    resp.set_cookie(
-        "oauth_state", f"{state}|{_safe_next(next)}",
-        max_age=600, httponly=True, samesite="lax",
-    )
+    resp.set_cookie("oauth_state", state, max_age=600, httponly=True, samesite="lax")
+    resp.set_cookie("oauth_next", _safe_next(next), max_age=600, httponly=True, samesite="lax")
     return resp
 
 
@@ -1191,8 +1189,8 @@ def callback(
 
     if error or not code:
         return fail("Reddit login was cancelled or failed. You can try again.", 400)
-    saved = request.cookies.get("oauth_state", "")
-    saved_state, _, next_url = saved.partition("|")
+    saved_state = request.cookies.get("oauth_state", "")
+    next_url = request.cookies.get("oauth_next", "/")
     if not state or not saved_state or state != saved_state:
         return fail("Login session mismatch — please try again.", 400)
     try:
@@ -1209,6 +1207,7 @@ def callback(
         httponly=True, samesite="lax", secure=s.base_url.startswith("https"),
     )
     resp.delete_cookie("oauth_state")
+    resp.delete_cookie("oauth_next")
     return resp
 
 

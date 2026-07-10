@@ -31,6 +31,11 @@ def _fresh_settings():
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+    try:
+        from app import r2
+        r2.client.cache_clear()
+    except ImportError:
+        pass
 
 
 @pytest.fixture

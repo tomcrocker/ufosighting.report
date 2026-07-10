@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Admin — ufosighting.report{% endblock %}
+{% block content %}
+<h1>Admin</h1>
+<h2>Non-live entries (latest 100)</h2>
+<table class="admin">
+  <tr><th>ID</th><th>Title</th><th>By</th><th>Status</th><th>Created</th><th></th></tr>
+  {% for s in hidden %}
+  <tr>
+    <td>{{ s.id }}</td>
+    <td><a href="/sighting/{{ s.id }}/{{ slugify(s.title) }}">{{ s.title }}</a></td>
+    <td>u/{{ s.reddit_username }}</td>
+    <td>{{ s.status }}</td>
+    <td>{{ s.created_at[:16] }}</td>
+    <td>
+      {% if s.status == 'hidden_by_admin' %}
+      <form method="post" action="/admin/sighting/{{ s.id }}/action">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="action" value="unhide">
+        <button class="btn">Unhide</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% else %}
+  <tr><td colspan="6" class="muted">Nothing hidden or removed.</td></tr>
+  {% endfor %}
+</table>
+<h2>Featured</h2>
+<table class="admin">
+  {% for s in featured %}
+  <tr>
+    <td><a href="/sighting/{{ s.id }}/{{ slugify(s.title) }}">{{ s.title }}</a></td>
+    <td>
+      <form method="post" action="/admin/sighting/{{ s.id }}/action">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="action" value="unfeature">
+        <button class="btn">Unfeature</button>
+      </form>
+    </td>
+  </tr>
+  {% else %}
+  <tr><td class="muted">No featured sightings.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

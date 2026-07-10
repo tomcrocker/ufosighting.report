@@ -33,4 +33,8 @@ def create_app(start_thumb_worker: bool = True) -> FastAPI:
     from app.routes import auth as auth_routes
 
     app.include_router(auth_routes.router)
+
+    from app.routes import submit as submit_routes
+
+    app.include_router(submit_routes.router)
     return app

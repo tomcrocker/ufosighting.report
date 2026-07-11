@@ -5,12 +5,11 @@ from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
-from app import auth, db, helpers, r2, reddit
+from app import db, helpers, r2, ratelimit, reddit, turnstile, verify
 from app.config import get_settings
-from app.web import current_user, templates
+from app.web import client_ip, new_csrf, templates
 
 router = APIRouter()
 
@@ -24,10 +23,11 @@ class PresignRequest(BaseModel):
 
 
 @router.post("/api/presign")
-def presign(req: PresignRequest, user=Depends(current_user)):
-    if user is None:
-        raise HTTPException(status_code=401, detail="Log in with Reddit first")
+def presign(req: PresignRequest, request: Request, conn=Depends(db.get_db)):
     s = get_settings()
+    ip = client_ip(request)
+    if not ratelimit.allowed(conn, ip, "presign", s.rate_presign_per_hour):
+        raise HTTPException(status_code=429, detail="Too many uploads — please try again later")
     if req.content_type in r2.ALLOWED_IMAGE:
         kind, cap = "image", s.max_image_bytes
     elif req.content_type in r2.ALLOWED_VIDEO:
@@ -40,6 +40,7 @@ def presign(req: PresignRequest, user=Depends(current_user)):
             detail=f"File too large — max {cap // (1024 * 1024)}MB for {kind}s",
         )
     key = r2.make_upload_key(req.content_type)
+    ratelimit.record(conn, ip, "presign")
     return {
         "key": key,
         "upload_url": r2.presign_put(key, req.content_type, req.size_bytes),
@@ -53,19 +54,22 @@ _geocode_cache: dict[str, list] = {}
 
 
 @router.get("/api/geocode")
-def geocode(q: str = "", user=Depends(current_user)):
-    if user is None:
-        raise HTTPException(status_code=401, detail="Log in with Reddit first")
+def geocode(q: str = "", request: Request = None, conn=Depends(db.get_db)):
     q = q.strip()
     if len(q) < 3:
         return {"results": []}
+    s = get_settings()
+    ip = client_ip(request)
+    if not ratelimit.allowed(conn, ip, "geocode", s.rate_geocode_per_hour):
+        raise HTTPException(status_code=429, detail="Too many lookups — try again later")
     cache_key = q.lower()
     if cache_key in _geocode_cache:
         return {"results": _geocode_cache[cache_key]}
+    ratelimit.record(conn, ip, "geocode")
     resp = httpx.get(
         GEOCODE_URL,
         params={"q": q, "format": "jsonv2", "limit": 5, "addressdetails": 1},
-        headers={"User-Agent": get_settings().user_agent},
+        headers={"User-Agent": s.user_agent},
         timeout=10,
     )
     if resp.status_code != 200:
@@ -226,16 +230,18 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
     return clean, errors
 
 
-def _render_form(request, user, values, errors, status_code=200):
-    return templates.TemplateResponse(
+def _render_form(request, values, errors, *, csrf, status_code=200):
+    s = get_settings()
+    resp = templates.TemplateResponse(
         request,
         "submit.html",
         {
-            "user": user,
+            "user": None,
             "values": values,
             "errors": errors,
-            "csrf_token": auth.csrf_for(user.id),
-            "max_files": get_settings().max_files,
+            "csrf": csrf,
+            "turnstile_site_key": s.turnstile_site_key,
+            "max_files": s.max_files,
             "opts": {
                 "shapes": helpers.SHAPES,
                 "num_objects": helpers.NUM_OBJECTS,
@@ -249,44 +255,73 @@ def _render_form(request, user, values, errors, status_code=200):
         },
         status_code=status_code,
     )
+    resp.set_cookie("csrf", csrf, max_age=7200, httponly=True, samesite="lax")
+    return resp
 
 
 @router.get("/submit")
-def submit_form(request: Request, conn=Depends(db.get_db), user=Depends(current_user)):
-    if user is None:
-        return templates.TemplateResponse(
-            request, "login.html", {"user": None, "next_url": "/submit"}
-        )
-    values = auth.load_draft(conn, user.username) or {}
-    return _render_form(request, user, values, errors=[])
+def submit_form(request: Request):
+    csrf = request.cookies.get("csrf") or new_csrf()
+    return _render_form(request, values={}, errors=[], csrf=csrf)
+
+
+def _try_send_verify_dm(conn, username: str, token: str) -> None:
+    """Fire the verification DM; guarded per-username, non-fatal on failure."""
+    s = get_settings()
+    if not ratelimit.allowed(conn, username.lower(), "dm", 1,
+                             window_hours=s.verify_dm_per_username_hours):
+        return
+    verify_url = f"{s.base_url}/verify/{token}"
+    subject, text = verify.verify_message(username, verify_url)
+    try:
+        reddit.send_message(reddit.script_token(), to=username, subject=subject, text=text)
+        ratelimit.record(conn, username.lower(), "dm")
+    except reddit.RedditError as exc:
+        print(f"verify DM to u/{username} failed: {exc}")
 
 
 @router.post("/submit")
-async def submit_create(request: Request, conn=Depends(db.get_db), user=Depends(current_user)):
-    if user is None:
-        return RedirectResponse("/auth/login?next=/submit", status_code=303)
+async def submit_create(request: Request, conn=Depends(db.get_db)):
+    s = get_settings()
+    ip = client_ip(request)
     form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
-    if not hmac.compare_digest(form.get("csrf_token", ""), auth.csrf_for(user.id)):
+
+    cookie_csrf = request.cookies.get("csrf", "")
+    if not cookie_csrf or not hmac.compare_digest(form.get("csrf_token", ""), cookie_csrf):
         raise HTTPException(status_code=403, detail="Bad CSRF token")
 
+    if not turnstile.verify(form.get("cf-turnstile-response", ""), ip):
+        return _render_form(request, form, ["Anti-spam check failed — please try again."],
+                            csrf=cookie_csrf, status_code=400)
+
+    if not ratelimit.allowed(conn, ip, "submit", s.rate_submit_per_hour):
+        return _render_form(request, form,
+                            ["You've submitted several sightings recently. Please try again later."],
+                            csrf=cookie_csrf, status_code=429)
+
+    username = helpers.clean_username(form.get("reddit_username"))
     clean, errors = validate_submission(form)
+    if username is None:
+        errors.insert(0, "Enter a valid Reddit username (3–20 letters, digits, _ or -).")
     for m in clean["media"]:
         if not r2.head_exists(m["key"]):
             errors.append("An uploaded file was not found in storage — please re-upload.")
             break
     if errors:
-        return _render_form(request, user, form, errors, status_code=422)
+        return _render_form(request, form, errors, csrf=cookie_csrf, status_code=422)
 
-    s = get_settings()
+    token = verify.new_token()
     cur = conn.execute(
         """INSERT INTO sightings
              (reddit_username, title, description, sighted_at, tz_name, duration_seconds,
               shape, witnesses, num_objects, distance, apparent_size, movement,
               has_wings, has_rotors, has_plume, makes_noise, sensors, witness_background,
-              location_text, city, country, lat, lon, location_obscured, status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending_post')""",
+              location_text, city, country, lat, lon, location_obscured,
+              submitter_ip, verify_token, verify_sent_at, status)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+                   strftime('%Y-%m-%dT%H:%M:%SZ','now'),'pending_verify')""",
         (
-            user.username, clean["title"], clean["description"], clean["sighted_at"],
+            username, clean["title"], clean["description"], clean["sighted_at"],
             clean["tz_name"], clean["duration_seconds"], clean["shape"], clean["witnesses"],
             clean["num_objects"], clean["distance"], clean["apparent_size"],
             json.dumps(clean["movement"]) if clean["movement"] else None,
@@ -294,7 +329,7 @@ async def submit_create(request: Request, conn=Depends(db.get_db), user=Depends(
             json.dumps(clean["sensors"]) if clean["sensors"] else None,
             json.dumps(clean["witness_background"]) if clean["witness_background"] else None,
             clean["location_text"], clean["city"], clean["country"],
-            clean["lat"], clean["lon"], clean["location_obscured"],
+            clean["lat"], clean["lon"], clean["location_obscured"], ip, token,
         ),
     )
     sighting_id = cur.lastrowid
@@ -305,47 +340,6 @@ async def submit_create(request: Request, conn=Depends(db.get_db), user=Depends(
             (sighting_id, m["key"], m["kind"], m["width"], m["height"], m["size_bytes"], i),
         )
     conn.commit()
-
-    def rollback():
-        conn.execute("DELETE FROM sightings WHERE id=?", (sighting_id,))
-        conn.commit()
-
-    slug = helpers.slugify(clean["title"])
-    gallery_url = f"{s.base_url}/sighting/{sighting_id}/{slug}"
-    location_line = ", ".join(
-        dict.fromkeys(p for p in (clean["location_text"], clean["city"], clean["country"]) if p)
-    )
-    body = helpers.format_post_body(
-        clean,
-        sighted_local=helpers.from_utc(clean["sighted_at"], clean["tz_name"]),
-        location_line=location_line,
-        media_urls=[r2.public_url(m["key"]) for m in clean["media"]],
-        gallery_url=gallery_url,
-    )
-    try:
-        post_id = reddit.submit_post(
-            user.access_token,
-            subreddit=s.subreddit,
-            title=clean["title"],
-            body=body,
-            flair_id=s.sighting_flair_id,
-        )
-    except reddit.TokenExpired:
-        auth.save_draft(conn, user.username, form)
-        rollback()
-        return RedirectResponse("/auth/login?next=/submit", status_code=303)
-    except reddit.RateLimited as exc:
-        rollback()
-        return _render_form(request, user, form, [f"Reddit rate limit: {exc}"], status_code=429)
-    except reddit.RedditError as exc:
-        rollback()
-        return _render_form(
-            request, user, form, [f"Posting to Reddit failed: {exc}"], status_code=502
-        )
-
-    conn.execute(
-        "UPDATE sightings SET reddit_post_id=?, status='live' WHERE id=?", (post_id, sighting_id)
-    )
-    conn.commit()
-    auth.delete_draft(conn, user.username)
-    return RedirectResponse(f"/sighting/{sighting_id}/{slug}", status_code=303)
+    ratelimit.record(conn, ip, "submit")
+    _try_send_verify_dm(conn, username, token)
+    return templates.TemplateResponse(request, "submitted.html", {"user": None, "username": username})

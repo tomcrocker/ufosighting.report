@@ -13,6 +13,29 @@
   const tzLabel = document.getElementById("tzlabel");
   if (tzLabel) tzLabel.textContent = tzInput.value;
 
+  // --- flatpickr combined date+time -> hidden sighted_date / sighted_time ---
+  const picker = document.getElementById("sighted_at_picker");
+  if (picker && window.flatpickr) {
+    const dEl = document.getElementById("sighted_date");
+    const tEl = document.getElementById("sighted_time");
+    const initial = dEl.value && tEl.value ? dEl.value + " " + tEl.value : null;
+    flatpickr(picker, {
+      enableTime: true,
+      dateFormat: "Y-m-d H:i",
+      altInput: true,
+      altFormat: "F j, Y  h:i K",
+      defaultDate: initial,
+      maxDate: "today",
+      time_24hr: false,
+      onChange: function (sel, str, fp) {
+        if (!sel.length) return;
+        const d = sel[0];
+        dEl.value = fp.formatDate(d, "Y-m-d");
+        tEl.value = fp.formatDate(d, "H:i");
+      },
+    });
+  }
+
   // --- duration h/m/s -> hidden duration_value (seconds) ---
   const durInputs = ["dur_h", "dur_m", "dur_s"].map((id) => document.getElementById(id));
   const durationValue = document.getElementById("duration_value");
@@ -124,8 +147,26 @@
   let current = 0;
 
   function requiredOk(index) {
-    for (const field of steps[index].querySelectorAll("input[required], textarea[required]")) {
+    // flatpickr with altInput turns #sighted_at_picker into a hidden input;
+    // hidden required fields can't be validated by reportValidity(), so we
+    // check the resulting sighted_date value explicitly instead.
+    const step = steps[index];
+    for (const field of step.querySelectorAll("input[required], textarea[required]")) {
+      if (field.type === "hidden" || field.offsetParent === null) continue;
       if (!field.reportValidity()) return false;
+    }
+    if (step.querySelector("#sighted_at_picker")) {
+      const dEl = document.getElementById("sighted_date");
+      if (!dEl.value) {
+        const alt = step.querySelector(".flatpickr-input.form-control, input.form-control")
+          || document.getElementById("sighted_at_picker");
+        if (alt && alt.setCustomValidity) {
+          alt.setCustomValidity("Pick a date and time");
+          alt.reportValidity();
+          setTimeout(() => alt.setCustomValidity(""), 0);
+        }
+        return false;
+      }
     }
     return true;
   }

@@ -152,3 +152,19 @@ table.admin td, table.admin th { padding: 8px; border-bottom: 1px solid var(--li
 
 /* author display rules (e.g. .btn) must not defeat the hidden attribute */
 [hidden] { display: none !important; }
+
+/* flatpickr dark theming + turnstile spacing */
+.flatpickr-calendar { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
+.flatpickr-day { color: var(--text); }
+.flatpickr-day.selected, .flatpickr-day.selected:hover { background: var(--accent); border-color: var(--accent); color: #05240f; }
+.flatpickr-day:hover { background: var(--bg2); }
+.flatpickr-day.flatpickr-disabled, .flatpickr-day.prevMonthDay, .flatpickr-day.nextMonthDay { color: var(--muted); }
+.flatpickr-months .flatpickr-month, .flatpickr-current-month, .flatpickr-weekdays, span.flatpickr-weekday {
+  background: var(--panel); color: var(--muted); fill: var(--muted);
+}
+.flatpickr-months .flatpickr-prev-month svg, .flatpickr-months .flatpickr-next-month svg { fill: var(--text); }
+.flatpickr-time input, .flatpickr-time .flatpickr-am-pm { color: var(--text); }
+.flatpickr-time input:hover, .flatpickr-time .flatpickr-am-pm:hover { background: var(--bg2); }
+.numInputWrapper span.arrowUp:after { border-bottom-color: var(--muted); }
+.numInputWrapper span.arrowDown:after { border-top-color: var(--muted); }
+.cf-turnstile { margin: 8px 0; }

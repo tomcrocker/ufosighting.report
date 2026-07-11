@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Check your Reddit inbox — ufosighting.report{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <h1>Almost there — check your Reddit inbox</h1>
+  <p>We sent <strong>u/{{ username }}</strong> a private message with a link to confirm this
+     sighting was submitted by you. Click it and your sighting posts to the subreddit right away.</p>
+  <p class="muted">Didn't get it, or that's not your account? No problem — a moderator will review
+     your sighting and post it. Nothing is lost.</p>
+  <a class="btn" href="/">Back to the gallery</a>
+</section>
+{% endblock %}

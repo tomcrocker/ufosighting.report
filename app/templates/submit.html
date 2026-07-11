@@ -4,10 +4,10 @@
 <div class="wizard">
   <div class="wizard-main">
     <div class="wizard-progress"><div class="bar" id="progressbar"></div></div>
-    <p class="muted">Posting to r/UFOs as <strong>u/{{ user.username }}</strong> — replies land in your Reddit inbox.</p>
+    <p class="muted">Report a UFO sighting to r/UFOs. You'll confirm it's you with a quick Reddit message — no account login needed.</p>
     {% for e in errors %}<p class="flash error">{{ e }}</p>{% endfor %}
     <form method="post" action="/submit" id="sighting-form" {% if show_all %}data-show-all="1"{% endif %}>
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
       <input type="hidden" name="media_json" id="media_json" value="{{ values.media_json or '[]' }}">
       <input type="hidden" name="tz_name" id="tz_name" value="{{ values.tz_name or '' }}">
       <input type="hidden" name="lat" id="lat" value="{{ values.lat or '' }}">
@@ -46,10 +46,12 @@
       <section class="step" data-step="2">
         <h1>When did the sighting happen?</h1>
         <p class="muted">If you don't remember exactly, your best guess is okay.</p>
-        <div class="row">
-          <label>Date <input type="date" name="sighted_date" required value="{{ values.sighted_date or '' }}"></label>
-          <label>Local time <input type="time" name="sighted_time" required value="{{ values.sighted_time or '' }}"></label>
-        </div>
+        <label>Date &amp; time
+          <input type="text" id="sighted_at_picker" required autocomplete="off"
+                 placeholder="Click to pick a date and time">
+        </label>
+        <input type="hidden" name="sighted_date" id="sighted_date" value="{{ values.sighted_date or '' }}">
+        <input type="hidden" name="sighted_time" id="sighted_time" value="{{ values.sighted_time or '' }}">
         <p class="muted">Timezone: <span id="tzlabel"></span></p>
         <h2>How long did the sighting last?</h2>
         <div class="row3">
@@ -77,6 +79,10 @@
                     placeholder="Tell us more about your sighting.">{{ values.description or '' }}</textarea>
         </label>
         <p class="muted">Min 150 characters — <span id="charcount">0 / 150 min</span></p>
+        <label>Your Reddit username <span class="muted">— we'll credit you (self-reported until you confirm)</span>
+          <input name="reddit_username" required value="{{ values.reddit_username or '' }}"
+                 placeholder="e.g. your_reddit_name" autocomplete="off">
+        </label>
       </section>
 
       <section class="step" data-step="4">
@@ -139,6 +145,9 @@
         <div class="chips" data-target="background_json" data-multi="1">
           {% for o in opts.backgrounds %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
         </div>
+        {% if turnstile_site_key %}
+        <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" style="margin-top:18px"></div>
+        {% endif %}
       </section>
 
       <div class="wizard-nav">
@@ -153,7 +162,12 @@
 {% endblock %}
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
 <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+{% if turnstile_site_key %}
+<script defer src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
+{% endif %}
 <script defer src="/static/js/wizard.js"></script>
 <script defer src="/static/js/upload.js"></script>
 {% endblock %}

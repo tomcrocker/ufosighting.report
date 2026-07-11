@@ -1,3 +1,4 @@
+import secrets
 from pathlib import Path
 
 from fastapi import Depends, HTTPException, Request
@@ -10,6 +11,17 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "tem
 templates.env.globals["media_url"] = r2.public_url
 templates.env.filters["duration_h"] = helpers.humanize_duration
 templates.env.globals["slugify"] = helpers.slugify
+
+
+def client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.client.host if request.client else "0.0.0.0"
+
+
+def new_csrf() -> str:
+    return secrets.token_urlsafe(24)
 
 
 def current_user(request: Request, conn=Depends(db.get_db)) -> auth.Session | None:

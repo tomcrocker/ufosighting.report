@@ -176,3 +176,20 @@ def test_ingest_no_yt_job_when_reddit_media(db_conn, monkeypatch):
     post = _post("ytboth1", selftext="mirror: https://youtu.be/XHWPQEJ_TVA")
     ingest.ingest_post(db_conn, post, token="t")
     assert db_conn.execute("SELECT COUNT(*) FROM yt_jobs").fetchone()[0] == 0
+
+
+def test_ingest_post_uses_provided_op_comments(db_conn, monkeypatch):
+    # archive-fed backfill supplies op_comments — no comment API fetch
+    seen = {}
+    monkeypatch.setattr(ingest, "download_media", lambda post: [])
+    monkeypatch.setattr(ingest, "fetch_op_comments",
+                        lambda token, post: (_ for _ in ()).throw(AssertionError("API fetch called")))
+    monkeypatch.setattr(ingest.extract, "combine_post_text",
+                        lambda post, oc: seen.update(oc=oc) or "text")
+    monkeypatch.setattr(ingest.extract, "extract_fields", lambda text: {})
+    monkeypatch.setattr(ingest.extract, "validate_and_clamp",
+                        lambda raw, post_created_iso: _empty_clamped())
+    monkeypatch.setattr(ingest.geocode, "forward", lambda conn, q: None)
+    ingest.ingest_post(db_conn, _post("oc1"), token=None,
+                       op_comments=["I saw it from the beach"])
+    assert seen["oc"] == ["I saw it from the beach"]

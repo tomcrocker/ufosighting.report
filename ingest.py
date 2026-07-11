@@ -181,13 +181,15 @@ def build_sighted_at(clamped: dict, post_created_iso: str) -> tuple[str, str]:
         return post_created_iso, "UTC"
 
 
-def ingest_post(conn, post: dict, token=None) -> bool:
+def ingest_post(conn, post: dict, token=None, op_comments: list[str] | None = None) -> bool:
     pid = post["id"]
     if conn.execute("SELECT 1 FROM sightings WHERE reddit_post_id=?", (pid,)).fetchone():
         return False
     post_created_iso = datetime.fromtimestamp(post.get("created_utc", 0), timezone.utc).strftime(ISO)
 
-    op_comments = fetch_op_comments(token, post)
+    # archive-fed backfills supply op_comments directly — no API fetch then
+    if op_comments is None:
+        op_comments = fetch_op_comments(token, post)
     text = extract.combine_post_text(post, op_comments)
     clamped = extract.validate_and_clamp(extract.extract_fields(text),
                                          post_created_iso=post_created_iso)

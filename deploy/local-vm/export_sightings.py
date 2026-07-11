@@ -28,7 +28,6 @@ import boto3
 ARCHIVE_DB = "/opt/reddit-archive/data/archive.db"
 MEDIA_BASE = "/opt/reddit-archive/media"
 CONFIG_PATH = os.path.expanduser("~/ufosighting-yt/config.json")
-YT_DLP = os.path.expanduser("~/.local/bin/yt-dlp")
 
 MAX_BYTES = 200 * 1024 * 1024
 MAX_ITEMS = 20
@@ -51,6 +50,64 @@ def find_youtube(*texts):
         if m:
             return f"https://www.youtube.com/watch?v={m.group(1)}"
     return None
+
+
+def _best_rep_url(mpd_xml, mpd_url, want):
+    """Highest-bandwidth video/audio BaseURL from a DASH MPD (the ufosighting
+    ingest.py port — v.redd.it's manifest needs no auth, unlike reddit.com)."""
+    import xml.etree.ElementTree as ET
+    from urllib.parse import urljoin
+    ns = {"m": "urn:mpeg:dash:schema:mpd:2011"}
+    try:
+        root = ET.fromstring(mpd_xml)
+    except ET.ParseError:
+        return None
+    best = None
+    for aset in root.findall(".//m:AdaptationSet", ns):
+        ctype = (aset.get("contentType") or "").lower()
+        mtype = (aset.get("mimeType") or "").lower()
+        for rep in aset.findall("m:Representation", ns):
+            rmime = (rep.get("mimeType") or mtype).lower()
+            if not (want in ctype or want in rmime or want in mtype):
+                continue
+            bw = int(rep.get("bandwidth") or 0)
+            base = rep.find("m:BaseURL", ns)
+            if base is None or not base.text:
+                continue
+            if best is None or bw > best[0]:
+                best = (bw, base.text.strip())
+    return urljoin(mpd_url, best[1]) if best else None
+
+
+def vreddit_download(url, td):
+    """v.redd.it DASH download + ffmpeg mux; returns mp4 path or raises."""
+    vid = url.split("v.redd.it/")[1].split("/")[0].split("?")[0]
+    mpd_url = f"https://v.redd.it/{vid}/DASHPlaylist.mpd"
+    req = urllib.request.Request(mpd_url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        mpd = resp.read().decode("utf-8", "replace")
+    vurl = _best_rep_url(mpd, mpd_url, "video")
+    if not vurl:
+        raise RuntimeError("no video representation in MPD")
+    aurl = _best_rep_url(mpd, mpd_url, "audio")
+    vpath, apath, out = (os.path.join(td, n) for n in ("v.tmp", "a.tmp", "v.mp4"))
+    cdn_get(vurl, vpath)
+    if aurl:
+        try:
+            cdn_get(aurl, apath)
+        except Exception:
+            aurl = None
+    if aurl:
+        proc = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", vpath,
+                               "-i", apath, "-c", "copy", out],
+                              capture_output=True, timeout=300)
+        if proc.returncode != 0 or not os.path.exists(out):
+            raise RuntimeError("ffmpeg mux failed")
+    else:
+        os.rename(vpath, out)
+    if os.path.getsize(out) > MAX_BYTES:
+        raise RuntimeError("over size cap")
+    return out
 
 
 def cdn_get(url, path):
@@ -108,17 +165,7 @@ class Exporter:
             return [], yt, None
         try:
             if "v.redd.it" in url:
-                mp4 = os.path.join(td, "v.mp4")
-                proc = subprocess.run(
-                    [YT_DLP, "--max-filesize", "200M", "--no-playlist",
-                     "-f", "bestvideo+bestaudio/best",
-                     "--merge-output-format", "mp4", "--socket-timeout", "30",
-                     "-o", os.path.join(td, "v.%(ext)s"),
-                     f"https://www.reddit.com{post['permalink']}"],
-                    capture_output=True, text=True, timeout=600)
-                if proc.returncode != 0 or not os.path.exists(mp4):
-                    tail = (proc.stderr or "").strip()[-200:]
-                    return [], None, f"yt-dlp: {tail or 'no mp4'}"
+                mp4 = vreddit_download(url, td)
                 key = f"uploads/arc/{pid}_0.mp4"
                 self.upload(mp4, key)
                 return [{"key": key, "kind": "video"}], None, None

@@ -100,3 +100,73 @@ def apply_settings() -> None:
               json={"uid": index, "primaryKey": "id"}, timeout=10)
     httpx.patch(f"{url}/indexes/{index}/settings", headers=headers,
                 json=SETTINGS, timeout=30)
+
+
+def search_ids(*, q="", shape=None, country=None, source=None, date_from=None,
+               date_to=None, media_kind=None, has_geo=None, sort="new",
+               top_window="all", page=1, per_page=24, facets=None):
+    """Query Meili; returns {'ids', 'total', 'facets'} or None (⇒ SQL fallback)."""
+    if not enabled():
+        return None
+    filters = [f"status IN [{', '.join(PUBLIC_STATUSES)}]"]
+    if shape:
+        filters.append(f"shape = '{shape}'")
+    if country:
+        filters.append(f"country = '{country}'")
+    if source:
+        filters.append(f"source = '{source}'")
+    if media_kind:
+        filters.append(f"media_kind = '{media_kind}'")
+    if has_geo:
+        filters.append("has_geo = true")
+    if date_from:
+        try:
+            ts = int(datetime.strptime(date_from, "%Y-%m-%d")
+                     .replace(tzinfo=timezone.utc).timestamp())
+            filters.append(f"sighted_ts >= {ts}")
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            ts = int(datetime.strptime(date_to, "%Y-%m-%d")
+                     .replace(tzinfo=timezone.utc).timestamp()) + 86399
+            filters.append(f"sighted_ts <= {ts}")
+        except ValueError:
+            pass
+
+    if sort == "top":
+        sort_expr = ["reddit_score:desc", "sighted_ts:desc"]
+        window_hours = {"day": 24, "week": 168, "month": 720, "year": 8760}.get(top_window)
+        if window_hours:
+            cutoff = int(datetime.now(timezone.utc).timestamp()) - window_hours * 3600
+            filters.append(f"sighted_ts >= {cutoff}")
+    elif sort == "old":
+        sort_expr = ["sighted_ts:asc"]
+    else:
+        sort_expr = ["sighted_ts:desc"]
+
+    body = {
+        "q": q or "",
+        "filter": filters,
+        "sort": sort_expr,
+        "offset": (page - 1) * per_page,
+        "limit": per_page,
+        "attributesToRetrieve": ["id"],
+    }
+    if facets:
+        body["facets"] = list(facets)
+    try:
+        url, headers, index = _base()
+        resp = httpx.post(f"{url}/indexes/{index}/search", headers=headers,
+                          json=body, timeout=10)
+        if resp.status_code != 200:
+            return None
+        data = resp.json()
+        total = data.get("estimatedTotalHits", data.get("totalHits", 0))
+        return {
+            "ids": [h["id"] for h in data.get("hits", [])],
+            "total": total,
+            "facets": data.get("facetDistribution", {}),
+        }
+    except (httpx.HTTPError, ValueError, KeyError):
+        return None

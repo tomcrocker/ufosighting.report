@@ -5,7 +5,7 @@ import urllib.parse
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, Response
 
-from app import auth, db, helpers, r2
+from app import auth, db, helpers, r2, search as meili
 from app.config import get_settings
 from app.web import current_user, is_admin, templates
 
@@ -76,6 +76,24 @@ def card(row) -> dict:
     return d
 
 
+def hydrate_cards(conn, ids: list[int]) -> list[dict]:
+    """Fetch card rows for Meili-ranked ids, preserving Meili's order."""
+    if not ids:
+        return []
+    marks = ",".join("?" * len(ids))
+    rows = conn.execute(
+        f"""SELECT s.*,
+              (SELECT m.thumb_key FROM media m WHERE m.sighting_id = s.id
+                 ORDER BY m.sort_order LIMIT 1) AS thumb_key,
+              (SELECT m.kind FROM media m WHERE m.sighting_id = s.id
+                 ORDER BY m.sort_order LIMIT 1) AS first_kind
+            FROM sightings s WHERE s.id IN ({marks})""",
+        list(ids),
+    ).fetchall()
+    by_id = {r["id"]: r for r in rows}
+    return [card(by_id[i]) for i in ids if i in by_id]
+
+
 @router.get("/")
 def index(
     request: Request,
@@ -95,11 +113,21 @@ def index(
         sort = "new"
     if t not in TOP_WINDOW_HOURS:
         t = "all"
-    rows, total = query_sightings(
-        conn, shape=shape or None, country=country or None,
+    hit = meili.search_ids(
+        shape=shape or None, country=country or None,
         date_from=date_from or None, date_to=date_to or None,
-        media_kind=media or None, sort=sort, top_window=t, page=page,
+        media_kind=media or None, sort=sort, top_window=t,
+        page=page, per_page=PER_PAGE,
     )
+    if hit is not None:
+        cards_list, total = hydrate_cards(conn, hit["ids"]), hit["total"]
+    else:  # SQL fallback (meili disabled or down)
+        rows, total = query_sightings(
+            conn, shape=shape or None, country=country or None,
+            date_from=date_from or None, date_to=date_to or None,
+            media_kind=media or None, sort=sort, top_window=t, page=page,
+        )
+        cards_list = [card(r) for r in rows]
     countries = [
         r["country"] for r in conn.execute(
             f"""SELECT DISTINCT country FROM sightings
@@ -118,7 +146,7 @@ def index(
         request, "index.html",
         {
             "user": user,
-            "cards": [card(r) for r in rows],
+            "cards": cards_list,
             "f": filters,
             "sort": sort,
             "t": t,
@@ -189,11 +217,18 @@ def pins(
     date_to: str = Query("", alias="to"),
     conn=Depends(db.get_db),
 ):
-    rows, _ = query_sightings(
-        conn, shape=shape or None,
-        date_from=date_from or None, date_to=date_to or None,
-        page=1, per_page=5000,
+    hit = meili.search_ids(
+        shape=shape or None, date_from=date_from or None, date_to=date_to or None,
+        has_geo=True, page=1, per_page=5000,
     )
+    if hit is not None:
+        rows = [r for r in (dict(c) for c in hydrate_cards(conn, hit["ids"]))]
+    else:  # SQL fallback
+        rows, _ = query_sightings(
+            conn, shape=shape or None,
+            date_from=date_from or None, date_to=date_to or None,
+            page=1, per_page=5000,
+        )
     return {
         "pins": [
             {

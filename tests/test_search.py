@@ -69,3 +69,57 @@ def test_apply_settings_payload(monkeypatch):
     assert "sighted_ts" in body["sortableAttributes"]
     assert "has_geo" in body["filterableAttributes"]
     assert "uap" in body["synonyms"]["ufo"]
+
+
+@respx.mock
+def test_search_ids_builds_filters_and_sort(monkeypatch):
+    _enable(monkeypatch)
+    route = respx.post(f"{MEILI}/indexes/sightings/search").mock(
+        return_value=httpx.Response(200, json={"hits": [{"id": 3}, {"id": 1}],
+                                               "estimatedTotalHits": 2}))
+    out = search.search_ids(shape="sphere", country="Canada", sort="top",
+                            top_window="week", date_from="2026-07-01")
+    assert out["ids"] == [3, 1] and out["total"] == 2
+    body = json.loads(route.calls[0].request.content)
+    assert "shape = 'sphere'" in body["filter"]
+    assert "country = 'Canada'" in body["filter"]
+    assert any(f.startswith("sighted_ts >= ") for f in body["filter"])
+    assert body["sort"][0] == "reddit_score:desc"
+
+
+@respx.mock
+def test_search_ids_none_on_failure(monkeypatch):
+    _enable(monkeypatch)
+    respx.post(f"{MEILI}/indexes/sightings/search").mock(
+        side_effect=httpx.ConnectError("down"))
+    assert search.search_ids(q="orb") is None
+
+
+def test_search_ids_none_when_disabled():
+    assert search.search_ids(q="orb") is None
+
+
+@respx.mock
+def test_gallery_uses_meili_order(client, app_db, monkeypatch):
+    _enable(monkeypatch)
+    a = seed(app_db, title="First seeded entry", sighted_at="2026-07-01T05:00:00Z")
+    b = seed(app_db, title="Second seeded entry", sighted_at="2026-07-05T05:00:00Z")
+    # meili returns OLDER first — hydration must preserve that order
+    respx.post(f"{MEILI}/indexes/sightings/search").mock(
+        return_value=httpx.Response(200, json={"hits": [{"id": a}, {"id": b}],
+                                               "estimatedTotalHits": 2}))
+    text = client.get("/").text
+    assert text.index("First seeded entry") < text.index("Second seeded entry")
+
+
+@respx.mock
+def test_pins_pass_has_geo(client, app_db, monkeypatch):
+    _enable(monkeypatch)
+    sid = seed(app_db, lat=10.0, lon=20.0)
+    route = respx.post(f"{MEILI}/indexes/sightings/search").mock(
+        return_value=httpx.Response(200, json={"hits": [{"id": sid}],
+                                               "estimatedTotalHits": 1}))
+    pins = client.get("/api/pins").json()["pins"]
+    assert len(pins) == 1
+    body = json.loads(route.calls[0].request.content)
+    assert "has_geo = true" in body["filter"]

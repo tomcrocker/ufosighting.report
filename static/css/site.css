@@ -116,18 +116,18 @@ form.form textarea { min-height: 140px; resize: vertical; }
 
 /* Glow markers + clusters */
 .glow-marker {
-  background: var(--accent); border: 2px solid var(--bg);
-  border-radius: 50%; box-shadow: 0 0 10px rgba(110, 231, 160, 0.7);
+  background: #4ade80; border: 2px solid var(--bg);
+  border-radius: 50%; box-shadow: 0 0 10px rgba(74, 222, 128, 0.6);
 }
-.marker-cluster { background: rgba(110, 231, 160, 0.25) !important; }
+.marker-cluster { background: rgba(74, 222, 128, 0.25) !important; }
 .marker-cluster div {
-  background: var(--accent) !important; color: #05240f !important;
+  background: #4ade80 !important; color: #0a0e13 !important;
   font-family: ui-monospace, monospace !important; font-weight: 600 !important;
   font-size: 12px !important;
 }
-.marker-cluster-small { background: rgba(110, 231, 160, 0.2) !important; }
-.marker-cluster-medium { background: rgba(110, 231, 160, 0.3) !important; }
-.marker-cluster-large { background: rgba(110, 231, 160, 0.4) !important; }
+.marker-cluster-small { background: rgba(74, 222, 128, 0.2) !important; }
+.marker-cluster-medium { background: rgba(74, 222, 128, 0.3) !important; }
+.marker-cluster-large { background: rgba(74, 222, 128, 0.4) !important; }
 .base-marker {
   background: #f59e0b; border: 2px solid var(--bg);
   border-radius: 4px; box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);

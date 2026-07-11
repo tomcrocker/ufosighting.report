@@ -25,6 +25,9 @@ SETTINGS = {
                              "sighted_ts", "has_geo"],
     "sortableAttributes": ["sighted_ts", "reddit_score"],
     "synonyms": SYNONYMS,
+    # /api/pins fetches every geocoded sighting in one query; the Meili
+    # default (1000) silently truncates the map once the archive grows.
+    "pagination": {"maxTotalHits": 20000},
 }
 
 

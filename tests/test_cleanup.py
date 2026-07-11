@@ -68,3 +68,13 @@ def test_cleanup_pending_removes_stale_rows_and_media(db_conn):
     assert cleanup.cleanup_pending(db_conn, older_than_hours=1) == 1
     assert db_conn.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 1
     assert db_conn.execute("SELECT COUNT(*) FROM media").fetchone()[0] == 0
+
+
+def test_cleanup_rate_events(db_conn):
+    import cleanup
+    db_conn.execute("INSERT INTO rate_events (ip, action, created_at) "
+                    "VALUES ('1','submit', strftime('%Y-%m-%dT%H:%M:%SZ','now','-2 days'))")
+    db_conn.execute("INSERT INTO rate_events (ip, action) VALUES ('1','submit')")
+    db_conn.commit()
+    assert cleanup.cleanup_rate_events(db_conn) == 1
+    assert db_conn.execute("SELECT COUNT(*) FROM rate_events").fetchone()[0] == 1

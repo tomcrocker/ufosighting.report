@@ -48,6 +48,15 @@ def cleanup_pending(conn, older_than_hours: int = 1) -> int:
     return cur.rowcount
 
 
+def cleanup_rate_events(conn, older_than_hours: int = 24) -> int:
+    cur = conn.execute(
+        "DELETE FROM rate_events WHERE created_at <= strftime('%Y-%m-%dT%H:%M:%SZ','now',?)",
+        (f"-{older_than_hours} hours",),
+    )
+    conn.commit()
+    return cur.rowcount
+
+
 def main() -> None:
     conn = db.connect(get_settings().db_path)
     try:
@@ -56,7 +65,8 @@ def main() -> None:
             f"uploads={cleanup_uploads(conn)} "
             f"sessions={cleanup_sessions(conn)} "
             f"drafts={cleanup_drafts(conn)} "
-            f"pending={cleanup_pending(conn)}"
+            f"pending={cleanup_pending(conn)} "
+            f"rate_events={cleanup_rate_events(conn)}"
         )
     finally:
         conn.close()

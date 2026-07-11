@@ -4,7 +4,7 @@ Run every 15 minutes by ufosighting-sync.timer. Reddit is the single source
 of moderation truth: removed posts hide their gallery entries, approved posts
 bring them back. hidden_by_admin is site-side state and is never auto-changed.
 """
-from app import db, reddit
+from app import db, reddit, verify
 from app.config import get_settings
 
 
@@ -35,10 +35,12 @@ def sync_once(conn) -> dict:
 
 
 def main() -> None:
-    conn = db.connect(get_settings().db_path)
+    s = get_settings()
+    conn = db.connect(s.db_path)
     try:
         result = sync_once(conn)
-        print(f"sync: checked={result['checked']} status_changes={result['updated']}")
+        swept = verify.sweep_pending_verify(conn, s.verify_window_hours)
+        print(f"sync: checked={result['checked']} status_changes={result['updated']} swept={swept}")
     finally:
         conn.close()
 

@@ -78,3 +78,13 @@ def test_missing_info_is_skipped(db_conn, monkeypatch):
     row = db_conn.execute("SELECT status FROM sightings WHERE id=?", (sid,)).fetchone()
     assert row["status"] == "live"
     assert result == {"checked": 1, "updated": 0}
+
+
+def test_main_runs_sweep(db_conn, monkeypatch):
+    import sync
+    called = {}
+    monkeypatch.setattr(sync.verify, "sweep_pending_verify", lambda conn, w: called.setdefault("w", w) or 0)
+    monkeypatch.setattr(sync, "sync_once", lambda conn: {"checked": 0, "updated": 0})
+    monkeypatch.setattr(sync.db, "connect", lambda p: db_conn)
+    sync.main()  # closes db_conn; fixture teardown double-close is harmless on sqlite
+    assert called["w"] == 6

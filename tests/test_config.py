@@ -21,3 +21,14 @@ def test_missing_required_env_raises(monkeypatch):
     get_settings.cache_clear()
     with pytest.raises(RuntimeError, match="SECRET_KEY"):
         get_settings()
+
+
+def test_new_settings_defaults():
+    s = get_settings()
+    assert s.rate_submit_per_hour == 5
+    assert s.rate_presign_per_hour == 40
+    assert s.rate_geocode_per_hour == 60
+    assert s.verify_window_hours == 6
+    assert s.verify_dm_per_username_hours == 1
+    assert s.turnstile_site_key == ""       # unset in test env
+    assert s.turnstile_secret_key == ""

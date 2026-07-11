@@ -32,6 +32,13 @@ class Settings:
     max_image_bytes: int
     max_video_bytes: int
     max_files: int
+    turnstile_site_key: str
+    turnstile_secret_key: str
+    rate_submit_per_hour: int
+    rate_presign_per_hour: int
+    rate_geocode_per_hour: int
+    verify_window_hours: int
+    verify_dm_per_username_hours: int
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -69,4 +76,11 @@ def get_settings() -> Settings:
         max_image_bytes=25 * 1024 * 1024,
         max_video_bytes=500 * 1024 * 1024,
         max_files=10,
+        turnstile_site_key=_env("TURNSTILE_SITE_KEY", ""),
+        turnstile_secret_key=_env("TURNSTILE_SECRET_KEY", ""),
+        rate_submit_per_hour=int(_env("RATE_SUBMIT_PER_HOUR", "5")),
+        rate_presign_per_hour=int(_env("RATE_PRESIGN_PER_HOUR", "40")),
+        rate_geocode_per_hour=int(_env("RATE_GEOCODE_PER_HOUR", "60")),
+        verify_window_hours=int(_env("VERIFY_WINDOW_HOURS", "6")),
+        verify_dm_per_username_hours=int(_env("VERIFY_DM_PER_USERNAME_HOURS", "1")),
     )

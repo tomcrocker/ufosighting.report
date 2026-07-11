@@ -3,7 +3,10 @@ from pathlib import Path
 
 from app.config import get_settings
 
-SCHEMA = """
+# Tables first (idempotent), then ALTER migrations for new columns, then
+# indexes/triggers — because some indexes reference columns (verify_token) that
+# only the migration adds to a pre-existing table.
+SCHEMA_TABLES = """
 CREATE TABLE IF NOT EXISTS sightings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   source TEXT NOT NULL DEFAULT 'site',
@@ -31,6 +34,10 @@ CREATE TABLE IF NOT EXISTS sightings (
   lat REAL,
   lon REAL,
   location_obscured INTEGER NOT NULL DEFAULT 0,
+  submitter_ip TEXT,
+  username_verified INTEGER NOT NULL DEFAULT 0,
+  verify_token TEXT,
+  verify_sent_at TEXT,
   reddit_post_id TEXT UNIQUE,
   reddit_score INTEGER NOT NULL DEFAULT 0,
   reddit_num_comments INTEGER NOT NULL DEFAULT 0,
@@ -38,9 +45,6 @@ CREATE TABLE IF NOT EXISTS sightings (
   featured INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
-CREATE INDEX IF NOT EXISTS idx_sightings_status_created ON sightings(status, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_sightings_shape ON sightings(shape);
-CREATE INDEX IF NOT EXISTS idx_sightings_country ON sightings(country);
 
 CREATE TABLE IF NOT EXISTS media (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,7 +59,6 @@ CREATE TABLE IF NOT EXISTS media (
   sort_order INTEGER NOT NULL DEFAULT 0,
   thumb_attempts INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS idx_media_sighting ON media(sighting_id);
 
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
@@ -70,10 +73,26 @@ CREATE TABLE IF NOT EXISTS drafts (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
+CREATE TABLE IF NOT EXISTS rate_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ip TEXT NOT NULL,
+  action TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS sightings_fts USING fts5(
   title, description, location_text,
   content='sightings', content_rowid='id'
 );
+"""
+
+SCHEMA_INDEXES = """
+CREATE INDEX IF NOT EXISTS idx_sightings_status_created ON sightings(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sightings_shape ON sightings(shape);
+CREATE INDEX IF NOT EXISTS idx_sightings_country ON sightings(country);
+CREATE INDEX IF NOT EXISTS idx_sightings_verify_token ON sightings(verify_token);
+CREATE INDEX IF NOT EXISTS idx_media_sighting ON media(sighting_id);
+CREATE INDEX IF NOT EXISTS idx_rate_events_lookup ON rate_events(ip, action, created_at);
 
 CREATE TRIGGER IF NOT EXISTS sightings_fts_ai AFTER INSERT ON sightings BEGIN
   INSERT INTO sightings_fts(rowid, title, description, location_text)
@@ -105,8 +124,21 @@ def connect(db_path: str) -> sqlite3.Connection:
     return conn
 
 
+_MIGRATION_COLUMNS = [
+    ("submitter_ip", "TEXT"),
+    ("username_verified", "INTEGER NOT NULL DEFAULT 0"),
+    ("verify_token", "TEXT"),
+    ("verify_sent_at", "TEXT"),
+]
+
+
 def init_db(conn: sqlite3.Connection) -> None:
-    conn.executescript(SCHEMA)
+    conn.executescript(SCHEMA_TABLES)
+    existing = {r["name"] for r in conn.execute("PRAGMA table_info(sightings)")}
+    for name, decl in _MIGRATION_COLUMNS:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE sightings ADD COLUMN {name} {decl}")
+    conn.executescript(SCHEMA_INDEXES)
     conn.commit()
 
 

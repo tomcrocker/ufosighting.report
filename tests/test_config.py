@@ -23,6 +23,23 @@ def test_missing_required_env_raises(monkeypatch):
         get_settings()
 
 
+def test_extraction_settings_defaults(monkeypatch):
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    monkeypatch.delenv("XAI_MODEL", raising=False)
+    monkeypatch.delenv("INGEST_SUBREDDIT", raising=False)
+    get_settings.cache_clear()
+    s = get_settings()
+    assert s.xai_api_key == ""
+    assert s.xai_model == "grok-3-mini"
+    assert s.ingest_subreddit == s.subreddit   # falls back to SUBREDDIT
+
+
+def test_ingest_subreddit_override(monkeypatch):
+    monkeypatch.setenv("INGEST_SUBREDDIT", "UFOs")
+    get_settings.cache_clear()
+    assert get_settings().ingest_subreddit == "UFOs"
+
+
 def test_new_settings_defaults():
     s = get_settings()
     assert s.rate_submit_per_hour == 5

@@ -61,6 +61,14 @@ def test_verify_defaults(db_conn):
     assert row["verify_token"] is None
 
 
+def test_geocode_cache_table(db_conn):
+    db_conn.execute("INSERT INTO geocode_cache (query, lat, lon, city, country, display_name) "
+                    "VALUES ('tofino bc', 49.15, -125.9, 'Tofino', 'Canada', 'Tofino, BC, Canada')")
+    db_conn.commit()
+    row = db_conn.execute("SELECT * FROM geocode_cache WHERE query='tofino bc'").fetchone()
+    assert row["lat"] == 49.15 and row["city"] == "Tofino"
+
+
 def test_rate_events_table(db_conn):
     db_conn.execute("INSERT INTO rate_events (ip, action) VALUES ('1.2.3.4','submit')")
     db_conn.commit()

@@ -39,6 +39,9 @@ class Settings:
     rate_geocode_per_hour: int
     verify_window_hours: int
     verify_dm_per_username_hours: int
+    xai_api_key: str
+    xai_model: str
+    ingest_subreddit: str
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -50,6 +53,7 @@ def _env(name: str, default: str | None = None) -> str:
 
 @lru_cache
 def get_settings() -> Settings:
+    subreddit = _env("SUBREDDIT")
     return Settings(
         base_url=_env("BASE_URL", "http://localhost:8010").rstrip("/"),
         db_path=_env("DB_PATH", "data/sightings.db"),
@@ -66,7 +70,7 @@ def get_settings() -> Settings:
         script_client_secret=_env("SCRIPT_CLIENT_SECRET", ""),
         script_username=_env("SCRIPT_USERNAME", ""),
         script_password=_env("SCRIPT_PASSWORD", ""),
-        subreddit=_env("SUBREDDIT"),
+        subreddit=subreddit,
         sighting_flair_id=_env("SIGHTING_FLAIR_ID", ""),
         admin_users=tuple(
             u.strip().lower() for u in _env("ADMIN_USERS", "").split(",") if u.strip()
@@ -83,4 +87,7 @@ def get_settings() -> Settings:
         rate_geocode_per_hour=int(_env("RATE_GEOCODE_PER_HOUR", "60")),
         verify_window_hours=int(_env("VERIFY_WINDOW_HOURS", "6")),
         verify_dm_per_username_hours=int(_env("VERIFY_DM_PER_USERNAME_HOURS", "1")),
+        xai_api_key=_env("XAI_API_KEY", ""),
+        xai_model=_env("XAI_MODEL", "grok-3-mini"),
+        ingest_subreddit=_env("INGEST_SUBREDDIT", "") or subreddit,
     )

@@ -80,6 +80,16 @@ CREATE TABLE IF NOT EXISTS rate_events (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
+CREATE TABLE IF NOT EXISTS geocode_cache (
+  query TEXT PRIMARY KEY,
+  lat REAL,
+  lon REAL,
+  city TEXT,
+  country TEXT,
+  display_name TEXT,
+  cached_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS sightings_fts USING fts5(
   title, description, location_text,
   content='sightings', content_rowid='id'

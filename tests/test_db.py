@@ -127,3 +127,14 @@ def test_yt_jobs_table(db_conn):
     # UNIQUE(sighting_id): re-enqueue is a no-op, one video max per sighting
     db_conn.execute("INSERT OR IGNORE INTO yt_jobs (sighting_id, url) VALUES (?, 'x')", (sid,))
     assert db_conn.execute("SELECT COUNT(*) FROM yt_jobs").fetchone()[0] == 1
+
+
+def test_comments_table(db_conn):
+    sid = _insert_sighting(db_conn)
+    db_conn.execute("INSERT INTO comments (reddit_comment_id, sighting_id, author, body, score)"
+                    " VALUES ('c1', ?, 'alice', '**wow**', 42)", (sid,))
+    row = db_conn.execute("SELECT * FROM comments").fetchone()
+    assert row["score"] == 42 and row["permalink"] == ""
+    # cascade with the sighting
+    db_conn.execute("DELETE FROM sightings WHERE id=?", (sid,))
+    assert db_conn.execute("SELECT COUNT(*) FROM comments").fetchone()[0] == 0

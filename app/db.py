@@ -90,6 +90,17 @@ CREATE TABLE IF NOT EXISTS geocode_cache (
   cached_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
+CREATE TABLE IF NOT EXISTS comments (
+  reddit_comment_id TEXT PRIMARY KEY,
+  sighting_id INTEGER NOT NULL REFERENCES sightings(id) ON DELETE CASCADE,
+  author TEXT NOT NULL,
+  body TEXT NOT NULL,
+  score INTEGER NOT NULL DEFAULT 0,
+  created_utc INTEGER NOT NULL DEFAULT 0,
+  permalink TEXT NOT NULL DEFAULT '',
+  fetched_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+
 CREATE TABLE IF NOT EXISTS yt_jobs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   sighting_id INTEGER NOT NULL UNIQUE REFERENCES sightings(id) ON DELETE CASCADE,
@@ -115,6 +126,7 @@ CREATE INDEX IF NOT EXISTS idx_sightings_verify_token ON sightings(verify_token)
 CREATE INDEX IF NOT EXISTS idx_media_sighting ON media(sighting_id);
 CREATE INDEX IF NOT EXISTS idx_rate_events_lookup ON rate_events(ip, action, created_at);
 CREATE INDEX IF NOT EXISTS idx_yt_jobs_status ON yt_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_comments_sighting ON comments(sighting_id, score DESC);
 
 CREATE TRIGGER IF NOT EXISTS sightings_fts_ai AFTER INSERT ON sightings BEGIN
   INSERT INTO sightings_fts(rowid, title, description, location_text)

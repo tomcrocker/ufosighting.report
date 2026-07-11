@@ -73,3 +73,48 @@
 ## 6. Flip to production
 - [ ] Set `SUBREDDIT=UFOs` in the VM .env, `sudo systemctl restart ufosighting-web`
 - [ ] Update AutoMod / sub wiki / pinned post to introduce ufosighting.report
+
+---
+
+## Pivot: anonymous submission + verify DM + ingest (2026-07-11)
+
+The OAuth "post as self" path is dormant pending Reddit web-app approval. The
+live flow is anonymous submission → bot DMs a verify link → verified click
+posts instantly (else mod review). This all runs on ONE script app under the
+`ufosightingsbot` account.
+
+### Reddit
+- [ ] `ufosightingsbot` must be a **moderator or approved submitter** of the
+      target sub (done for r/tmoshtest; repeat for r/UFOs) or AutoMod's
+      account-age rule removes its posts.
+- [ ] Its script app needs scopes: `submit`, `privatemessages`, `read`
+      (post, send/read DMs, read listings). Once approved, set in `.env`:
+      SCRIPT_CLIENT_ID / SCRIPT_CLIENT_SECRET / SCRIPT_USERNAME=ufosightingsbot
+      / SCRIPT_PASSWORD.
+- [ ] Let the bot **age / earn a little karma** before prod so verify DMs
+      aren't spam-filtered.
+
+### Cloudflare Turnstile
+- [ ] Create a Turnstile widget (dashboard → Turnstile) for ufosighting.report
+      → TURNSTILE_SITE_KEY + TURNSTILE_SECRET_KEY in `.env`. If left empty the
+      app skips the check (dev bypass) — set both before real launch.
+
+### Deploy
+- [ ] `bash deploy/deploy.sh` (migration runs automatically on restart via
+      init_db — adds submitter_ip/username_verified/verify_token/verify_sent_at
+      to the live table).
+- [ ] Install the ingest timer:
+      `sudo cp deploy/ufosighting-ingest.service deploy/ufosighting-ingest.timer /etc/systemd/system/`
+      `sudo systemctl daemon-reload && sudo systemctl enable --now ufosighting-ingest.timer`
+- [ ] One-shot backfill of existing Sighting posts:
+      `cd /home/ubuntu/ufosighting && set -a; . .env; set +a; .venv/bin/python ingest.py --backfill`
+
+### End-to-end test on r/tmoshtest
+- [ ] **Verify path**: submit anonymously with your own Reddit username →
+      bot DMs you a verify link → click it → post appears in r/tmoshtest as
+      ufosightingsbot crediting you (verified) → gallery live + map + thumbnail.
+- [ ] **Fallback path**: submit with a username you don't control (or don't
+      click the DM) → after VERIFY_WINDOW_HOURS the sync sweep moves it to
+      `/admin/review` → Approve → bot posts (self-reported).
+- [ ] **Ingest**: make a native Sighting-flaired post on r/tmoshtest → within
+      10 min it appears in the gallery, deduped against bot-posted ones.

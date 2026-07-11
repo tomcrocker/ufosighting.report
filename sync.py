@@ -1,19 +1,32 @@
 """Moderation sync — mirrors Reddit mod actions into the gallery.
 
-Run every 15 minutes by ufosighting-sync.timer. Reddit is the single source
-of moderation truth: removed posts hide their gallery entries, approved posts
-bring them back. hidden_by_admin is site-side state and is never auto-changed.
+Two tiers (both refresh reddit_score/num_comments, which ride along free in
+the same /api/info response as removal status):
+- HOT: every 15 min via ufosighting-sync.timer, posts < 72h old — live scores
+  while voting is active, fast moderation mirroring.
+- FULL: daily via ufosighting-sync-full.timer (`sync.py --full`), posts < 30
+  days — keeps removal-mirroring alive after voting goes stale.
+
+Reddit is the single source of moderation truth: removed posts hide their
+gallery entries, approved posts bring them back. hidden_by_admin is site-side
+state and is never auto-changed.
 """
+import sys
+
 from app import db, reddit, verify
 from app.config import get_settings
 
+HOT_WINDOW_HOURS = 72
+FULL_WINDOW_HOURS = 30 * 24
 
-def sync_once(conn) -> dict:
+
+def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS) -> dict:
     rows = conn.execute(
         """SELECT id, reddit_post_id, status FROM sightings
            WHERE reddit_post_id IS NOT NULL
              AND status IN ('live', 'removed_on_reddit', 'deleted_by_user')
-             AND created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-30 days')"""
+             AND created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)""",
+        (f"-{window_hours} hours",),
     ).fetchall()
     if not rows:
         return {"checked": 0, "updated": 0}
@@ -34,16 +47,19 @@ def sync_once(conn) -> dict:
     return {"checked": len(rows), "updated": updated}
 
 
-def main() -> None:
+def main(full: bool = False) -> None:
     s = get_settings()
     conn = db.connect(s.db_path)
     try:
-        result = sync_once(conn)
+        window = FULL_WINDOW_HOURS if full else HOT_WINDOW_HOURS
+        result = sync_once(conn, window_hours=window)
         swept = verify.sweep_pending_verify(conn, s.verify_window_hours)
-        print(f"sync: checked={result['checked']} status_changes={result['updated']} swept={swept}")
+        tier = "full" if full else "hot"
+        print(f"sync[{tier}]: checked={result['checked']} "
+              f"status_changes={result['updated']} swept={swept}")
     finally:
         conn.close()
 
 
 if __name__ == "__main__":
-    main()
+    main(full="--full" in sys.argv)

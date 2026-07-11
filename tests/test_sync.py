@@ -84,7 +84,23 @@ def test_main_runs_sweep(db_conn, monkeypatch):
     import sync
     called = {}
     monkeypatch.setattr(sync.verify, "sweep_pending_verify", lambda conn, w: called.setdefault("w", w) or 0)
-    monkeypatch.setattr(sync, "sync_once", lambda conn: {"checked": 0, "updated": 0})
+    monkeypatch.setattr(sync, "sync_once", lambda conn, **kw: {"checked": 0, "updated": 0})
     monkeypatch.setattr(sync.db, "connect", lambda p: db_conn)
     sync.main()  # closes db_conn; fixture teardown double-close is harmless on sqlite
     assert called["w"] == 6
+
+
+def test_sync_hot_window_excludes_old_posts(db_conn, monkeypatch):
+    old = _seed(db_conn, "old1", "live")
+    db_conn.execute("UPDATE sightings SET created_at=strftime('%Y-%m-%dT%H:%M:%SZ','now','-5 days') "
+                    "WHERE id=?", (old,))
+    _seed(db_conn, "new1", "live")
+    db_conn.commit()
+    checked = []
+    monkeypatch.setattr(sync.reddit, "fetch_posts_info",
+                        lambda ids: checked.extend(ids) or {})
+    sync.sync_once(db_conn, window_hours=72)
+    assert checked == ["new1"]
+    checked.clear()
+    sync.sync_once(db_conn, window_hours=30 * 24)
+    assert sorted(checked) == ["new1", "old1"]

@@ -115,3 +115,15 @@ def test_media_cascade_delete(db_conn):
     db_conn.commit()
     n = db_conn.execute("SELECT COUNT(*) FROM media").fetchone()[0]
     assert n == 0
+
+
+def test_yt_jobs_table(db_conn):
+    sid = _insert_sighting(db_conn)
+    db_conn.execute(
+        "INSERT INTO yt_jobs (sighting_id, url) VALUES (?, 'https://www.youtube.com/watch?v=XHWPQEJ_TVA')",
+        (sid,))
+    row = db_conn.execute("SELECT * FROM yt_jobs").fetchone()
+    assert row["status"] == "pending" and row["attempts"] == 0
+    # UNIQUE(sighting_id): re-enqueue is a no-op, one video max per sighting
+    db_conn.execute("INSERT OR IGNORE INTO yt_jobs (sighting_id, url) VALUES (?, 'x')", (sid,))
+    assert db_conn.execute("SELECT COUNT(*) FROM yt_jobs").fetchone()[0] == 1

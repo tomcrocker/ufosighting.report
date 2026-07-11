@@ -90,6 +90,17 @@ CREATE TABLE IF NOT EXISTS geocode_cache (
   cached_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
+CREATE TABLE IF NOT EXISTS yt_jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sighting_id INTEGER NOT NULL UNIQUE REFERENCES sightings(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','done','failed')),
+  attempts INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS sightings_fts USING fts5(
   title, description, location_text,
   content='sightings', content_rowid='id'
@@ -103,6 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_sightings_country ON sightings(country);
 CREATE INDEX IF NOT EXISTS idx_sightings_verify_token ON sightings(verify_token);
 CREATE INDEX IF NOT EXISTS idx_media_sighting ON media(sighting_id);
 CREATE INDEX IF NOT EXISTS idx_rate_events_lookup ON rate_events(ip, action, created_at);
+CREATE INDEX IF NOT EXISTS idx_yt_jobs_status ON yt_jobs(status);
 
 CREATE TRIGGER IF NOT EXISTS sightings_fts_ai AFTER INSERT ON sightings BEGIN
   INSERT INTO sightings_fts(rowid, title, description, location_text)

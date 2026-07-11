@@ -1,7 +1,11 @@
 """Ingest Sighting-flaired posts from the subreddit into the gallery, extracting
 date/time/location via LLM + geocoding. Run by ufosighting-ingest.timer;
 `--backfill` walks the last 30 days once."""
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
@@ -17,6 +21,7 @@ CT_EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "ima
 BACKFILL_PAGE_SLEEP_SECONDS = 3
 PER_POST_SLEEP_SECONDS = 2
 BACKFILL_DAYS = 30
+VIDEO_MAX_BYTES = 200 * 1024 * 1024  # protect the 1GB-RAM VM
 
 
 def _fetch_image(url: str):
@@ -28,7 +33,104 @@ def _fetch_image(url: str):
     return resp.content, ct, CT_EXT.get(ct, ".jpg")
 
 
+def _download_to_file(url: str, path: str) -> bool:
+    """Stream a URL to disk (1MB chunks); True if non-empty file written."""
+    try:
+        with httpx.stream("GET", url, timeout=60, follow_redirects=True,
+                          headers={"User-Agent": get_settings().user_agent}) as resp:
+            if resp.status_code != 200:
+                return False
+            size = 0
+            with open(path, "wb") as f:
+                for chunk in resp.iter_bytes(chunk_size=1024 * 1024):
+                    size += len(chunk)
+                    if size > VIDEO_MAX_BYTES:
+                        return False
+                    f.write(chunk)
+        return os.path.exists(path) and os.path.getsize(path) > 0
+    except httpx.HTTPError:
+        return False
+
+
+def _mux_or_copy(video_path: str, audio_path: str | None, out_path: str) -> bool:
+    """Mux video+audio via ffmpeg stream-copy; plain move when no audio."""
+    if not audio_path:
+        shutil.move(video_path, out_path)
+        return True
+    proc = subprocess.run(
+        ["ffmpeg", "-y", "-loglevel", "error", "-i", video_path, "-i", audio_path,
+         "-c", "copy", out_path],
+        capture_output=True, timeout=300,
+    )
+    return proc.returncode == 0 and os.path.exists(out_path)
+
+
+def _best_rep_url_from_mpd(mpd_xml: str, mpd_url: str, want: str) -> str | None:
+    """Pick the highest-bandwidth `video` or `audio` BaseURL from a DASH MPD.
+    (Ported from ufosarchive's media_downloader — battle-tested on v.redd.it.)"""
+    import xml.etree.ElementTree as ET
+    from urllib.parse import urljoin
+    try:
+        ns = {"m": "urn:mpeg:dash:schema:mpd:2011"}
+        root = ET.fromstring(mpd_xml)
+        best = None
+        for aset in root.findall(".//m:AdaptationSet", ns):
+            content_type = (aset.get("contentType") or "").lower()
+            mime_type = (aset.get("mimeType") or "").lower()
+            for rep in aset.findall("m:Representation", ns):
+                rep_mime = (rep.get("mimeType") or mime_type).lower()
+                if not (want in content_type or want in rep_mime or want in mime_type):
+                    continue
+                bw = int(rep.get("bandwidth") or 0)
+                baseurl_el = rep.find("m:BaseURL", ns)
+                if baseurl_el is None or not baseurl_el.text:
+                    continue
+                if best is None or bw > best[0]:
+                    best = (bw, baseurl_el.text.strip())
+        return urljoin(mpd_url, best[1]) if best else None
+    except ET.ParseError:
+        return None
+
+
+def _download_vreddit(rv: dict) -> tuple[bytes, str, str] | None:
+    """Download a v.redd.it video: DASH manifest (video+audio muxed) preferred,
+    fallback_url (video-only) otherwise."""
+    dash_url = rv.get("dash_url")
+    fallback_url = (rv.get("fallback_url") or "").split("?")[0]
+    with tempfile.TemporaryDirectory() as td:
+        vpath, apath, opath = (os.path.join(td, n) for n in ("v.mp4", "a.mp4", "out.mp4"))
+        audio = None
+        video_url = None
+        if dash_url:
+            try:
+                resp = httpx.get(dash_url, timeout=30,
+                                 headers={"User-Agent": get_settings().user_agent})
+                if resp.status_code == 200:
+                    video_url = _best_rep_url_from_mpd(resp.text, dash_url, "video")
+                    audio_url = _best_rep_url_from_mpd(resp.text, dash_url, "audio")
+                    if audio_url and _download_to_file(audio_url, apath):
+                        audio = apath
+            except httpx.HTTPError:
+                pass
+        if not _download_to_file(video_url or fallback_url, vpath):
+            return None
+        if not _mux_or_copy(vpath, audio, opath):
+            return None
+        if os.path.getsize(opath) > VIDEO_MAX_BYTES:
+            return None
+        with open(opath, "rb") as f:
+            return f.read(), "video/mp4", ".mp4"
+
+
 def download_media(post: dict) -> list[tuple[bytes, str, str]]:
+    # v.redd.it video first — most r/UFOs Sighting posts are videos
+    rv = ((post.get("secure_media") or {}).get("reddit_video")
+          or (post.get("media") or {}).get("reddit_video")
+          or (post.get("preview") or {}).get("reddit_video_preview"))
+    if rv and (rv.get("fallback_url") or rv.get("dash_url")):
+        vid = _download_vreddit(rv)
+        return [vid] if vid else []
+
     out = []
     url = post.get("url", "") or ""
     gallery = post.get("media_metadata")
@@ -104,12 +206,13 @@ def ingest_post(conn, post: dict, token=None) -> bool:
         """INSERT INTO sightings
              (source, reddit_username, title, description, sighted_at, tz_name,
               shape, num_objects, duration_seconds, location_text, city, country,
-              lat, lon, reddit_post_id, status)
-           VALUES ('reddit',?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'live')""",
+              lat, lon, reddit_post_id, reddit_score, reddit_num_comments, status)
+           VALUES ('reddit',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'live')""",
         (post.get("author") or "unknown", title, description, sighted_at, tz_name,
          clamped.get("shape"), clamped.get("num_objects"), clamped.get("duration_seconds"),
          clamped.get("location_text") or "", city, country,
-         (coords or {}).get("lat"), (coords or {}).get("lon"), pid),
+         (coords or {}).get("lat"), (coords or {}).get("lon"), pid,
+         int(post.get("score") or 0), int(post.get("num_comments") or 0)),
     )
     sid = cur.lastrowid
     conn.commit()
@@ -118,8 +221,9 @@ def ingest_post(conn, post: dict, token=None) -> bool:
             now = datetime.now(timezone.utc)
             key = f"uploads/{now:%Y}/{now:%m}/{uuid.uuid4().hex}{ext}"
             r2.put_bytes(key, data, ct)
+            kind = "video" if ct.startswith("video/") else "image"
             conn.execute("INSERT INTO media (sighting_id, r2_key, kind, sort_order) "
-                         "VALUES (?,?, 'image', ?)", (sid, key, i))
+                         "VALUES (?,?,?,?)", (sid, key, kind, i))
         conn.commit()
     except Exception as exc:
         print(f"ingest media for {pid} failed: {exc}")

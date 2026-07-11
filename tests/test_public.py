@@ -108,7 +108,7 @@ def test_detail_shows_structured_fields(client, app_db):
     r = client.get(f"/sighting/{sid}/bright-orb-over-the-lake")
     assert r.status_code == 200
     for text in ("above the trees", "golf ball", "hovering", "infrared", "pilot",
-                 "u/witness1", "reddit.com/r/UFOs_sandbox/comments/1abcde"):
+                 "u/witness1", "reddit.com/comments/1abcde"):
         assert text in r.text
 
 

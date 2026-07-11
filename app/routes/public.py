@@ -131,9 +131,10 @@ def detail(
     ]
     reddit_url = None
     if row["reddit_post_id"]:
-        reddit_url = (
-            f"https://www.reddit.com/r/{get_settings().subreddit}/comments/{row['reddit_post_id']}/"
-        )
+        # subreddit-agnostic permalink: reddit redirects /comments/{id}/ to the
+        # canonical URL, correct for both bot posts (SUBREDDIT) and ingested
+        # posts (INGEST_SUBREDDIT)
+        reddit_url = f"https://www.reddit.com/comments/{row['reddit_post_id']}/"
     return templates.TemplateResponse(
         request, "detail.html",
         {"user": user, "s": s, "media": media_items, "reddit_url": reddit_url, "admin": admin,

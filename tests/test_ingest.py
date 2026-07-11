@@ -89,3 +89,58 @@ def test_ingest_once_uses_ingest_subreddit(db_conn, monkeypatch):
     # INGEST_SUBREDDIT unset in tests => falls back to SUBREDDIT (UFOs_sandbox from conftest)
     assert seen["subreddit"] == "UFOs_sandbox"
     assert seen["flair"] == "Sighting"
+
+
+def test_ingest_seeds_score_and_comments(db_conn, monkeypatch):
+    _stub_pipeline(monkeypatch)
+    ingest.ingest_post(db_conn, _post(score=86, num_comments=14), token="t")
+    row = db_conn.execute("SELECT reddit_score, reddit_num_comments FROM sightings "
+                          "WHERE reddit_post_id='p1'").fetchone()
+    assert row["reddit_score"] == 86 and row["reddit_num_comments"] == 14
+
+
+def test_download_media_vreddit(monkeypatch):
+    # v.redd.it post: video stream + audio track muxed via ffmpeg
+    post = _post(url="https://v.redd.it/abc123", is_video=True,
+                 secure_media={"reddit_video": {
+                     "fallback_url": "https://v.redd.it/abc123/DASH_720.mp4?source=fallback"}})
+    monkeypatch.setattr(ingest, "_download_to_file", lambda url, path: b"ok" and True)
+    monkeypatch.setattr(ingest, "_mux_or_copy", lambda v, a, out: open(out, "wb").write(b"mp4bytes") and True)
+    media = ingest.download_media(post)
+    assert len(media) == 1
+    data, ct, ext = media[0]
+    assert ct == "video/mp4" and ext == ".mp4" and data == b"mp4bytes"
+
+
+def test_ingest_video_media_kind(db_conn, monkeypatch):
+    monkeypatch.setattr(ingest, "download_media",
+                        lambda post: [(b"mp4bytes", "video/mp4", ".mp4")])
+    monkeypatch.setattr(ingest, "fetch_op_comments", lambda token, post: [])
+    monkeypatch.setattr(ingest.extract, "extract_fields", lambda text: {})
+    monkeypatch.setattr(ingest.extract, "validate_and_clamp",
+                        lambda raw, post_created_iso: _empty_clamped())
+    monkeypatch.setattr(ingest.geocode, "forward", lambda conn, q: None)
+    monkeypatch.setattr(ingest.r2, "put_bytes", lambda k, d, ct: None)
+    ingest.ingest_post(db_conn, _post(), token="t")
+    row = db_conn.execute("SELECT m.kind FROM media m JOIN sightings s ON s.id=m.sighting_id "
+                          "WHERE s.reddit_post_id='p1'").fetchone()
+    assert row["kind"] == "video"
+
+
+def test_best_rep_url_from_mpd_picks_highest_bandwidth():
+    mpd = """<?xml version="1.0"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011">
+  <Period>
+    <AdaptationSet contentType="video">
+      <Representation bandwidth="1000000"><BaseURL>DASH_480.mp4</BaseURL></Representation>
+      <Representation bandwidth="4000000"><BaseURL>DASH_1080.mp4</BaseURL></Representation>
+    </AdaptationSet>
+    <AdaptationSet contentType="audio">
+      <Representation bandwidth="128000"><BaseURL>DASH_AUDIO_128.mp4</BaseURL></Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>"""
+    base = "https://v.redd.it/abc123/DASHPlaylist.mpd"
+    assert ingest._best_rep_url_from_mpd(mpd, base, "video") == "https://v.redd.it/abc123/DASH_1080.mp4"
+    assert ingest._best_rep_url_from_mpd(mpd, base, "audio") == "https://v.redd.it/abc123/DASH_AUDIO_128.mp4"
+    assert ingest._best_rep_url_from_mpd("not xml", base, "video") is None

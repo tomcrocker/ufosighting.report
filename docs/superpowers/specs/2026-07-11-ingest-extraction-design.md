@@ -36,7 +36,7 @@ Sighting-flaired post
  1. fetch post: title, selftext, author, created_utc, media, permalink
  2. fetch OP's top-level comments (location/time often only here)
  3. combine text: title + selftext + OP comments (source-labeled)
- 4. Groq LLM → strict JSON (schema below)
+ 4. xAI/Grok LLM → strict JSON (schema below)
  5. validate_and_clamp(): enforce schema, drop implausible values
  6. geocode location_text → lat/lon (+city/country) via Nominatim (throttled+cached)
  7. derive sighted_at: parsed date + (time | local noon) in the IANA tz → UTC;
@@ -51,7 +51,7 @@ Sighting-flaired post
 - `combine_post_text(post: dict, op_comments: list[str]) -> str` — builds a
   single source-labeled block: `[TITLE] … [BODY] … [OP COMMENT] …`. Truncate
   each source and the total to a sane cap (~6000 chars) to bound token cost.
-- `extract_fields(text: str) -> dict` — calls Groq chat completions with a
+- `extract_fields(text: str) -> dict` — calls the xAI (Grok) chat-completions endpoint with a
   JSON-only system prompt + the schema, parses the JSON, returns a raw dict.
   On any error (network, non-JSON, missing key) returns `{}` (best-effort).
 - `validate_and_clamp(raw: dict, *, post_created_iso: str) -> dict` — pure,
@@ -159,7 +159,7 @@ shared module used by both the submit autocomplete endpoint and ingest (DRY).
 - **Dedup**: unchanged — skip any `reddit_post_id` already present (covers
   bot-posted sightings so they aren't double-listed).
 - **Rate discipline**: Reddit shared-app throttle (~2s/post + page sleep),
-  Nominatim ≥1.1s/call + DB cache, Groq is high-limit. Routine ingest timer
+  Nominatim ≥1.1s/call + DB cache; xAI is high-limit. Routine ingest timer
   every 10 min processes only the newest page.
 
 ## Testing
@@ -167,7 +167,7 @@ shared module used by both the submit autocomplete endpoint and ingest (DRY).
 - **extract**: `combine_post_text` labels + truncates; `validate_and_clamp`
   drops future date, pre-1940 date, bad time, unknown shape, bad num_objects,
   out-of-range duration, invalid tz; keeps valid ones; `extract_fields`
-  returns `{}` on non-JSON / error (mocked Groq HTTP).
+  returns `{}` on non-JSON / error (mocked xAI HTTP).
 - **geocode**: `forward` returns best match (mocked Nominatim); DB cache hit
   skips the network on repeat; throttle is invoked.
 - **ingest**: `build_sighted_at` (date+time+tz→UTC; no time→noon; no

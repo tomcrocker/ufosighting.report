@@ -7,7 +7,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from app import db, helpers, r2, ratelimit, reddit, turnstile, verify
+from app import db, geocode, helpers, r2, ratelimit, reddit, turnstile, verify
 from app.config import get_settings
 from app.web import client_ip, new_csrf, templates
 
@@ -49,12 +49,11 @@ def presign(req: PresignRequest, request: Request, conn=Depends(db.get_db)):
     }
 
 
-GEOCODE_URL = "https://nominatim.openstreetmap.org/search"
 _geocode_cache: dict[str, list] = {}
 
 
 @router.get("/api/geocode")
-def geocode(q: str = "", request: Request = None, conn=Depends(db.get_db)):
+def geocode_endpoint(q: str = "", request: Request = None, conn=Depends(db.get_db)):
     q = q.strip()
     if len(q) < 3:
         return {"results": []}
@@ -66,27 +65,10 @@ def geocode(q: str = "", request: Request = None, conn=Depends(db.get_db)):
     if cache_key in _geocode_cache:
         return {"results": _geocode_cache[cache_key]}
     ratelimit.record(conn, ip, "geocode")
-    resp = httpx.get(
-        GEOCODE_URL,
-        params={"q": q, "format": "jsonv2", "limit": 5, "addressdetails": 1},
-        headers={"User-Agent": s.user_agent},
-        timeout=10,
-    )
-    if resp.status_code != 200:
+    try:
+        results = geocode.search(q, limit=5)
+    except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="Geocoder unavailable, drop a pin instead")
-    results = []
-    for item in resp.json():
-        addr = item.get("address", {})
-        results.append(
-            {
-                "display_name": item.get("display_name", ""),
-                "lat": float(item["lat"]),
-                "lon": float(item["lon"]),
-                "city": addr.get("city") or addr.get("town") or addr.get("village")
-                or addr.get("municipality") or "",
-                "country": addr.get("country", ""),
-            }
-        )
     if len(_geocode_cache) < 5000:
         _geocode_cache[cache_key] = results
     return {"results": results}

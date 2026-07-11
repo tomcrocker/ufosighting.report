@@ -39,6 +39,21 @@
       {% if reddit_url %}<a href="{{ reddit_url }}">Reddit post</a>{% else %}Reddit post{% endif %}.</p>
     {% endif %}
     <div class="md-body">{{ s.description|reddit_md|safe }}</div>
+    {% if comments %}
+    <section class="top-comments">
+      <h2>Top comments on Reddit</h2>
+      {% for c in comments %}
+      <div class="comment">
+        <div class="comment-meta">
+          <a href="https://www.reddit.com/user/{{ c.author }}">u/{{ c.author }}</a>
+          <span class="score">&#9650; {{ c.score }}</span>
+          {% if c.permalink %}<a class="muted" href="https://www.reddit.com{{ c.permalink }}">permalink</a>{% endif %}
+        </div>
+        <div class="md-body">{{ c.body|reddit_md|safe }}</div>
+      </div>
+      {% endfor %}
+    </section>
+    {% endif %}
   </div>
   <aside>
     <table class="facts">

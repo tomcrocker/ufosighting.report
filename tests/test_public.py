@@ -200,3 +200,24 @@ def test_sort_top_time_window(client, app_db):
          sighted_at=__import__("datetime").datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
     text = client.get("/?sort=top&t=week").text
     assert "Recent modest" in text and "Ancient banger" not in text
+
+
+def test_detail_shows_top_comments(client, app_db):
+    sid = seed(app_db, reddit_post_id="1cmt01")
+    app_db.execute("INSERT INTO comments (reddit_comment_id, sighting_id, author, body, "
+                   "score, permalink) VALUES ('c1', ?, 'alice', 'that is **wow** footage', 42, "
+                   "'/r/UFOs/comments/1cmt01/x/c1/')", (sid,))
+    app_db.execute("INSERT INTO comments (reddit_comment_id, sighting_id, author, body, "
+                   "score, permalink) VALUES ('c2', ?, 'bob', 'starlink again', 7, '')", (sid,))
+    app_db.commit()
+    r = client.get(f"/sighting/{sid}")
+    assert "Top comments on Reddit" in r.text
+    assert "<strong>wow</strong>" in r.text          # reddit_md rendered
+    assert "u/alice" in r.text and "u/bob" in r.text
+    assert r.text.index("u/alice") < r.text.index("u/bob")  # score order
+    assert "reddit.com/r/UFOs/comments/1cmt01/x/c1" in r.text
+
+
+def test_detail_no_comments_section_when_empty(client, app_db):
+    sid = seed(app_db)
+    assert "Top comments on Reddit" not in client.get(f"/sighting/{sid}").text

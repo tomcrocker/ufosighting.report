@@ -280,3 +280,11 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .md-body table { border-collapse: collapse; margin: 0.6em 0; }
 .md-body th, .md-body td { border: 1px solid #2a3350; padding: 4px 8px; }
 .md-body ul, .md-body ol { margin: 0.4em 0 0.8em 1.4em; }
+
+/* Top Reddit comments on detail pages */
+.top-comments { margin-top: 28px; }
+.top-comments h2 { font-size: 1.05rem; margin-bottom: 4px; }
+.top-comments .comment { border-top: 1px solid #232c47; padding: 10px 0 4px; }
+.comment-meta { display: flex; gap: 12px; align-items: baseline; font-size: 0.85rem; margin-bottom: 4px; }
+.comment-meta .score { color: var(--accent); font-weight: 600; }
+.comment-meta .muted { opacity: 0.65; }

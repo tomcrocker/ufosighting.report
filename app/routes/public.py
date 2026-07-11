@@ -196,9 +196,14 @@ def detail(
         # canonical URL, correct for both bot posts (SUBREDDIT) and ingested
         # posts (INGEST_SUBREDDIT)
         reddit_url = f"https://www.reddit.com/comments/{row['reddit_post_id']}/"
+    comment_rows = conn.execute(
+        "SELECT author, body, score, permalink FROM comments "
+        "WHERE sighting_id=? ORDER BY score DESC", (sighting_id,)
+    ).fetchall()
     return templates.TemplateResponse(
         request, "detail.html",
         {"user": user, "s": s, "media": media_items, "reddit_url": reddit_url, "admin": admin,
+         "comments": comment_rows,
          "csrf_token": auth.csrf_for(user.id) if user else ""},
     )
 

@@ -272,3 +272,11 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .footer-base p {
   max-width: 1200px; margin: 0 auto; padding: 14px 16px; font-size: .8rem; color: var(--muted);
 }
+
+/* Rendered Reddit markdown (reddit_md filter) on detail pages */
+.md-body { overflow-wrap: break-word; }
+.md-body p { margin: 0 0 0.8em; }
+.md-body blockquote { margin: 0.6em 0; padding: 2px 12px; border-left: 3px solid var(--accent2); color: var(--muted, #9aa3b5); }
+.md-body table { border-collapse: collapse; margin: 0.6em 0; }
+.md-body th, .md-body td { border: 1px solid #2a3350; padding: 4px 8px; }
+.md-body ul, .md-body ol { margin: 0.4em 0 0.8em 1.4em; }

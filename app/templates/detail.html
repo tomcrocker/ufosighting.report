@@ -38,7 +38,7 @@
     <p class="muted src-note">Details auto-extracted from the original
       {% if reddit_url %}<a href="{{ reddit_url }}">Reddit post</a>{% else %}Reddit post{% endif %}.</p>
     {% endif %}
-    <p style="white-space: pre-line">{{ s.description }}</p>
+    <div class="md-body">{{ s.description|reddit_md|safe }}</div>
   </div>
   <aside>
     <table class="facts">

@@ -28,6 +28,19 @@ BACKGROUND_OPTIONS = ["active duty military", "veteran", "pilot", "scientist", "
 FEATURE_ANSWERS = ["yes", "no", "unsure"]
 MIN_STORY_CHARS = 150
 
+USERNAME_RE = re.compile(r"^[A-Za-z0-9_-]{3,20}$")
+
+
+def clean_username(raw: str | None) -> str | None:
+    if not raw:
+        return None
+    name = raw.strip()
+    for prefix in ("/u/", "u/", "/U/", "U/"):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    return name if USERNAME_RE.fullmatch(name) else None
+
 
 def slugify(text: str, max_len: int = 60) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
@@ -59,7 +72,7 @@ def from_utc(utc_str: str, tz_name: str) -> str:
 
 def format_post_body(
     clean: dict, *, sighted_local: str, location_line: str,
-    media_urls: list[str], gallery_url: str,
+    media_urls: list[str], gallery_url: str, attribution: str = "",
 ) -> str:
     facts = [f"**When:** {sighted_local} ({clean['tz_name']})"]
     if location_line:
@@ -94,6 +107,8 @@ def format_post_body(
     parts = ["  \n".join(facts), clean["description"].strip()]
     if media_urls:
         parts.append("**Media:**\n\n" + "\n".join(f"- {u}" for u in media_urls))
+    if attribution:
+        parts.append(attribution)
     parts.append(
         f"[View this sighting in the gallery]({gallery_url}) — "
         f"*submitted via [ufosighting.report](https://ufosighting.report)*"

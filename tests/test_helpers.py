@@ -78,3 +78,22 @@ def test_format_post_body_skips_empty_fields():
     for label in ("**Where:**", "**Objects:**", "**Shape:**", "**Movement:**",
                   "**Features:**", "**Sensor detection:**", "**Media:**"):
         assert label not in body
+
+
+def test_clean_username():
+    assert helpers.clean_username("u/Example_1") == "Example_1"
+    assert helpers.clean_username("/u/tmosh") == "tmosh"
+    assert helpers.clean_username("  Witness-9 ") == "Witness-9"
+    assert helpers.clean_username("ab") is None            # too short
+    assert helpers.clean_username("has space") is None
+    assert helpers.clean_username("bad!char") is None
+
+
+def test_format_post_body_attribution():
+    body = helpers.format_post_body(
+        {"tz_name": "UTC", "description": "d"},
+        sighted_local="2026-07-01 22:15", location_line="",
+        media_urls=[], gallery_url="https://x/1",
+        attribution="Reported by u/witness1 (verified via ufosighting.report)",
+    )
+    assert "Reported by u/witness1 (verified via ufosighting.report)" in body

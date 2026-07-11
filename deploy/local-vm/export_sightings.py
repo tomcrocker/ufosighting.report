@@ -147,15 +147,21 @@ class Exporter:
             "SELECT * FROM media WHERE post_id=? AND downloaded=1 "
             "ORDER BY COALESCE(gallery_index, 0)", (pid,)).fetchall()
         if rows:
-            for i, m in enumerate(rows[:MAX_ITEMS]):
-                src = os.path.join(MEDIA_BASE, m["local_path"])
-                if not os.path.exists(src) or os.path.getsize(src) > MAX_BYTES:
-                    continue
-                ext = os.path.splitext(src)[1].lower() or ".jpg"
-                key = f"uploads/arc/{pid}_{i}{ext}"
-                self.upload(src, key)
-                kind = "video" if m["media_type"] == "video" else "image"
-                out.append({"key": key, "kind": kind})
+            try:
+                for i, m in enumerate(rows[:MAX_ITEMS]):
+                    # downloaded=1 with NULL local_path exists in the wild
+                    if not m["local_path"]:
+                        continue
+                    src = os.path.join(MEDIA_BASE, m["local_path"])
+                    if not os.path.exists(src) or os.path.getsize(src) > MAX_BYTES:
+                        continue
+                    ext = os.path.splitext(src)[1].lower() or ".jpg"
+                    key = f"uploads/arc/{pid}_{i}{ext}"
+                    self.upload(src, key)
+                    kind = "video" if m["media_type"] == "video" else "image"
+                    out.append({"key": key, "kind": kind})
+            except Exception as exc:
+                return out, None, str(exc)[:200]
             if out:
                 return out, None, None
 

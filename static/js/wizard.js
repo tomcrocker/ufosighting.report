@@ -95,17 +95,39 @@
     map.setView([lat, lon], zoom || 10);
   }
 
+  const locInput = document.getElementById("location_text");
+
+  // Dropped pin -> nearest town/city via reverse geocode. The location field
+  // is required, so this is what makes pin-only submissions pass validation;
+  // if the geocoder is down we fall back to plain coordinates.
+  function reversePin(lat, lon) {
+    const coordLabel = (+lat).toFixed(3) + ", " + (+lon).toFixed(3);
+    fetch("/api/reverse?lat=" + lat + "&lon=" + lon)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => {
+        locInput.value = d.label || coordLabel;
+        document.getElementById("city").value = d.city || "";
+        document.getElementById("country").value = d.country || "";
+      })
+      .catch(() => {
+        if (!locInput.value.trim()) locInput.value = coordLabel;
+      });
+  }
+
   if (window.L && document.getElementById("pinmap")) {
     const hasPin = latInput.value !== "";
     map = L.map("pinmap").setView(hasPin ? [+latInput.value, +lonInput.value] : [30, 0], hasPin ? 8 : 2);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "&copy; OpenStreetMap contributors",
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+      attribution: "&copy; OpenStreetMap &copy; CARTO",
+      subdomains: "abcd",
     }).addTo(map);
     if (hasPin) marker = L.marker([+latInput.value, +lonInput.value]).addTo(map);
-    map.on("click", (e) => setPin(e.latlng.lat, e.latlng.lng, map.getZoom()));
+    map.on("click", (e) => {
+      setPin(e.latlng.lat, e.latlng.lng, map.getZoom());
+      reversePin(e.latlng.lat, e.latlng.lng);
+    });
   }
 
-  const locInput = document.getElementById("location_text");
   const sugBox = document.getElementById("geo-suggestions");
   let geoTimer = null;
   if (locInput && sugBox) {

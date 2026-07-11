@@ -19,6 +19,15 @@
     submitBtn.disabled = inflight > 0;
     if (inflight > 0) submitBtn.textContent = "Uploading…";
     else submitBtn.textContent = "Submit & post to r/UFOs";
+    // guideline confirmations apply only when media is attached
+    const confirms = document.getElementById("media-confirms");
+    if (confirms) {
+      const hasMedia = media.length > 0;
+      confirms.hidden = !hasMedia;
+      confirms.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+        cb.required = hasMedia;
+      });
+    }
   }
 
   function renderRow(name, item, progressEl) {

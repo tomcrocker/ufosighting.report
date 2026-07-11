@@ -30,12 +30,13 @@
 
       <section class="step" data-step="1">
         <h1>Where did this sighting occur?</h1>
-        <p class="muted">Don't remember the exact address? The town or area is fine.</p>
+        <p class="muted">The town or area is fine — ideally within 20&nbsp;km of the spot
+          (the r/UFOs guideline). A whole country isn't precise enough to investigate.</p>
         <input name="location_text" id="location_text" required minlength="2" autocomplete="off"
-               placeholder="Search a place…" value="{{ values.location_text or '' }}">
+               placeholder="Search a town or area…" value="{{ values.location_text or '' }}">
         <div class="suggestions" id="geo-suggestions"></div>
         <div id="pinmap"></div>
-        <p class="muted">…or click the map to drop a pin where it happened.</p>
+        <p class="muted">…or click the map to drop a pin — we'll name the nearest town for you.</p>
         <label class="check">
           <input type="checkbox" id="obscure" name="location_obscured" value="1"
                  {% if values.location_obscured %}checked{% endif %}>
@@ -82,6 +83,22 @@
         <label>Your Reddit username <span class="muted">— we'll credit you (self-reported until you confirm)</span>
           <input name="reddit_username" required value="{{ values.reddit_username or '' }}"
                  placeholder="e.g. your_reddit_name" autocomplete="off">
+        </label>
+        <label>Why is this not a common object? <span class="muted">— one sentence is fine</span>
+          <textarea name="rule_out" required minlength="20" class="rule-out"
+                    placeholder="e.g. Checked FlightRadar24 — no aircraft in that direction; far too fast for a balloon.">{{ values.rule_out or '' }}</textarea>
+        </label>
+        <p class="muted">Rule out aircraft, drones, satellites/Starlink, planets and stars,
+          balloons, lanterns, birds, contrails, or rocket launches. Helpful checks:
+          <a href="https://www.flightradar24.com" target="_blank" rel="noopener">FlightRadar24</a>,
+          <a href="https://globe.adsbexchange.com" target="_blank" rel="noopener">ADS-B Exchange</a>,
+          <a href="https://stellarium-web.org" target="_blank" rel="noopener">Stellarium</a>,
+          <a href="https://www.heavens-above.com" target="_blank" rel="noopener">Heavens-Above</a>
+          — or browse <a href="/investigate" target="_blank">commonly misidentified objects</a>.</p>
+        <label class="check">
+          <input type="checkbox" name="confirm_eyewitness" value="1" required
+                 {% if values.confirm_eyewitness %}checked{% endif %}>
+          I saw this with my own eyes at the time — not something found later in photos or footage
         </label>
       </section>
 
@@ -130,6 +147,24 @@
         <input type="file" id="filepick" multiple hidden
                accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm">
         <div class="filelist" id="filelist"></div>
+        <div id="media-confirms" hidden>
+          <p class="muted">A few confirmations about your media (r/UFOs guidelines):</p>
+          <label class="check">
+            <input type="checkbox" name="confirm_no_fixed_cam" value="1"
+                   {% if values.confirm_no_fixed_cam %}checked{% endif %}>
+            This is not trail-camera or doorbell-camera footage
+          </label>
+          <label class="check">
+            <input type="checkbox" name="confirm_not_screen" value="1"
+                   {% if values.confirm_not_screen %}checked{% endif %}>
+            This is not a phone video of a TV or other display
+          </label>
+          <label class="check">
+            <input type="checkbox" name="confirm_in_focus" value="1"
+                   {% if values.confirm_in_focus %}checked{% endif %}>
+            The imagery is in focus most of the time
+          </label>
+        </div>
       </section>
 
       <section class="step" data-step="7">

@@ -233,3 +233,6 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .src-badge { display: inline-block; margin-top: 6px; font-size: .72rem; letter-spacing: .04em;
   color: var(--accent2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; }
 .src-note { font-size: .85rem; margin-top: 4px; }
+
+.archive-note { background: #1c2438; border: 1px solid var(--accent2); color: var(--text);
+  padding: 10px 14px; border-radius: var(--radius); font-size: .9rem; }

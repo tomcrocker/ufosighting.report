@@ -1,6 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
 <form class="filters" method="get" action="/">
+  <select name="sort" onchange="this.form.submit()">
+    <option value="new" {% if sort == 'new' %}selected{% endif %}>Newest</option>
+    <option value="old" {% if sort == 'old' %}selected{% endif %}>Oldest</option>
+    <option value="top" {% if sort == 'top' %}selected{% endif %}>Top</option>
+  </select>
+  {% if sort == 'top' %}
+  <select name="t" onchange="this.form.submit()">
+    {% for w in top_windows %}
+    <option value="{{ w }}" {% if w == t %}selected{% endif %}>
+      {%- if w == 'day' %}Past 24 hours{% elif w == 'all' %}All time{% else %}Past {{ w }}{% endif -%}
+    </option>
+    {% endfor %}
+  </select>
+  {% endif %}
   <select name="shape">
     <option value="">Any shape</option>
     {% for sh in shapes %}<option value="{{ sh }}" {% if sh == f.shape %}selected{% endif %}>{{ sh | capitalize }}</option>{% endfor %}

@@ -10,6 +10,16 @@
 {% endblock %}
 {% block content %}
 <h1>Sightings map</h1>
-<p class="muted">Only sightings submitted with a location pin appear here.</p>
+<p class="muted">Only sightings with a location pin appear here.</p>
+<form class="filters" id="map-filters" onsubmit="return false;">
+  <input type="date" name="from" id="map-from">
+  <input type="date" name="to" id="map-to">
+  <select name="shape" id="map-shape">
+    <option value="">Any shape</option>
+    {% for sh in shapes %}<option value="{{ sh }}">{{ sh | capitalize }}</option>{% endfor %}
+  </select>
+  <button class="btn" id="map-apply">Apply</button>
+  <button class="btn" id="map-clear" type="button">Clear</button>
+</form>
 <div id="map"></div>
 {% endblock %}

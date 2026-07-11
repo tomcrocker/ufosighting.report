@@ -40,14 +40,38 @@ def test_home_renders_live_sightings(client, app_db):
     assert "Bright orb over the lake" in r.text
 
 
-def test_home_hides_non_live(client, app_db):
+def test_home_hides_admin_hidden_and_pending(client, app_db):
     seed(app_db, title="Hidden report", status="hidden_by_admin")
-    seed(app_db, title="Removed report", status="removed_on_reddit")
     seed(app_db, title="Pending report", status="pending_post")
+    seed(app_db, title="Awaiting verify", status="pending_verify")
+    seed(app_db, title="Awaiting review", status="pending_review")
     r = client.get("/")
     assert "Hidden report" not in r.text
-    assert "Removed report" not in r.text
     assert "Pending report" not in r.text
+    assert "Awaiting verify" not in r.text
+    assert "Awaiting review" not in r.text
+
+
+def test_archive_keeps_deleted_and_removed_visible(client, app_db):
+    # archive philosophy: reddit removal/deletion is provenance, not visibility
+    d = seed(app_db, title="Author deleted sighting", status="deleted_by_user")
+    m = seed(app_db, title="Mod removed sighting", status="removed_on_reddit")
+    home = client.get("/").text
+    assert "Author deleted sighting" in home
+    assert "Mod removed sighting" in home
+    detail_d = client.get(f"/sighting/{d}").text
+    assert "deleted by its author" in detail_d and "preserved here" in detail_d
+    detail_m = client.get(f"/sighting/{m}").text
+    assert "removed on Reddit" in detail_m and "preserved here" in detail_m
+
+
+def test_pins_include_archived_and_accept_filters(client, app_db):
+    seed(app_db, title="Deleted pinned", status="deleted_by_user", lat=10.0, lon=10.0,
+         sighted_at="2026-07-01T05:00:00Z", shape="triangle")
+    seed(app_db, title="Out of range", status="live", lat=20.0, lon=20.0,
+         sighted_at="2026-01-01T05:00:00Z", shape="sphere")
+    pins = client.get("/api/pins?from=2026-06-01&shape=triangle").json()["pins"]
+    assert len(pins) == 1 and pins[0]["title"] == "Deleted pinned"
 
 
 def test_shape_filter(client, app_db):
@@ -146,3 +170,33 @@ def test_detail_reddit_note(client, app_db):
     sid = seed(app_db, title="Ingested detail", source="reddit", reddit_post_id="zz2")
     r = client.get(f"/sighting/{sid}")
     assert "auto-extracted" in r.text.lower()
+
+
+def test_sort_default_newest_first(client, app_db):
+    seed(app_db, title="Older entry", sighted_at="2026-06-01T05:00:00Z")
+    seed(app_db, title="Newer entry", sighted_at="2026-07-05T05:00:00Z")
+    text = client.get("/").text
+    assert text.index("Newer entry") < text.index("Older entry")
+
+
+def test_sort_oldest_first(client, app_db):
+    seed(app_db, title="Older entry", sighted_at="2026-06-01T05:00:00Z")
+    seed(app_db, title="Newer entry", sighted_at="2026-07-05T05:00:00Z")
+    text = client.get("/?sort=old").text
+    assert text.index("Older entry") < text.index("Newer entry")
+
+
+def test_sort_top_by_score(client, app_db):
+    seed(app_db, title="Low score entry", reddit_score=3, sighted_at="2026-07-05T05:00:00Z")
+    seed(app_db, title="High score entry", reddit_score=99, sighted_at="2026-06-01T05:00:00Z")
+    text = client.get("/?sort=top&t=all").text
+    assert text.index("High score entry") < text.index("Low score entry")
+
+
+def test_sort_top_time_window(client, app_db):
+    # sighted long ago — excluded from top past week
+    seed(app_db, title="Ancient banger", reddit_score=999, sighted_at="2020-01-01T00:00:00Z")
+    seed(app_db, title="Recent modest", reddit_score=5,
+         sighted_at=__import__("datetime").datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"))
+    text = client.get("/?sort=top&t=week").text
+    assert "Recent modest" in text and "Ancient banger" not in text

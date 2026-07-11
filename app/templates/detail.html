@@ -29,6 +29,11 @@
     <div class="noimg" style="aspect-ratio: 16/9; border-radius: 10px;">&#128065;&#65039; No media captured</div>
     {% endif %}
     <h1>{{ s.title }}</h1>
+    {% if s.status == 'deleted_by_user' %}
+    <p class="flash archive-note">The original Reddit post was deleted by its author — this sighting is preserved here as an archive.</p>
+    {% elif s.status == 'removed_on_reddit' %}
+    <p class="flash archive-note">The original Reddit post was removed on Reddit — this sighting is preserved here as an archive.</p>
+    {% endif %}
     {% if s.source == 'reddit' %}
     <p class="muted src-note">Details auto-extracted from the original
       {% if reddit_url %}<a href="{{ reddit_url }}">Reddit post</a>{% else %}Reddit post{% endif %}.</p>

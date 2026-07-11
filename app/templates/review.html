@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Review queue — ufosighting.report{% endblock %}
+{% block content %}
+<h1>Review queue</h1>
+<p class="muted">Unverified submissions awaiting approval. Approving posts them to the subreddit as ufosightingsbot, crediting the reporter as self-reported.</p>
+{% for s in rows %}
+<article class="panel" style="margin-bottom:16px">
+  <h3>{{ s.title }}</h3>
+  <p class="muted">u/{{ s.reddit_username }} · {{ s.sighted_at[:10] }} · {{ s.location_text }}{% if s.country %}, {{ s.country }}{% endif %}{% if s.shape %} · {{ s.shape }}{% endif %}</p>
+  <p style="white-space:pre-line">{{ s.description }}</p>
+  {% if media[s.id] %}
+  <div class="thumbstrip">
+    {% for m in media[s.id] %}<img src="{{ media_url(m.thumb_key or m.r2_key) }}" alt="">{% endfor %}
+  </div>
+  {% endif %}
+  <div style="display:flex; gap:10px; margin-top:12px">
+    <form method="post" action="/admin/review/{{ s.id }}/approve">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn primary">Approve &amp; post</button>
+    </form>
+    <form method="post" action="/admin/review/{{ s.id }}/reject">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="btn danger">Reject</button>
+    </form>
+  </div>
+</article>
+{% else %}
+<p class="empty">Queue is empty.</p>
+{% endfor %}
+{% endblock %}

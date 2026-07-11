@@ -2,6 +2,7 @@
 {% block title %}Admin — ufosighting.report{% endblock %}
 {% block content %}
 <h1>Admin</h1>
+<p><a class="btn {% if pending %}primary{% endif %}" href="/admin/review">Review queue{% if pending %} ({{ pending }}){% endif %}</a></p>
 <h2>Non-live entries (latest 100)</h2>
 <table class="admin">
   <tr><th>ID</th><th>Title</th><th>By</th><th>Status</th><th>Created</th><th></th></tr>

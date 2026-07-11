@@ -29,6 +29,7 @@
     <a href="/" {% if request.url.path == '/' %}class="active"{% endif %}>Gallery</a>
     <a href="/map" {% if request.url.path == '/map' %}class="active"{% endif %}>Map</a>
     <a href="/search" {% if request.url.path == '/search' %}class="active"{% endif %}>Search</a>
+    <a href="/investigate" {% if request.url.path == '/investigate' %}class="active"{% endif %}>Investigate</a>
     <a class="btn primary" href="/submit">Report a sighting</a>
     {% if user %}
       <span class="whoami">u/{{ user.username }}</span>
@@ -59,6 +60,7 @@
         <a href="/">Gallery</a>
         <a href="/map">Sightings map</a>
         <a href="/search">Search</a>
+        <a href="/investigate">Investigate a sighting</a>
       </div>
       <div>
         <h4>Contribute</h4>

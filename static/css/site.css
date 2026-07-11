@@ -401,3 +401,20 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .comment-meta { display: flex; gap: 12px; align-items: baseline; font-size: 0.85rem; margin-bottom: 4px; }
 .comment-meta .score { color: var(--accent); font-weight: 600; }
 .comment-meta .muted { opacity: 0.65; }
+
+/* --- /investigate: commonly misidentified objects (adapted from ufos.wiki) --- */
+.inv-resources { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 18px; }
+.inv-resources h2 { margin: 0 0 8px; font-size: .72rem; letter-spacing: .18em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.inv-resources ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.inv-resources li { font-size: .9rem; color: var(--muted); }
+.inv-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.inv-controls input[type="search"] {
+  background: var(--bg2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 12px; font: inherit; flex: 1 1 200px; max-width: 320px;
+}
+.inv-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.inv-card .inv-cats { margin: 0 0 6px; }
+.inv-tag { display: inline-block; margin: 0 6px 4px 0; font-size: .7rem; letter-spacing: .04em; color: var(--accent2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; }
+/* teasers are truncated upstream; clamp uniformly so the browser adds the ellipsis */
+.inv-teaser { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.inv-more { display: inline-block; margin-top: 8px; font-size: .85rem; color: var(--accent); }

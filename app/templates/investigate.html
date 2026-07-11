@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Investigate a sighting — ufosighting.report{% endblock %}
+{% block content %}
+<section class="intro">
+  <h1>Investigate a sighting</h1>
+  <p>Roughly 90% of UFO reports turn out to have conventional explanations. Before
+     concluding anything exotic — or <a href="/submit">submitting a report</a> —
+     eliminate the common and mundane objects below. Adapted from
+     <a href="https://ufos.wiki/investigate/" target="_blank" rel="noopener">ufos.wiki/investigate</a>.</p>
+</section>
+
+<section class="inv-resources">
+  <h2>Check before you report</h2>
+  <ul>
+    <li><a href="https://www.flightradar24.com" target="_blank" rel="noopener">FlightRadar24</a> — live aircraft over your location at the time of the sighting</li>
+    <li><a href="https://globe.adsbexchange.com" target="_blank" rel="noopener">ADS-B Exchange</a> — unfiltered aircraft tracking, including military traffic</li>
+    <li><a href="https://stellarium-web.org" target="_blank" rel="noopener">Stellarium</a> — which satellites, planets, and stars were in that part of the sky</li>
+    <li><a href="https://www.heavens-above.com" target="_blank" rel="noopener">Heavens-Above</a> — satellite passes for your location, including Starlink trains and the ISS</li>
+  </ul>
+</section>
+
+<div class="inv-controls">
+  <input type="search" id="inv-q" placeholder="Search objects&hellip;" aria-label="Search objects">
+  <div class="inv-chips" id="inv-chips">
+    <button type="button" class="chip on" data-cat="">All</button>
+    {% for c in categories %}
+    <button type="button" class="chip" data-cat="{{ c }}">{{ c }}</button>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid" id="inv-grid">
+  {% for e in entries %}
+  <div class="card inv-card" data-cats="{{ e.categories | join('|') }}">
+    {% if e.image %}<img loading="lazy" src="/static/investigate/{{ e.image }}" alt="{{ e.title }}">
+    {% else %}<div class="noimg">&#128760;</div>{% endif %}
+    <div class="meta">
+      <h3>{{ e.title }}</h3>
+      <p class="inv-cats">{% for c in e.categories %}<span class="inv-tag">{{ c }}</span>{% endfor %}</p>
+      <p class="inv-teaser">{{ e.teaser }}</p>
+      <a class="inv-more" href="{{ e.source_url }}" target="_blank" rel="noopener">Read more &rsaquo;</a>
+    </div>
+  </div>
+  {% endfor %}
+  <p class="empty" id="inv-empty" hidden>No objects match your filter.</p>
+</div>
+
+<script>
+(function () {
+  var q = document.getElementById('inv-q');
+  var chips = document.querySelectorAll('#inv-chips .chip');
+  var cards = document.querySelectorAll('#inv-grid .inv-card');
+  var empty = document.getElementById('inv-empty');
+  var cat = '';
+  function apply() {
+    var term = q.value.trim().toLowerCase();
+    var shown = 0;
+    cards.forEach(function (card) {
+      var okCat = !cat || card.dataset.cats.split('|').indexOf(cat) !== -1;
+      var okTerm = !term || card.textContent.toLowerCase().indexOf(term) !== -1;
+      card.hidden = !(okCat && okTerm);
+      if (!card.hidden) shown++;
+    });
+    empty.hidden = shown > 0;
+  }
+  chips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      chips.forEach(function (c) { c.classList.remove('on'); });
+      chip.classList.add('on');
+      cat = chip.dataset.cat;
+      apply();
+    });
+  });
+  q.addEventListener('input', apply);
+})();
+</script>
+{% endblock %}

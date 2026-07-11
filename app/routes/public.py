@@ -7,6 +7,7 @@ from fastapi.responses import PlainTextResponse, Response
 
 from app import auth, db, helpers, r2, search as meili
 from app.config import get_settings
+from app.investigate_data import ENTRIES as INVESTIGATE_ENTRIES
 from app.web import current_user, is_admin, templates
 
 router = APIRouter()
@@ -215,6 +216,15 @@ def map_page(request: Request, user=Depends(current_user)):
     )
 
 
+@router.get("/investigate")
+def investigate(request: Request, user=Depends(current_user)):
+    categories = sorted({c for e in INVESTIGATE_ENTRIES for c in e["categories"]})
+    return templates.TemplateResponse(
+        request, "investigate.html",
+        {"user": user, "entries": INVESTIGATE_ENTRIES, "categories": categories},
+    )
+
+
 @router.get("/api/pins")
 def pins(
     shape: str = "",
@@ -309,7 +319,7 @@ def search(
 @router.get("/sitemap.xml")
 def sitemap(conn=Depends(db.get_db)):
     base = get_settings().base_url
-    urls = [f"{base}/", f"{base}/map", f"{base}/search"]
+    urls = [f"{base}/", f"{base}/map", f"{base}/search", f"{base}/investigate"]
     for r in conn.execute(
         f"SELECT id, title FROM sightings WHERE status IN {PUBLIC_STATUSES_SQL} ORDER BY id"
     ):

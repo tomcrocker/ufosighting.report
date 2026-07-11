@@ -12,15 +12,17 @@ gallery entries, approved posts bring them back. hidden_by_admin is site-side
 state and is never auto-changed.
 """
 import sys
+import time
 
-from app import db, reddit, search, verify
+from app import comments, db, reddit, search, verify
 from app.config import get_settings
 
 HOT_WINDOW_HOURS = 72
 FULL_WINDOW_HOURS = 30 * 24
 
 
-def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS) -> dict:
+def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
+              comment_sleep=time.sleep) -> dict:
     rows = conn.execute(
         """SELECT id, reddit_post_id, status FROM sightings
            WHERE reddit_post_id IS NOT NULL
@@ -29,10 +31,11 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS) -> dict:
         (f"-{window_hours} hours",),
     ).fetchall()
     if not rows:
-        return {"checked": 0, "updated": 0}
+        return {"checked": 0, "updated": 0, "comments": 0}
     infos = reddit.fetch_posts_info([r["reddit_post_id"] for r in rows])
     updated = 0
     touched = []
+    live_rows = []
     for r in rows:
         info = infos.get(r["reddit_post_id"])
         if info is None:
@@ -43,11 +46,26 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS) -> dict:
             (info.score, info.num_comments, new_status, r["id"]),
         )
         touched.append(r["id"])
+        if new_status == "live":
+            live_rows.append((r["id"], r["reddit_post_id"]))
         if new_status != r["status"]:
             updated += 1
     conn.commit()
     search.index_sightings(conn, touched)
-    return {"checked": len(rows), "updated": updated}
+    # Top-comments refresh rides along for still-live posts only — removed or
+    # deleted posts keep their last-fetched comments as part of the archive.
+    refreshed = 0
+    try:
+        if live_rows:
+            token = reddit.script_token()
+            for i, (sid, pid) in enumerate(live_rows):
+                if comments.refresh_for_sighting(conn, token, sid, pid):
+                    refreshed += 1
+                if i < len(live_rows) - 1:
+                    comment_sleep(1)
+    except reddit.RedditError as exc:
+        print(f"comment refresh skipped: {exc}")
+    return {"checked": len(rows), "updated": updated, "comments": refreshed}
 
 
 def main(full: bool = False) -> None:
@@ -59,7 +77,8 @@ def main(full: bool = False) -> None:
         swept = verify.sweep_pending_verify(conn, s.verify_window_hours)
         tier = "full" if full else "hot"
         print(f"sync[{tier}]: checked={result['checked']} "
-              f"status_changes={result['updated']} swept={swept}")
+              f"status_changes={result['updated']} "
+              f"comments={result.get('comments', 0)} swept={swept}")
     finally:
         conn.close()
 

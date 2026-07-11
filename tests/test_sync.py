@@ -17,6 +17,10 @@ def _fake_infos(monkeypatch, infos: dict):
         sync.reddit, "fetch_posts_info",
         lambda post_ids: {pid: infos[pid] for pid in post_ids if pid in infos},
     )
+    # keep the piggybacked comment refresh off the network in unit tests
+    monkeypatch.setattr(sync.reddit, "script_token", lambda: "tok")
+    monkeypatch.setattr(sync.comments, "refresh_for_sighting",
+                        lambda conn, tok, sid, pid: 0)
 
 
 def test_removed_post_hides_entry(db_conn, monkeypatch):
@@ -25,7 +29,7 @@ def test_removed_post_hides_entry(db_conn, monkeypatch):
     result = sync.sync_once(db_conn)
     row = db_conn.execute("SELECT * FROM sightings WHERE id=?", (sid,)).fetchone()
     assert row["status"] == "removed_on_reddit"
-    assert result == {"checked": 1, "updated": 1}
+    assert result == {"checked": 1, "updated": 1, "comments": 0}
 
 
 def test_approved_post_flips_back_to_live(db_conn, monkeypatch):
@@ -68,7 +72,7 @@ def test_pending_post_never_touched(db_conn, monkeypatch):
 def test_score_refresh_counts_as_checked_not_updated(db_conn, monkeypatch):
     _seed(db_conn, "fff", "live")
     _fake_infos(monkeypatch, {"fff": reddit.PostInfo(None, 99, 10)})
-    assert sync.sync_once(db_conn) == {"checked": 1, "updated": 0}
+    assert sync.sync_once(db_conn) == {"checked": 1, "updated": 0, "comments": 0}
 
 
 def test_missing_info_is_skipped(db_conn, monkeypatch):
@@ -77,14 +81,14 @@ def test_missing_info_is_skipped(db_conn, monkeypatch):
     result = sync.sync_once(db_conn)
     row = db_conn.execute("SELECT status FROM sightings WHERE id=?", (sid,)).fetchone()
     assert row["status"] == "live"
-    assert result == {"checked": 1, "updated": 0}
+    assert result == {"checked": 1, "updated": 0, "comments": 0}
 
 
 def test_main_runs_sweep(db_conn, monkeypatch):
     import sync
     called = {}
     monkeypatch.setattr(sync.verify, "sweep_pending_verify", lambda conn, w: called.setdefault("w", w) or 0)
-    monkeypatch.setattr(sync, "sync_once", lambda conn, **kw: {"checked": 0, "updated": 0})
+    monkeypatch.setattr(sync, "sync_once", lambda conn, **kw: {"checked": 0, "updated": 0, "comments": 0})
     monkeypatch.setattr(sync.db, "connect", lambda p: db_conn)
     sync.main()  # closes db_conn; fixture teardown double-close is harmless on sqlite
     assert called["w"] == 6
@@ -104,3 +108,28 @@ def test_sync_hot_window_excludes_old_posts(db_conn, monkeypatch):
     checked.clear()
     sync.sync_once(db_conn, window_hours=30 * 24)
     assert sorted(checked) == ["new1", "old1"]
+
+
+def test_sync_refreshes_comments_for_live_only(db_conn, monkeypatch):
+    _seed(db_conn, "aaa", "live")
+    _seed(db_conn, "bbb", "live")  # becomes removed during this sync
+    _fake_infos(monkeypatch, {"aaa": reddit.PostInfo(None, 5, 2),
+                              "bbb": reddit.PostInfo("moderator", 1, 0)})
+    refreshed = []
+    monkeypatch.setattr(sync.comments, "refresh_for_sighting",
+                        lambda conn, tok, sid, pid: refreshed.append(pid) or 3)
+    result = sync.sync_once(db_conn, comment_sleep=lambda s: None)
+    assert refreshed == ["aaa"]
+    assert result["comments"] == 1
+
+
+def test_sync_survives_token_failure_in_comment_pass(db_conn, monkeypatch):
+    _seed(db_conn, "aaa", "live")
+    _fake_infos(monkeypatch, {"aaa": reddit.PostInfo(None, 5, 2)})
+
+    def no_token():
+        raise sync.reddit.RedditError("script token failed: HTTP 200")
+
+    monkeypatch.setattr(sync.reddit, "script_token", no_token)
+    result = sync.sync_once(db_conn, comment_sleep=lambda s: None)
+    assert result == {"checked": 1, "updated": 0, "comments": 0}

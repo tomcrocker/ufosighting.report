@@ -53,7 +53,10 @@ def test_ingest_post_populates_extracted_fields(db_conn, monkeypatch):
     row = db_conn.execute("SELECT * FROM sightings WHERE reddit_post_id='p1'").fetchone()
     assert row["source"] == "reddit" and row["status"] == "live"
     assert row["reddit_username"] == "witness9"
-    assert row["shape"] == "sphere" and row["num_objects"] == "2"
+    # shape/num_objects/duration are NOT persisted for ingested posts — only
+    # the witness-stated wizard fills those; extraction covers date/time/place
+    assert row["shape"] is None and row["num_objects"] is None
+    assert row["duration_seconds"] is None
     assert row["lat"] == 49.15 and row["country"] == "Canada"
     assert row["sighted_at"] == "2026-07-02T05:15:00Z"
 

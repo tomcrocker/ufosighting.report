@@ -4,17 +4,31 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}UFO Sighting Reports — ufosighting.report{% endblock %}</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128065;</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128760;</text></svg>">
   <link rel="stylesheet" href="/static/css/site.css">
   {% block head %}{% endblock %}
 </head>
 <body>
 <header class="site-header">
-  <a class="brand" href="/">&#128065;&#65039; ufosighting<span>.report</span></a>
+  <a class="brand" href="/">
+    <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <polygon class="beam" points="12,15 20,15 24,30 8,30" fill="url(#beamgrad)"/>
+      <defs><linearGradient id="beamgrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#6ee7a0" stop-opacity=".55"/>
+        <stop offset="100%" stop-color="#6ee7a0" stop-opacity="0"/>
+      </linearGradient></defs>
+      <ellipse cx="16" cy="10" rx="6" ry="4.5" fill="#233350" stroke="#7aa2ff" stroke-width="1.4"/>
+      <ellipse cx="16" cy="13" rx="12" ry="4" fill="#171d2e" stroke="#6ee7a0" stroke-width="1.6"/>
+      <circle cx="9" cy="14" r="1.1" fill="#6ee7a0"/>
+      <circle cx="16" cy="15" r="1.1" fill="#7aa2ff"/>
+      <circle cx="23" cy="14" r="1.1" fill="#6ee7a0"/>
+    </svg>
+    <span class="brand-word">ufosighting<span>.report</span></span>
+  </a>
   <nav>
-    <a href="/">Gallery</a>
-    <a href="/map">Map</a>
-    <a href="/search">Search</a>
+    <a href="/" {% if request.url.path == '/' %}class="active"{% endif %}>Gallery</a>
+    <a href="/map" {% if request.url.path == '/map' %}class="active"{% endif %}>Map</a>
+    <a href="/search" {% if request.url.path == '/search' %}class="active"{% endif %}>Search</a>
     <a class="btn primary" href="/submit">Report a sighting</a>
     {% if user %}
       <span class="whoami">u/{{ user.username }}</span>
@@ -26,7 +40,40 @@
 {% block content %}{% endblock %}
 </main>
 <footer class="site-footer">
-  <p>Sighting reports from the <a href="https://www.reddit.com/r/UFOs/">r/UFOs</a> community.</p>
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <ellipse cx="16" cy="10" rx="6" ry="4.5" fill="#233350" stroke="#7aa2ff" stroke-width="1.4"/>
+        <ellipse cx="16" cy="13" rx="12" ry="4" fill="#171d2e" stroke="#6ee7a0" stroke-width="1.6"/>
+        <circle cx="9" cy="14" r="1.1" fill="#6ee7a0"/>
+        <circle cx="16" cy="15" r="1.1" fill="#7aa2ff"/>
+        <circle cx="23" cy="14" r="1.1" fill="#6ee7a0"/>
+      </svg>
+      <p>A community archive of UFO sightings — reported here or on
+         <a href="https://www.reddit.com/r/UFOs/">r/UFOs</a>, preserved with their
+         media, location, and time even if the original post disappears.</p>
+    </div>
+    <div class="footer-links">
+      <div>
+        <h4>Explore</h4>
+        <a href="/">Gallery</a>
+        <a href="/map">Sightings map</a>
+        <a href="/search">Search</a>
+      </div>
+      <div>
+        <h4>Contribute</h4>
+        <a href="/submit">Report a sighting</a>
+      </div>
+      <div>
+        <h4>Community</h4>
+        <a href="https://www.reddit.com/r/UFOs/">r/UFOs on Reddit</a>
+        <a href="https://ufos.wiki/">ufos.wiki</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-base">
+    <p>Run by the r/UFOs moderation team.</p>
+  </div>
 </footer>
 </body>
 </html>

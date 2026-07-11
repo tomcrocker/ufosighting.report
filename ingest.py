@@ -202,31 +202,41 @@ def ingest_post(conn, post: dict, token=None) -> bool:
     city = (coords or {}).get("city") or clamped.get("city")
     country = (coords or {}).get("country") or clamped.get("country")
 
+    # Media BEFORE the row, then one commit for row+media: an interruption
+    # mid-download leaves no row behind, so the next run retries the post
+    # instead of dedup permanently skipping a media-less entry.
+    try:
+        media_items = download_media(post)
+    except Exception as exc:
+        print(f"ingest media for {pid} failed: {exc}")
+        media_items = []
+
+    # Only date/time/location are trustworthy from free-text posts — richer
+    # structured fields (shape, object count, duration) are reserved for the
+    # site's own submission wizard where the witness states them directly.
     cur = conn.execute(
         """INSERT INTO sightings
              (source, reddit_username, title, description, sighted_at, tz_name,
-              shape, num_objects, duration_seconds, location_text, city, country,
+              location_text, city, country,
               lat, lon, reddit_post_id, reddit_score, reddit_num_comments, status)
-           VALUES ('reddit',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'live')""",
+           VALUES ('reddit',?,?,?,?,?,?,?,?,?,?,?,?,?, 'live')""",
         (post.get("author") or "unknown", title, description, sighted_at, tz_name,
-         clamped.get("shape"), clamped.get("num_objects"), clamped.get("duration_seconds"),
          clamped.get("location_text") or "", city, country,
          (coords or {}).get("lat"), (coords or {}).get("lon"), pid,
          int(post.get("score") or 0), int(post.get("num_comments") or 0)),
     )
     sid = cur.lastrowid
-    conn.commit()
     try:
-        for i, (data, ct, ext) in enumerate(download_media(post)):
+        for i, (data, ct, ext) in enumerate(media_items):
             now = datetime.now(timezone.utc)
             key = f"uploads/{now:%Y}/{now:%m}/{uuid.uuid4().hex}{ext}"
             r2.put_bytes(key, data, ct)
             kind = "video" if ct.startswith("video/") else "image"
             conn.execute("INSERT INTO media (sighting_id, r2_key, kind, sort_order) "
                          "VALUES (?,?,?,?)", (sid, key, kind, i))
-        conn.commit()
     except Exception as exc:
-        print(f"ingest media for {pid} failed: {exc}")
+        print(f"ingest media upload for {pid} failed: {exc}")
+    conn.commit()
     return True
 
 

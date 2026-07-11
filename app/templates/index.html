@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
+<section class="intro">
+  <h1>UFO sightings, on the record</h1>
+  <p>This is the sighting archive of <a href="https://www.reddit.com/r/UFOs/">r/UFOs</a> —
+     every sighting reported through this site or posted to the subreddit, preserved with
+     its media, location, and time. Browse the gallery, explore the
+     <a href="/map">map</a>, or <a href="/submit">report what you saw</a>.</p>
+</section>
 <form class="filters" method="get" action="/">
   <select name="sort" onchange="this.form.submit()">
     <option value="new" {% if sort == 'new' %}selected{% endif %}>Newest</option>

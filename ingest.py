@@ -1,6 +1,7 @@
 """Ingest Sighting-flaired posts from the subreddit into the gallery.
 Run by ufosighting-ingest.timer; `--backfill` walks history once."""
 import sys
+import time
 import uuid
 from datetime import datetime, timezone
 
@@ -10,6 +11,9 @@ from app import db, r2, reddit
 from app.config import get_settings
 
 ISO = "%Y-%m-%dT%H:%M:%SZ"
+# The script app is SHARED with ufosarchive's realtime collector, so throttle
+# the backfill's page walk to stay well clear of Reddit's 100 QPM per-client cap.
+BACKFILL_PAGE_SLEEP_SECONDS = 3
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp", ".gif")
 CT_EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
 
@@ -88,6 +92,7 @@ def main(backfill: bool = False) -> None:
                 total += sum(1 for p in posts if ingest_post(conn, p))
                 if not after:
                     break
+                time.sleep(BACKFILL_PAGE_SLEEP_SECONDS)  # shared script app — stay under Reddit's cap
             print(f"ingest backfill: added={total}")
         else:
             print("ingest:", ingest_once(conn))

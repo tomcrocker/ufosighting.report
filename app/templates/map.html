@@ -3,23 +3,26 @@
 {% block head %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script defer src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script defer src="/static/js/bases.js?v={{ static_v }}"></script>
 <script defer src="/static/js/map.js?v={{ static_v }}"></script>
+<style>body { overflow: hidden; }</style>
 {% endblock %}
 {% block content %}
-<h1>Sightings map</h1>
-<p class="muted">Only sightings with a location pin appear here.</p>
-<form class="filters" id="map-filters" onsubmit="return false;">
-  <input type="date" name="from" id="map-from">
-  <input type="date" name="to" id="map-to">
-  <select name="shape" id="map-shape">
-    <option value="">Any shape</option>
-    {% for sh in shapes %}<option value="{{ sh }}">{{ sh | capitalize }}</option>{% endfor %}
-  </select>
-  <button class="btn" id="map-apply">Apply</button>
-  <button class="btn" id="map-clear" type="button">Clear</button>
-</form>
-<div id="map"></div>
+<div class="fullmap-wrap">
+  <div id="map"></div>
+  <div class="fullmap-header">
+    <div class="map-count-badge"><strong id="map-count">…</strong> sightings</div>
+    <a class="map-back-btn" href="/">&lsaquo; Back to Gallery</a>
+  </div>
+  <div class="map-legend">
+    <div class="legend-title">Map Legend</div>
+    <div class="legend-item"><span class="legend-dot sighting"></span> UFO Sighting</div>
+    <div class="legend-item"><span class="legend-dot base"></span> Military Base</div>
+    <div class="legend-item"><span class="legend-dot special"></span> Key Location</div>
+    <label class="legend-toggle"><input type="checkbox" id="bases-toggle" checked> Show Military Bases</label>
+  </div>
+</div>
 {% endblock %}

@@ -1,6 +1,6 @@
 import json
 
-from app import helpers, r2, reddit
+from app import helpers, r2, reddit, search
 from app.config import get_settings
 
 
@@ -42,4 +42,5 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
         (post_id, 1 if verified else row["username_verified"], sighting_id),
     )
     conn.commit()
+    search.index_sightings(conn, [sighting_id])
     return post_id

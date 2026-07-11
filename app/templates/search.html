@@ -3,11 +3,35 @@
 {% block content %}
 <form class="filters" method="get" action="/search">
   <input name="q" value="{{ q }}" placeholder="Search titles, stories, locations…" style="flex:1; min-width: 260px;">
+  <select name="shape">
+    <option value="">Any shape</option>
+    {% for sh in shapes %}
+    <option value="{{ sh }}" {% if sh == f.shape %}selected{% endif %}>
+      {{ sh | capitalize }}{% if facets.get('shape', {}).get(sh) %} ({{ facets['shape'][sh] }}){% endif %}
+    </option>
+    {% endfor %}
+  </select>
+  <select name="country">
+    <option value="">Any country</option>
+    {% for c, n in (facets.get('country', {}) | dictsort) %}
+    <option value="{{ c }}" {% if c == f.country %}selected{% endif %}>{{ c }} ({{ n }})</option>
+    {% endfor %}
+    {% if f.country and f.country not in facets.get('country', {}) %}
+    <option value="{{ f.country }}" selected>{{ f.country }}</option>
+    {% endif %}
+  </select>
+  <select name="src">
+    <option value="">Any source</option>
+    <option value="site" {% if f.src == 'site' %}selected{% endif %}>Submitted here{% if facets.get('source', {}).get('site') %} ({{ facets['source']['site'] }}){% endif %}</option>
+    <option value="reddit" {% if f.src == 'reddit' %}selected{% endif %}>From r/UFOs{% if facets.get('source', {}).get('reddit') %} ({{ facets['source']['reddit'] }}){% endif %}</option>
+  </select>
+  <input type="date" name="from" value="{{ f['from'] }}">
+  <input type="date" name="to" value="{{ f['to'] }}">
   <button class="btn primary">Search</button>
 </form>
-{% if q %}
+{% if q or f.shape or f.country or f.src or f['from'] or f['to'] %}
   {% include "_cards.html" %}
 {% else %}
-  <p class="empty">Type a query to search all sighting reports.</p>
+  <p class="empty">Type a query or pick a filter to search all sighting reports.</p>
 {% endif %}
 {% endblock %}

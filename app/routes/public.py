@@ -248,9 +248,35 @@ def pins(
 
 
 @router.get("/search")
-def search(request: Request, q: str = "", conn=Depends(db.get_db), user=Depends(current_user)):
-    results = []
+def search(
+    request: Request,
+    q: str = "",
+    shape: str = "",
+    country: str = "",
+    src: str = "",
+    date_from: str = Query("", alias="from"),
+    date_to: str = Query("", alias="to"),
+    conn=Depends(db.get_db),
+    user=Depends(current_user),
+):
     query = q.strip()
+    hit = None
+    if query or shape or country or src or date_from or date_to:
+        hit = meili.search_ids(
+            q=query, shape=shape or None, country=country or None,
+            source=src or None, date_from=date_from or None, date_to=date_to or None,
+            page=1, per_page=60, facets=("shape", "country", "source"),
+        )
+    if hit is not None:
+        return templates.TemplateResponse(
+            request, "search.html",
+            {"user": user, "q": q, "cards": hydrate_cards(conn, hit["ids"]),
+             "facets": hit["facets"], "shapes": helpers.SHAPES,
+             "f": {"shape": shape, "country": country, "src": src,
+                   "from": date_from, "to": date_to}},
+        )
+    # FTS5 fallback (meili disabled or down) — query box only, no facet counts
+    results = []
     if query:
         match = " ".join('"' + term.replace('"', "") + '"' for term in query.split())
         rows = conn.execute(
@@ -267,7 +293,11 @@ def search(request: Request, q: str = "", conn=Depends(db.get_db), user=Depends(
         ).fetchall()
         results = [card(r) for r in rows]
     return templates.TemplateResponse(
-        request, "search.html", {"user": user, "q": q, "cards": results}
+        request, "search.html",
+        {"user": user, "q": q, "cards": results, "facets": {},
+         "shapes": helpers.SHAPES,
+         "f": {"shape": shape, "country": country, "src": src,
+               "from": date_from, "to": date_to}},
     )
 
 

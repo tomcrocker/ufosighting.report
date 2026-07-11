@@ -13,7 +13,7 @@ state and is never auto-changed.
 """
 import sys
 
-from app import db, reddit, verify
+from app import db, reddit, search, verify
 from app.config import get_settings
 
 HOT_WINDOW_HOURS = 72
@@ -32,6 +32,7 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS) -> dict:
         return {"checked": 0, "updated": 0}
     infos = reddit.fetch_posts_info([r["reddit_post_id"] for r in rows])
     updated = 0
+    touched = []
     for r in rows:
         info = infos.get(r["reddit_post_id"])
         if info is None:
@@ -41,9 +42,11 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS) -> dict:
             "UPDATE sightings SET reddit_score=?, reddit_num_comments=?, status=? WHERE id=?",
             (info.score, info.num_comments, new_status, r["id"]),
         )
+        touched.append(r["id"])
         if new_status != r["status"]:
             updated += 1
     conn.commit()
+    search.index_sightings(conn, touched)
     return {"checked": len(rows), "updated": updated}
 
 

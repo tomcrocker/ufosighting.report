@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from app import db, extract, geocode, helpers, r2, reddit
+from app import db, extract, geocode, helpers, r2, reddit, search
 from app.config import get_settings
 
 ISO = "%Y-%m-%dT%H:%M:%SZ"
@@ -237,6 +237,7 @@ def ingest_post(conn, post: dict, token=None) -> bool:
     except Exception as exc:
         print(f"ingest media upload for {pid} failed: {exc}")
     conn.commit()
+    search.index_sightings(conn, [sid])
     return True
 
 

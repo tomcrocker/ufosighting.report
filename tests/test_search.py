@@ -123,3 +123,42 @@ def test_pins_pass_has_geo(client, app_db, monkeypatch):
     assert len(pins) == 1
     body = json.loads(route.calls[0].request.content)
     assert "has_geo = true" in body["filter"]
+
+
+@respx.mock
+def test_search_page_renders_facets(client, app_db, monkeypatch):
+    _enable(monkeypatch)
+    sid = seed(app_db, title="Faceted orb result")
+    respx.post(f"{MEILI}/indexes/sightings/search").mock(
+        return_value=httpx.Response(200, json={
+            "hits": [{"id": sid}], "estimatedTotalHits": 1,
+            "facetDistribution": {"shape": {"sphere": 4},
+                                  "country": {"Canada": 3},
+                                  "source": {"reddit": 5}}}))
+    r = client.get("/search?q=orb")
+    assert r.status_code == 200
+    assert "Faceted orb result" in r.text
+    assert "Canada (3)" in r.text and "(5)" in r.text
+
+
+def test_search_page_fallback_fts(client, app_db):
+    # meili disabled -> FTS5 path still works
+    seed(app_db, title="Fallback triangle result",
+         description="A triangle over the bay " * 10)
+    r = client.get("/search?q=triangle")
+    assert "Fallback triangle result" in r.text
+
+
+@respx.mock
+def test_admin_hide_deletes_from_index(client, app_db, monkeypatch):
+    _enable(monkeypatch)
+    from app import auth
+    sid = seed(app_db)
+    admin_sid = auth.create_session(app_db, "tmosh", "tok", 3600)
+    client.cookies.set("sid", admin_sid)
+    dele = respx.post(f"{MEILI}/indexes/sightings/documents/delete-batch").mock(
+        return_value=httpx.Response(202, json={"taskUid": 9}))
+    client.post(f"/admin/sighting/{sid}/action",
+                data={"csrf_token": auth.csrf_for(admin_sid), "action": "hide"},
+                follow_redirects=False)
+    assert dele.called

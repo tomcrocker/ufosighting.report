@@ -3,7 +3,7 @@ import hmac
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from app import auth, db, posting
+from app import auth, db, posting, search
 from app.web import require_admin, templates
 
 router = APIRouter()
@@ -80,6 +80,7 @@ async def review_reject(request: Request, sighting_id: int,
         raise HTTPException(status_code=403, detail="Bad CSRF token")
     conn.execute("UPDATE sightings SET status='rejected' WHERE id=?", (sighting_id,))
     conn.commit()
+    search.delete_sightings([sighting_id])
     return RedirectResponse("/admin/review", status_code=303)
 
 
@@ -97,4 +98,8 @@ async def admin_action(
     column, value = ACTIONS[action]
     conn.execute(f"UPDATE sightings SET {column} = ? WHERE id = ?", (value, sighting_id))
     conn.commit()
+    if action == "hide":
+        search.delete_sightings([sighting_id])
+    else:
+        search.index_sightings(conn, [sighting_id])
     return RedirectResponse(_safe_next(str(form.get("next", ""))), status_code=303)

@@ -4,6 +4,9 @@ After=network.target
 
 [Service]
 User=ubuntu
+# WorkingDirectory matters: meili writes relative paths (dumps/, etc.) to CWD,
+# which systemd defaults to / — the ufosarchive crash-loop lesson
+WorkingDirectory=/home/ubuntu/ufosighting/data
 EnvironmentFile=/home/ubuntu/ufosighting/.env
 ExecStart=/home/ubuntu/meilisearch --http-addr 127.0.0.1:7700 --db-path /home/ubuntu/ufosighting/data/meili --max-indexing-memory 128Mb --env production --master-key ${MEILI_KEY}
 MemoryHigh=250M

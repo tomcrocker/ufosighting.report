@@ -118,3 +118,14 @@ posts instantly (else mod review). This all runs on ONE script app under the
       `/admin/review` → Approve → bot posts (self-reported).
 - [ ] **Ingest**: make a native Sighting-flaired post on r/tmoshtest → within
       10 min it appears in the gallery, deduped against bot-posted ones.
+
+### Ingest extraction (xAI + geocode)
+- [ ] Add to VM .env: XAI_API_KEY (xai-...), XAI_MODEL=grok-3-mini, INGEST_SUBREDDIT=UFOs
+- [ ] Deploy (geocode_cache table auto-created by init_db on restart)
+- [ ] Dry-run small first: run one page and eyeball extracted rows in the gallery:
+      `cd /home/ubuntu/ufosighting && set -a; . .env; set +a; .venv/bin/python ingest.py`
+- [ ] Full 30-day backfill (throttled ~2s/post + 3s/page — expect several minutes):
+      `.venv/bin/python ingest.py --backfill`
+- [ ] Spot-check: map pins present for located posts, sighting dates look right,
+      "from r/UFOs" badge shows on ingested cards
+- [ ] Enable ongoing ingest: `sudo systemctl enable --now ufosighting-ingest.timer`

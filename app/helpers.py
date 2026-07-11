@@ -100,6 +100,8 @@ def format_post_body(
         facts.append("**Features:** " + " · ".join(feature_bits))
     if clean.get("witnesses"):
         facts.append(f"**Witnesses:** {clean['witnesses']}")
+    if clean.get("rule_out"):
+        facts.append(f"**Why not a common object:** {clean['rule_out']}")
     if clean.get("sensors"):
         facts.append("**Sensor detection:** " + ", ".join(clean["sensors"]))
     if clean.get("witness_background"):

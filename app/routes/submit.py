@@ -51,6 +51,10 @@ def presign(req: PresignRequest, request: Request, conn=Depends(db.get_db)):
 
 _geocode_cache: dict[str, list] = {}
 
+# Whole countries/continents are useless as sighting locations (guideline:
+# within ~20 km) — never offer them in the autocomplete.
+_TOO_BROAD = {"country", "continent", "ocean", "sea"}
+
 
 @router.get("/api/geocode")
 def geocode_endpoint(q: str = "", request: Request = None, conn=Depends(db.get_db)):
@@ -69,9 +73,27 @@ def geocode_endpoint(q: str = "", request: Request = None, conn=Depends(db.get_d
         results = geocode.search(q, limit=5)
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="Geocoder unavailable, drop a pin instead")
+    results = [r for r in results if r.get("addresstype") not in _TOO_BROAD]
     if len(_geocode_cache) < 5000:
         _geocode_cache[cache_key] = results
     return {"results": results}
+
+
+@router.get("/api/reverse")
+def reverse_endpoint(lat: float, lon: float, request: Request = None,
+                     conn=Depends(db.get_db)):
+    """Nearest town/city for a dropped pin (shares the geocode rate bucket)."""
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise HTTPException(status_code=400, detail="Invalid coordinates")
+    s = get_settings()
+    ip = client_ip(request)
+    if not ratelimit.allowed(conn, ip, "geocode", s.rate_geocode_per_hour):
+        raise HTTPException(status_code=429, detail="Too many lookups — try again later")
+    ratelimit.record(conn, ip, "geocode")
+    out = geocode.reverse(lat, lon)
+    if out is None:
+        raise HTTPException(status_code=502, detail="Geocoder unavailable")
+    return {"label": out["label"], "city": out["city"], "country": out["country"]}
 
 
 def _clean_choice(value: str | None, options: list[str]) -> str | None:
@@ -158,6 +180,17 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
     for field in ("has_wings", "has_rotors", "has_plume", "makes_noise"):
         clean[field] = _clean_choice(form.get(field), helpers.FEATURE_ANSWERS)
 
+    # r/UFOs guideline gates: a rule-out statement is always required; the
+    # camera confirmations only when media is attached (checked below).
+    clean["rule_out"] = (form.get("rule_out") or "").strip()
+    if len(clean["rule_out"]) < 20:
+        errors.append(
+            "Briefly rule out common explanations (aircraft, drone, Starlink, "
+            "planet, balloon…) — a single sentence is fine."
+        )
+    if form.get("confirm_eyewitness") not in ("1", "on", "true"):
+        errors.append("Confirm you saw this with your own eyes at the time.")
+
     clean["location_text"] = (form.get("location_text") or "").strip()
     if len(clean["location_text"]) < 2:
         errors.append("Enter a location.")
@@ -209,6 +242,18 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
                 "size_bytes": item.get("size_bytes"),
             }
         )
+    if clean["media"]:
+        confirms = (
+            ("confirm_no_fixed_cam",
+             "Confirm this isn't trail-camera or doorbell-camera footage."),
+            ("confirm_not_screen",
+             "Confirm this isn't a video of a TV or other display."),
+            ("confirm_in_focus",
+             "Confirm the imagery is in focus most of the time."),
+        )
+        for field, msg in confirms:
+            if form.get(field) not in ("1", "on", "true"):
+                errors.append(msg)
     return clean, errors
 
 
@@ -298,9 +343,9 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
              (reddit_username, title, description, sighted_at, tz_name, duration_seconds,
               shape, witnesses, num_objects, distance, apparent_size, movement,
               has_wings, has_rotors, has_plume, makes_noise, sensors, witness_background,
-              location_text, city, country, lat, lon, location_obscured,
+              location_text, city, country, lat, lon, location_obscured, rule_out,
               submitter_ip, verify_token, verify_sent_at, status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
                    strftime('%Y-%m-%dT%H:%M:%SZ','now'),'pending_verify')""",
         (
             username, clean["title"], clean["description"], clean["sighted_at"],
@@ -311,7 +356,8 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
             json.dumps(clean["sensors"]) if clean["sensors"] else None,
             json.dumps(clean["witness_background"]) if clean["witness_background"] else None,
             clean["location_text"], clean["city"], clean["country"],
-            clean["lat"], clean["lon"], clean["location_obscured"], ip, token,
+            clean["lat"], clean["lon"], clean["location_obscured"], clean["rule_out"],
+            ip, token,
         ),
     )
     sighting_id = cur.lastrowid

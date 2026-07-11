@@ -163,6 +163,7 @@ _MIGRATION_COLUMNS = [
     ("username_verified", "INTEGER NOT NULL DEFAULT 0"),
     ("verify_token", "TEXT"),
     ("verify_sent_at", "TEXT"),
+    ("rule_out", "TEXT"),
 ]
 
 

@@ -24,6 +24,9 @@ def form(csrf):
         "has_wings": "", "has_rotors": "", "has_plume": "", "makes_noise": "",
         "media_json": json.dumps([{"key": MEDIA_KEY, "kind": "image", "width": 100,
                                    "height": 80, "size_bytes": 1234}]),
+        "rule_out": "Checked FlightRadar24 and Stellarium — nothing matches; silent and too fast.",
+        "confirm_eyewitness": "1", "confirm_no_fixed_cam": "1",
+        "confirm_not_screen": "1", "confirm_in_focus": "1",
     }
 
 
@@ -119,3 +122,63 @@ def test_presign_no_login(client):
     r = client.post("/api/presign", json={"filename": "a.jpg", "content_type": "image/jpeg",
                                           "size_bytes": 1000})
     assert r.status_code == 200
+
+
+# --- r/UFOs guideline gates (rule-out statement + confirmations) ---
+
+RULE_OUT = "Checked FlightRadar24 — no aircraft nearby; too fast and silent for a drone."
+
+
+def gform(csrf, **over):
+    d = form(csrf)
+    d.update({"rule_out": RULE_OUT, "confirm_eyewitness": "1",
+              "confirm_no_fixed_cam": "1", "confirm_not_screen": "1",
+              "confirm_in_focus": "1"})
+    d.update(over)
+    return d
+
+
+def test_missing_rule_out_rejected(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, rule_out=""), cookies={"csrf": csrf})
+    assert r.status_code == 422 and "rule out" in r.text.lower()
+
+
+def test_short_rule_out_rejected(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, rule_out="not a plane"), cookies={"csrf": csrf})
+    assert r.status_code == 422
+
+
+def test_missing_eyewitness_confirm_rejected(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, confirm_eyewitness=""), cookies={"csrf": csrf})
+    assert r.status_code == 422 and "own eyes" in r.text.lower()
+
+
+def test_media_confirms_required_only_with_media(client, app_db):
+    csrf = get_csrf(client)
+    # media attached + missing focus confirmation -> rejected
+    r = client.post("/submit", data=gform(csrf, confirm_in_focus=""), cookies={"csrf": csrf})
+    assert r.status_code == 422
+    # no media -> the three camera confirmations are not required
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, media_json="[]", confirm_no_fixed_cam="",
+                                          confirm_not_screen="", confirm_in_focus=""),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+
+
+def test_rule_out_stored_and_in_post_body(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf), cookies={"csrf": csrf})
+    assert r.status_code == 200
+    row = app_db.execute("SELECT rule_out FROM sightings ORDER BY id DESC LIMIT 1").fetchone()
+    assert row["rule_out"] == RULE_OUT
+    from app import helpers
+    body = helpers.format_post_body(
+        dict(row) | {"tz_name": "UTC", "description": "d", "movement": [],
+                     "sensors": [], "witness_background": []},
+        sighted_local="x", location_line="y", media_urls=[], gallery_url="u",
+        attribution="")
+    assert "Why not a common object" in body and RULE_OUT in body

@@ -6,6 +6,7 @@ import httpx
 from app.config import get_settings
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
 _MIN_INTERVAL = 1.1
 _lock = threading.Lock()
 _last_call = [0.0]
@@ -28,6 +29,7 @@ def _parse(item: dict) -> dict:
         "city": addr.get("city") or addr.get("town") or addr.get("village")
         or addr.get("municipality") or "",
         "country": addr.get("country", ""),
+        "addresstype": item.get("addresstype", ""),
     }
 
 
@@ -42,6 +44,31 @@ def search(q: str, limit: int = 5) -> list[dict]:
     if resp.status_code != 200:
         return []
     return [_parse(i) for i in resp.json()]
+
+
+def reverse(lat: float, lon: float) -> dict | None:
+    """Nearest town/city for a dropped pin (Nominatim zoom 10 = city level).
+    Returns {label, city, country, ...} with a short human label — never a
+    street address — or None if the geocoder is unavailable."""
+    _throttle()
+    try:
+        resp = httpx.get(
+            REVERSE_URL,
+            params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 10,
+                    "addressdetails": 1},
+            headers={"User-Agent": get_settings().user_agent},
+            timeout=10,
+        )
+    except httpx.HTTPError:
+        return None
+    if resp.status_code != 200 or "error" in resp.json():
+        return None
+    out = _parse(resp.json())
+    addr = resp.json().get("address", {})
+    region = addr.get("state") or addr.get("province") or addr.get("county") or ""
+    parts = [p for p in (out["city"], region, out["country"]) if p]
+    out["label"] = ", ".join(dict.fromkeys(parts)) or out["display_name"]
+    return out
 
 
 def forward(conn, q: str) -> dict | None:

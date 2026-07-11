@@ -42,6 +42,9 @@ class Settings:
     xai_api_key: str
     xai_model: str
     ingest_subreddit: str
+    meili_url: str
+    meili_key: str
+    meili_index: str
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -90,4 +93,7 @@ def get_settings() -> Settings:
         xai_api_key=_env("XAI_API_KEY", ""),
         xai_model=_env("XAI_MODEL", "grok-3-mini"),
         ingest_subreddit=_env("INGEST_SUBREDDIT", "") or subreddit,
+        meili_url=_env("MEILI_URL", ""),
+        meili_key=_env("MEILI_KEY", ""),
+        meili_index=_env("MEILI_INDEX", "sightings"),
     )

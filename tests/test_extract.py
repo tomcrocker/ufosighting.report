@@ -42,3 +42,48 @@ def test_clamp_drops_bad_values():
 def test_clamp_handles_empty():
     c = extract.validate_and_clamp({}, post_created_iso="2026-07-05T00:00:00Z")
     assert all(c[k] is None for k in ("date", "time", "location_text", "shape"))
+
+
+import httpx  # noqa: E402
+import respx  # noqa: E402
+from app.config import get_settings  # noqa: E402
+
+CHAT = "https://api.x.ai/v1/chat/completions"
+
+
+def _chat_response(content: str):
+    return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+
+def test_extract_fields_empty_key_returns_empty(monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "")
+    get_settings.cache_clear()
+    assert extract.extract_fields("anything") == {}
+
+
+@respx.mock
+def test_extract_fields_parses_json(monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    get_settings.cache_clear()
+    route = respx.post(CHAT).mock(return_value=_chat_response(
+        '{"date":"2026-07-01","location_text":"Tofino, BC","shape":"sphere"}'))
+    out = extract.extract_fields("Orb over Tofino on 2026-07-01")
+    assert out["date"] == "2026-07-01" and out["location_text"] == "Tofino, BC"
+    sent = route.calls[0].request
+    assert sent.headers["Authorization"] == "Bearer xai-test"
+
+
+@respx.mock
+def test_extract_fields_non_json_returns_empty(monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    get_settings.cache_clear()
+    respx.post(CHAT).mock(return_value=_chat_response("sorry, I cannot help"))
+    assert extract.extract_fields("x") == {}
+
+
+@respx.mock
+def test_extract_fields_network_error_returns_empty(monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    get_settings.cache_clear()
+    respx.post(CHAT).mock(side_effect=httpx.ConnectError("down"))
+    assert extract.extract_fields("x") == {}

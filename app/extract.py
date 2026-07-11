@@ -1,7 +1,13 @@
+import json
 import re
 from datetime import date as _date, datetime, timezone
 
+import httpx
+
 from app import helpers
+from app.config import get_settings
+
+CHAT_URL = "https://api.x.ai/v1/chat/completions"
 
 MAX_SOURCE = 2000
 MAX_TOTAL = 6500
@@ -80,3 +86,42 @@ def validate_and_clamp(raw: dict, *, post_created_iso: str) -> dict:
         out["duration_seconds"] = int(dur)
 
     return out
+
+
+SYSTEM_PROMPT = (
+    "You extract structured UFO-sighting metadata from a Reddit post. "
+    "Return ONLY a JSON object with keys: date (YYYY-MM-DD), time (HH:MM 24h), "
+    "timezone (IANA name like America/Vancouver), location_text, city, country, "
+    "shape, num_objects (one of 1,2,3,4,5+), duration_seconds (integer), "
+    "summary (one neutral sentence). Use null for any field NOT explicitly "
+    "stated in the text — do NOT guess or invent. shape must be one of: "
+    + ", ".join(helpers.SHAPES) + "."
+)
+
+
+def extract_fields(text: str) -> dict:
+    s = get_settings()
+    if not s.xai_api_key:
+        return {}
+    try:
+        resp = httpx.post(
+            CHAT_URL,
+            headers={"Authorization": f"Bearer {s.xai_api_key}"},
+            json={
+                "model": s.xai_model,
+                "temperature": 0,
+                "response_format": {"type": "json_object"},
+                "messages": [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": text},
+                ],
+            },
+            timeout=45,
+        )
+        if resp.status_code != 200:
+            return {}
+        content = resp.json()["choices"][0]["message"]["content"]
+        data = json.loads(content)
+        return data if isinstance(data, dict) else {}
+    except (httpx.HTTPError, ValueError, KeyError, IndexError):
+        return {}

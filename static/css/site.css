@@ -10,7 +10,7 @@ body {
 }
 a { color: var(--accent2); text-decoration: none; }
 a:hover { text-decoration: underline; }
-main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 64px; }
+main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 44px; }
 
 .site-header {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
@@ -248,14 +248,14 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .site-header nav a.active:hover { text-decoration: none; }
 
 /* --- homepage intro --- */
-.intro { margin: 6px 0 26px; max-width: 720px; }
-.intro h1 { margin: 0 0 8px; font-size: 1.55rem; letter-spacing: -.01em; }
+.intro { margin: 2px 0 18px; max-width: 720px; }
+.intro h1 { margin: 0 0 6px; font-size: 1.4rem; letter-spacing: -.01em; }
 .intro p { margin: 0; color: var(--muted); line-height: 1.6; }
 
 /* --- footer --- */
 .site-footer { text-align: left; padding: 0; }
 .footer-inner {
-  max-width: 1200px; margin: 0 auto; padding: 36px 16px 28px;
+  max-width: 1200px; margin: 0 auto; padding: 26px 16px 20px;
   display: flex; gap: 48px; flex-wrap: wrap; justify-content: space-between;
 }
 .footer-brand { max-width: 380px; display: flex; gap: 12px; align-items: flex-start; }

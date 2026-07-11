@@ -13,6 +13,21 @@ templates.env.filters["duration_h"] = helpers.humanize_duration
 templates.env.globals["slugify"] = helpers.slugify
 
 
+def _static_version() -> str:
+    """Cache-buster derived from static file mtimes: changes on every deploy,
+    so Cloudflare/browsers fetch fresh CSS/JS (nginx serves /static with a 7d
+    cache — the ufosarchive stale-CSS lesson)."""
+    static_dir = Path(__file__).resolve().parent.parent / "static"
+    latest = 0
+    for f in static_dir.rglob("*"):
+        if f.is_file():
+            latest = max(latest, int(f.stat().st_mtime))
+    return str(latest)
+
+
+templates.env.globals["static_v"] = _static_version()
+
+
 def client_ip(request: Request) -> str:
     xff = request.headers.get("x-forwarded-for", "")
     if xff:

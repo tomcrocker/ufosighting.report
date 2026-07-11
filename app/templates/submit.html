@@ -251,6 +251,6 @@
 {% if turnstile_site_key %}
 <script defer src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
 {% endif %}
-<script defer src="/static/js/wizard.js"></script>
-<script defer src="/static/js/upload.js"></script>
+<script defer src="/static/js/wizard.js?v={{ static_v }}"></script>
+<script defer src="/static/js/upload.js?v={{ static_v }}"></script>
 {% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Verify — ufosighting.report{% endblock %}
+{% block content %}
+<section class="panel narrow">
+{% if ok %}
+  <h1>You're verified — your sighting is live 🛸</h1>
+  <p>Thanks for confirming. It's been posted to the subreddit and added to the gallery.</p>
+  <a class="btn primary" href="{{ url }}">View your sighting</a>
+{% elif retry %}
+  <h1>Almost — one hiccup posting to Reddit</h1>
+  <p class="muted">We couldn't post it just now. A moderator will finish it shortly, or try your
+     link again in a few minutes.</p>
+  <a class="btn" href="/">Back to the gallery</a>
+{% else %}
+  <h1>This link is no longer valid</h1>
+  <p class="muted">It may have already been used or expired. If your sighting wasn't posted, a
+     moderator will review it.</p>
+  <a class="btn" href="/">Back to the gallery</a>
+{% endif %}
+</section>
+{% endblock %}

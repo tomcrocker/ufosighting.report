@@ -42,6 +42,10 @@ def create_app(start_thumb_worker: bool = True) -> FastAPI:
 
     app.include_router(public_routes.router)
 
+    from app.routes import verify as verify_routes
+
+    app.include_router(verify_routes.router)
+
     from app.routes import admin as admin_routes
 
     app.include_router(admin_routes.router)

@@ -128,3 +128,21 @@ def test_detail_404_for_hidden_unless_admin(client, app_db):
 
 def test_detail_404_unknown(client):
     assert client.get("/sighting/9999").status_code == 404
+
+
+def test_reddit_source_shows_badge(client, app_db):
+    seed(app_db, title="Ingested sighting", source="reddit", reddit_post_id="zz1")
+    r = client.get("/")
+    assert "from r/UFOs" in r.text
+
+
+def test_site_source_no_badge(client, app_db):
+    seed(app_db, title="Site sighting", source="site")
+    r = client.get("/")
+    assert "from r/UFOs" not in r.text
+
+
+def test_detail_reddit_note(client, app_db):
+    sid = seed(app_db, title="Ingested detail", source="reddit", reddit_post_id="zz2")
+    r = client.get(f"/sighting/{sid}")
+    assert "auto-extracted" in r.text.lower()

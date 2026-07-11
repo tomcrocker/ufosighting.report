@@ -228,3 +228,8 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .numInputWrapper span.arrowUp:after { border-bottom-color: var(--muted) !important; }
 .numInputWrapper span.arrowDown:after { border-top-color: var(--muted) !important; }
 .cf-turnstile { margin: 8px 0; }
+
+/* ingested-from-reddit provenance */
+.src-badge { display: inline-block; margin-top: 6px; font-size: .72rem; letter-spacing: .04em;
+  color: var(--accent2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; }
+.src-note { font-size: .85rem; margin-top: 4px; }

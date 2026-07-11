@@ -171,6 +171,15 @@
     return true;
   }
 
+  // --- visual scenes: one motif per step, random starting scene each load ---
+  const scenes = [...document.querySelectorAll(".scene")];
+  const sceneOffset = scenes.length ? Math.floor(Math.random() * scenes.length) : 0;
+  function showScene(stepIndex) {
+    if (!scenes.length) return;
+    const pick = (stepIndex + sceneOffset) % scenes.length;
+    scenes.forEach((s, i) => s.classList.toggle("on", i === pick));
+  }
+
   function render() {
     steps.forEach((s, i) => { s.hidden = i !== current; });
     prevBtn.hidden = current === 0;
@@ -178,6 +187,7 @@
     submitBtn.hidden = current !== steps.length - 1;
     if (bar) bar.style.width = ((current + 1) / steps.length) * 100 + "%";
     if (map && current === 0) setTimeout(() => map.invalidateSize(), 50);
+    showScene(current);
     window.scrollTo(0, 0);
   }
 
@@ -185,6 +195,7 @@
     prevBtn.hidden = true;
     nextBtn.hidden = true;
     if (bar) bar.style.width = "100%";
+    showScene(0);
   } else {
     render();
     nextBtn.addEventListener("click", () => {

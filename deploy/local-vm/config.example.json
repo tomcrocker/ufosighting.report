@@ -1,0 +1,9 @@
+{
+  "oracle_host": "170.9.36.91",
+  "oracle_user": "ubuntu",
+  "oracle_key": "~/.ssh/oracle2.key",
+  "r2_endpoint": "https://<account>.r2.cloudflarestorage.com",
+  "r2_access_key": "<key>",
+  "r2_secret_key": "<secret>",
+  "r2_bucket": "media-ufosighting-report"
+}

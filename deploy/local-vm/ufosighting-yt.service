@@ -1,0 +1,8 @@
+[Unit]
+Description=ufosighting.report YouTube download worker
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=tom
+ExecStart=/usr/bin/python3 /home/tom/ufosighting-yt/yt_worker.py

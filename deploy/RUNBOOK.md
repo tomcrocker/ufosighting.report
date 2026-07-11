@@ -142,3 +142,22 @@ posts instantly (else mod review). This all runs on ONE script app under the
       `systemctl status meilisearch` shows no OOM kills
 - [ ] If Meili ever misbehaves on this box: `systemctl stop meilisearch` and the
       site transparently falls back to SQLite — nothing breaks.
+
+## YouTube download worker (local VM 192.168.8.224)
+
+YouTube blocks datacenter IPs, so yt-dlp runs on the local VM (residential)
+and pushes to R2. Oracle only queues jobs (`yt_jobs` table, filled by
+`ingest.py` and `scan_youtube.py`).
+
+- Worker: `/home/tom/ufosighting-yt/yt_worker.py` (source of truth:
+  `deploy/local-vm/yt_worker.py` in the repo), config in
+  `/home/tom/ufosighting-yt/config.json` (chmod 600, from config.example.json).
+- Schedule: `ufosighting-yt.timer` every 10 min; `Type=oneshot` service so
+  runs never overlap. Claims 5 jobs per pass.
+- Force a run: `sudo systemctl start ufosighting-yt.service`
+- Logs: `journalctl -u ufosighting-yt.service -n 50`
+- Inspect the queue (on Oracle):
+  `cd /home/ubuntu/ufosighting && .venv/bin/python ytq.py claim`
+- Retry a failed job: set `status='pending', attempts=0` on its `yt_jobs` row.
+- Retroactive sweep for media-less reddit rows:
+  `cd /home/ubuntu/ufosighting && .venv/bin/python scan_youtube.py`

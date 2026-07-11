@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from app import db, extract, geocode, helpers, r2, reddit, search
+from app import db, extract, geocode, helpers, r2, reddit, search, ytdetect
 from app.config import get_settings
 
 ISO = "%Y-%m-%dT%H:%M:%SZ"
@@ -236,6 +236,13 @@ def ingest_post(conn, post: dict, token=None) -> bool:
                          "VALUES (?,?,?,?)", (sid, key, kind, i))
     except Exception as exc:
         print(f"ingest media upload for {pid} failed: {exc}")
+    # No reddit-hosted media? A YouTube link (post URL or body) becomes a
+    # download job for the local-VM worker — YouTube blocks this VM's IP.
+    if not media_items:
+        yt_url = ytdetect.find_youtube_url(post)
+        if yt_url:
+            conn.execute("INSERT OR IGNORE INTO yt_jobs (sighting_id, url) VALUES (?,?)",
+                         (sid, yt_url))
     conn.commit()
     search.index_sightings(conn, [sid])
     return True

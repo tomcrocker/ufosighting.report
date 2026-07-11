@@ -147,3 +147,32 @@ def test_best_rep_url_from_mpd_picks_highest_bandwidth():
     assert ingest._best_rep_url_from_mpd(mpd, base, "video") == "https://v.redd.it/abc123/DASH_1080.mp4"
     assert ingest._best_rep_url_from_mpd(mpd, base, "audio") == "https://v.redd.it/abc123/DASH_AUDIO_128.mp4"
     assert ingest._best_rep_url_from_mpd("not xml", base, "video") is None
+
+
+def test_ingest_enqueues_youtube_body_link(db_conn, monkeypatch):
+    _stub_pipeline(monkeypatch)  # download_media -> [] (no reddit-hosted media)
+    post = _post("ytbody1", selftext="Footage here https://youtu.be/XHWPQEJ_TVA")
+    ingest.ingest_post(db_conn, post, token="t")
+    job = db_conn.execute("SELECT j.*, s.reddit_post_id FROM yt_jobs j "
+                          "JOIN sightings s ON s.id=j.sighting_id").fetchone()
+    assert job["url"] == "https://www.youtube.com/watch?v=XHWPQEJ_TVA"
+    assert job["status"] == "pending" and job["reddit_post_id"] == "ytbody1"
+
+
+def test_ingest_enqueues_youtube_link_post(db_conn, monkeypatch):
+    _stub_pipeline(monkeypatch)
+    post = _post("ytlink1", is_self=False, selftext="",
+                 url="https://youtube.com/shorts/XHWPQEJ_TVA")
+    ingest.ingest_post(db_conn, post, token="t")
+    assert db_conn.execute("SELECT COUNT(*) FROM yt_jobs").fetchone()[0] == 1
+
+
+def test_ingest_no_yt_job_when_reddit_media(db_conn, monkeypatch):
+    # reddit-hosted media wins: a youtube link in the body must not enqueue
+    _stub_pipeline(monkeypatch)
+    monkeypatch.setattr(ingest, "download_media",
+                        lambda post: [(b"mp4bytes", "video/mp4", ".mp4")])
+    monkeypatch.setattr(ingest.r2, "put_bytes", lambda k, d, ct: None)
+    post = _post("ytboth1", selftext="mirror: https://youtu.be/XHWPQEJ_TVA")
+    ingest.ingest_post(db_conn, post, token="t")
+    assert db_conn.execute("SELECT COUNT(*) FROM yt_jobs").fetchone()[0] == 0

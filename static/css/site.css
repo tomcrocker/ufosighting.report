@@ -62,7 +62,17 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 44px; }
 
 .pager { display: flex; gap: 12px; justify-content: center; align-items: center; margin-top: 24px; }
 
-.viewer img, .viewer video { width: 100%; border-radius: var(--radius); background: #000; }
+/* Cap media to the viewport so vertical (9:16) videos never force a scroll.
+   Videos get a definite box with the content letterboxed (invisible on the
+   black background) — intrinsic-ratio sizing is unreliable for <video>. */
+.viewer video {
+  display: block; width: 100%; height: 78vh; object-fit: contain;
+  border-radius: var(--radius); background: #000;
+}
+.viewer img {
+  display: block; max-width: 100%; width: auto; max-height: 78vh;
+  margin: 0 auto; border-radius: var(--radius); background: #000;
+}
 .thumbstrip { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .thumbstrip img { width: 90px; height: 68px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid transparent; }
 .thumbstrip img.active { border-color: var(--accent); }

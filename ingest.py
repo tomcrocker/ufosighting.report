@@ -250,7 +250,7 @@ def ingest_post(conn, post: dict, token=None) -> bool:
 
 def ingest_once(conn, *, limit=100, after=None) -> dict:
     s = get_settings()
-    token = reddit.script_token()
+    token = reddit.read_token()
     posts, _after = reddit.list_flair_posts(token, subreddit=s.ingest_subreddit,
                                             flair="Sighting", limit=limit, after=after)
     added = 0
@@ -269,7 +269,7 @@ def main(backfill: bool = False) -> None:
             after, total, stop = None, 0, False
             while not stop:
                 s = get_settings()
-                token = reddit.script_token()
+                token = reddit.read_token()
                 posts, after = reddit.list_flair_posts(token, subreddit=s.ingest_subreddit,
                                                        flair="Sighting", limit=100, after=after)
                 if not posts:

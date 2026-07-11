@@ -24,6 +24,8 @@ class Settings:
     script_client_secret: str
     script_username: str
     script_password: str
+    read_username: str
+    read_password: str
     subreddit: str
     sighting_flair_id: str
     admin_users: tuple[str, ...]
@@ -73,6 +75,8 @@ def get_settings() -> Settings:
         script_client_secret=_env("SCRIPT_CLIENT_SECRET", ""),
         script_username=_env("SCRIPT_USERNAME", ""),
         script_password=_env("SCRIPT_PASSWORD", ""),
+        read_username=_env("READ_USERNAME", ""),
+        read_password=_env("READ_PASSWORD", ""),
         subreddit=subreddit,
         sighting_flair_id=_env("SIGHTING_FLAIR_ID", ""),
         admin_users=tuple(

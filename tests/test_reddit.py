@@ -7,7 +7,7 @@ from app import reddit
 
 @pytest.fixture(autouse=True)
 def _reset_script_token():
-    reddit._script_token.update(token=None, expires=0.0)
+    reddit._token_cache.clear()
     yield
 
 
@@ -131,3 +131,31 @@ def test_list_flair_posts_parses():
     )
     posts, after = reddit.list_flair_posts("tok", subreddit="UFOs_sandbox", flair="Sighting")
     assert posts[0]["id"] == "aaa" and after == "t3_next"
+
+
+@respx.mock
+def test_read_token_falls_back_to_bot_when_unset():
+    # READ_USERNAME is empty in the test env → read_token == script_token
+    route = respx.post("https://www.reddit.com/api/v1/access_token").mock(
+        return_value=httpx.Response(200, json={"access_token": "bot-tok", "expires_in": 3600}))
+    assert reddit.read_token() == "bot-tok"
+    assert b"username=modbot" in route.calls[0].request.content
+
+
+@respx.mock
+def test_read_token_uses_read_account_with_separate_cache(monkeypatch):
+    from app.config import get_settings
+    monkeypatch.setenv("READ_USERNAME", "reader")
+    monkeypatch.setenv("READ_PASSWORD", "read-pw")
+    get_settings.cache_clear()
+    tokens = {"modbot": "bot-tok", "reader": "read-tok"}
+
+    def responder(request):
+        body = request.content.decode()
+        user = [u for u in tokens if f"username={u}" in body][0]
+        return httpx.Response(200, json={"access_token": tokens[user], "expires_in": 3600})
+
+    respx.post("https://www.reddit.com/api/v1/access_token").mock(side_effect=responder)
+    assert reddit.read_token() == "read-tok"
+    assert reddit.script_token() == "bot-tok"   # separate cache entries
+    assert reddit.read_token() == "read-tok"    # cached, no extra grant

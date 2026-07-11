@@ -8,7 +8,7 @@ from app.config import get_settings
 if __name__ == "__main__":
     conn = db.connect(get_settings().db_path)
     try:
-        token = reddit.script_token()
+        token = reddit.read_token()
         rows = conn.execute(
             """SELECT id, reddit_post_id FROM sightings
                WHERE reddit_post_id IS NOT NULL

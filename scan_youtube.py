@@ -31,7 +31,7 @@ def scan(conn, *, fetch=None, sleep=time.sleep) -> dict:
                 post = fetch(r["reddit_post_id"])
             else:
                 if token is None:
-                    token = reddit.script_token()
+                    token = reddit.read_token()
                 post = reddit.fetch_post(token, r["reddit_post_id"])
             sleep(API_SLEEP_SECONDS)
             url = ytdetect.find_youtube_url(post) if post else None

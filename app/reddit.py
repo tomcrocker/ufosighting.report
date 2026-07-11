@@ -60,26 +60,44 @@ def submit_post(
     return name.removeprefix("t3_")
 
 
-_script_token: dict = {"token": None, "expires": 0.0}
+_token_cache: dict[str, dict] = {}  # per-account token cache, keyed by username
 
 
-def script_token() -> str:
-    if _script_token["token"] and time.time() < _script_token["expires"] - 60:
-        return _script_token["token"]
+def _password_token(username: str, password: str) -> str:
+    cached = _token_cache.get(username)
+    if cached and time.time() < cached["expires"] - 60:
+        return cached["token"]
     s = get_settings()
     resp = httpx.post(
         TOKEN_URL,
-        data={"grant_type": "password", "username": s.script_username, "password": s.script_password},
+        data={"grant_type": "password", "username": username, "password": password},
         auth=(s.script_client_id, s.script_client_secret),
         headers={"User-Agent": s.user_agent},
         timeout=15,
     )
     if resp.status_code != 200 or "access_token" not in resp.json():
-        raise RedditError(f"script token failed: HTTP {resp.status_code}")
+        raise RedditError(f"token for u/{username} failed: HTTP {resp.status_code}")
     data = resp.json()
-    _script_token["token"] = data["access_token"]
-    _script_token["expires"] = time.time() + float(data.get("expires_in", 3600))
-    return _script_token["token"]
+    _token_cache[username] = {"token": data["access_token"],
+                              "expires": time.time() + float(data.get("expires_in", 3600))}
+    return _token_cache[username]["token"]
+
+
+def script_token() -> str:
+    """Token for the BOT account — writes only (posts, comments, DMs), where
+    the identity is what matters."""
+    s = get_settings()
+    return _password_token(s.script_username, s.script_password)
+
+
+def read_token() -> str:
+    """Token for public reads (listings, post info, comments). Uses the
+    durable personal account when READ_USERNAME is set, so a spam-flag on the
+    young bot account never takes down ingest/sync. Falls back to the bot."""
+    s = get_settings()
+    if s.read_username:
+        return _password_token(s.read_username, s.read_password)
+    return script_token()
 
 
 @dataclass
@@ -93,7 +111,7 @@ def fetch_posts_info(post_ids: list[str]) -> dict[str, PostInfo]:
     out: dict[str, PostInfo] = {}
     if not post_ids:
         return out
-    token = script_token()
+    token = read_token()
     for i in range(0, len(post_ids), 100):
         chunk = post_ids[i : i + 100]
         resp = httpx.get(

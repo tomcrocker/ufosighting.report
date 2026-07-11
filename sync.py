@@ -57,7 +57,7 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
     refreshed = 0
     try:
         if live_rows:
-            token = reddit.script_token()
+            token = reddit.read_token()
             for i, (sid, pid) in enumerate(live_rows):
                 if comments.refresh_for_sighting(conn, token, sid, pid):
                     refreshed += 1

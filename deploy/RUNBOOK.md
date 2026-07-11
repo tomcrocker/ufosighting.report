@@ -129,3 +129,16 @@ posts instantly (else mod review). This all runs on ONE script app under the
 - [ ] Spot-check: map pins present for located posts, sighting dates look right,
       "from r/UFOs" badge shows on ingested cards
 - [ ] Enable ongoing ingest: `sudo systemctl enable --now ufosighting-ingest.timer`
+
+### Meilisearch (search + gallery + map, SQLite fallback)
+- [ ] Install binary on the VM:
+      `cd /home/ubuntu && curl -L https://install.meilisearch.com | sh`
+- [ ] Generate a master key: `openssl rand -hex 24` → add to .env:
+      MEILI_URL=http://127.0.0.1:7700 / MEILI_KEY=<key> / MEILI_INDEX=sightings
+- [ ] `sudo cp deploy/meilisearch.service /etc/systemd/system/ && sudo systemctl daemon-reload`
+      `sudo systemctl enable --now meilisearch` (unit caps RAM at 300M — 1GB VM!)
+- [ ] Deploy app, then full index: `set -a; . .env; set +a; .venv/bin/python reindex.py`
+- [ ] Verify: search works with a typo (e.g. "trangle"), `free -h` has headroom,
+      `systemctl status meilisearch` shows no OOM kills
+- [ ] If Meili ever misbehaves on this box: `systemctl stop meilisearch` and the
+      site transparently falls back to SQLite — nothing breaks.

@@ -1,0 +1,15 @@
+[Unit]
+Description=Meilisearch for ufosighting.report
+After=network.target
+
+[Service]
+User=ubuntu
+EnvironmentFile=/home/ubuntu/ufosighting/.env
+ExecStart=/home/ubuntu/meilisearch --http-addr 127.0.0.1:7700 --db-path /home/ubuntu/ufosighting/data/meili --max-indexing-memory 128Mb --env production --master-key ${MEILI_KEY}
+MemoryHigh=250M
+MemoryMax=300M
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

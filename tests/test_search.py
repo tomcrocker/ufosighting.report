@@ -162,3 +162,20 @@ def test_admin_hide_deletes_from_index(client, app_db, monkeypatch):
                 data={"csrf_token": auth.csrf_for(admin_sid), "action": "hide"},
                 follow_redirects=False)
     assert dele.called
+
+
+@respx.mock
+def test_reindex_indexes_public_rows(client, app_db, monkeypatch):
+    _enable(monkeypatch)
+    import reindex
+    seed(app_db, title="Reindex me")
+    seed(app_db, title="Skip me", status="hidden_by_admin")
+    respx.put(f"{MEILI}/indexes").mock(return_value=httpx.Response(202, json={}))
+    respx.patch(f"{MEILI}/indexes/sightings/settings").mock(
+        return_value=httpx.Response(202, json={}))
+    up = respx.post(f"{MEILI}/indexes/sightings/documents").mock(
+        return_value=httpx.Response(202, json={"taskUid": 1}))
+    monkeypatch.setattr(reindex.db, "connect", lambda p: app_db)
+    reindex.main()
+    docs = json.loads(up.calls[0].request.content)
+    assert len(docs) == 1 and docs[0]["title"] == "Reindex me"

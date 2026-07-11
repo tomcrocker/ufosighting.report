@@ -37,7 +37,8 @@ def search(q: str, limit: int = 5) -> list[dict]:
     _throttle()
     resp = httpx.get(
         NOMINATIM_URL,
-        params={"q": q, "format": "jsonv2", "limit": limit, "addressdetails": 1},
+        params={"q": q, "format": "jsonv2", "limit": limit, "addressdetails": 1,
+                "accept-language": "en"},
         headers={"User-Agent": get_settings().user_agent},
         timeout=10,
     )
@@ -55,7 +56,7 @@ def reverse(lat: float, lon: float) -> dict | None:
         resp = httpx.get(
             REVERSE_URL,
             params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 10,
-                    "addressdetails": 1},
+                    "addressdetails": 1, "accept-language": "en"},
             headers={"User-Agent": get_settings().user_agent},
             timeout=10,
         )

@@ -8,6 +8,7 @@ from app.config import get_settings
 TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
 SUBMIT_URL = "https://oauth.reddit.com/api/submit"
 INFO_URL = "https://oauth.reddit.com/api/info"
+COMPOSE_URL = "https://oauth.reddit.com/api/compose"
 
 
 class RedditError(Exception):
@@ -119,3 +120,58 @@ def status_from_removed_by_category(rbc: str | None) -> str:
     if rbc == "deleted":
         return "deleted_by_user"
     return "removed_on_reddit"
+
+
+def send_message(access_token: str, *, to: str, subject: str, text: str) -> None:
+    resp = httpx.post(
+        COMPOSE_URL,
+        data={"api_type": "json", "to": to, "subject": subject[:100], "text": text},
+        headers=_headers(access_token),
+        timeout=20,
+    )
+    if resp.status_code == 401:
+        raise TokenExpired("bot session expired")
+    if resp.status_code != 200:
+        raise RedditError(f"compose failed: HTTP {resp.status_code}")
+    errors = (resp.json().get("json", {}) or {}).get("errors") or []
+    if errors:
+        code = errors[0][0]
+        msg = errors[0][1] if len(errors[0]) > 1 else code
+        if code == "RATELIMIT":
+            raise RateLimited(msg)
+        raise RedditError(f"{code}: {msg}")
+
+
+def list_flair_posts(access_token, *, subreddit, flair, limit=100, after=None):
+    params = {
+        "q": f'flair_name:"{flair}"',
+        "restrict_sr": 1,
+        "sort": "new",
+        "limit": limit,
+        "type": "link",
+    }
+    if after:
+        params["after"] = after
+    resp = httpx.get(
+        f"https://oauth.reddit.com/r/{subreddit}/search",
+        params=params,
+        headers=_headers(access_token),
+        timeout=30,
+    )
+    if resp.status_code != 200:
+        raise RedditError(f"listing failed: HTTP {resp.status_code}")
+    data = resp.json().get("data", {})
+    return [c["data"] for c in data.get("children", [])], data.get("after")
+
+
+def fetch_post(access_token, post_id):
+    resp = httpx.get(
+        INFO_URL,
+        params={"id": "t3_" + post_id},
+        headers=_headers(access_token),
+        timeout=20,
+    )
+    if resp.status_code != 200:
+        return None
+    children = resp.json().get("data", {}).get("children", [])
+    return children[0]["data"] if children else None

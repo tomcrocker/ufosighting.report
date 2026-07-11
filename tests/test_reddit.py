@@ -101,3 +101,33 @@ def test_status_mapping():
     assert f("deleted") == "deleted_by_user"
     for rbc in ("moderator", "automod_filtered", "reddit", "spam", "content_takedown"):
         assert f(rbc) == "removed_on_reddit"
+
+
+@respx.mock
+def test_send_message_ok():
+    route = respx.post("https://oauth.reddit.com/api/compose").mock(
+        return_value=httpx.Response(200, json={"json": {"errors": []}})
+    )
+    reddit.send_message("tok", to="witness1", subject="Verify", text="link")
+    body = route.calls[0].request.content
+    assert b"to=witness1" in body and b"api_type=json" in body
+
+
+@respx.mock
+def test_send_message_ratelimit():
+    respx.post("https://oauth.reddit.com/api/compose").mock(
+        return_value=httpx.Response(200, json={"json": {"errors": [
+            ["RATELIMIT", "try again in 3 minutes", "ratelimit"]]}})
+    )
+    with pytest.raises(reddit.RateLimited):
+        reddit.send_message("tok", to="x", subject="s", text="t")
+
+
+@respx.mock
+def test_list_flair_posts_parses():
+    respx.get("https://oauth.reddit.com/r/UFOs_sandbox/search").mock(
+        return_value=httpx.Response(200, json={"data": {"after": "t3_next", "children": [
+            {"data": {"id": "aaa", "title": "Orb", "author": "u1", "link_flair_text": "Sighting"}}]}})
+    )
+    posts, after = reddit.list_flair_posts("tok", subreddit="UFOs_sandbox", flair="Sighting")
+    assert posts[0]["id"] == "aaa" and after == "t3_next"

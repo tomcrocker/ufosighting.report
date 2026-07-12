@@ -72,16 +72,20 @@ def bright_norad_ids() -> str:
     return ",".join(sorted(ids))
 
 
-def fetch_day(client: httpx.Client, day: str, ids: str) -> bool:
-    next_day = time.strftime("%Y-%m-%d", time.gmtime(
-        time.mktime(time.strptime(day, "%Y-%m-%d")) + 86400))
+def fetch_day(client: httpx.Client, day: str, ids: str, span_days: int = 1) -> bool:
+    """Fetch catalogs for a window starting at `day`, saved under the window
+    CENTER date. TLE accuracy holds for days, so a weekly window per catalog
+    is plenty — and 7x fewer of Space-Track's slow gp_history queries."""
+    start_ts = time.mktime(time.strptime(day, "%Y-%m-%d"))
+    end_day = time.strftime("%Y-%m-%d", time.gmtime(start_ts + span_days * 86400))
+    center = time.strftime("%Y-%m-%d", time.gmtime(start_ts + (span_days // 2) * 86400))
     jobs = [
-        (f"starlink-{day}.tle",
+        (f"starlink-{center}.tle",
          f"{BASE}/basicspacedata/query/class/gp_history/OBJECT_NAME/~~STARLINK/"
-         f"EPOCH/{day}--{next_day}/format/3le"),
-        (f"visual-{day}.tle",
+         f"EPOCH/{day}--{end_day}/format/3le"),
+        (f"visual-{center}.tle",
          f"{BASE}/basicspacedata/query/class/gp_history/NORAD_CAT_ID/{ids}/"
-         f"EPOCH/{day}--{next_day}/format/3le"),
+         f"EPOCH/{day}--{end_day}/format/3le"),
     ]
     for fname, url in jobs:
         path = os.path.join(satellites.TLE_DIR, fname)
@@ -117,7 +121,12 @@ def main() -> None:
     login(client)
     done_s = done_d = 0
     for day, day_rows in sorted(by_day.items(), reverse=True):
-        if not fetch_day(client, day, ids):
+        # a catalog within ±3 days is accurate enough — reuse before fetching
+        near = satellites._nearest_catalog_date(day)
+        have_near = near is not None and abs(
+            (time.mktime(time.strptime(near, "%Y-%m-%d"))
+             - time.mktime(time.strptime(day, "%Y-%m-%d"))) / 86400) <= 3
+        if not have_near and not fetch_day(client, day, ids, span_days=7):
             print(f"skipping {day} (fetch failure)", flush=True)
             continue
         for r in day_rows:

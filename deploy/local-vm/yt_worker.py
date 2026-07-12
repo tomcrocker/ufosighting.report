@@ -65,7 +65,7 @@ def download(url, out_dir):
 def main():
     with open(CONFIG_PATH) as f:
         cfg = json.load(f)
-    jobs = json.loads(ssh_ytq(cfg, "claim") or "[]")
+    jobs = json.loads(ssh_ytq(cfg, "claim", "--limit", "10") or "[]")
     if not jobs:
         return
     s3 = boto3.client("s3", endpoint_url=cfg["r2_endpoint"],

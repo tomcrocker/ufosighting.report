@@ -405,4 +405,4 @@ def test_sky_panel_negative_result(client, app_db):
     }), sid))
     app_db.commit()
     r = client.get(f"/sighting/{sid}/sat-negative-check")
-    assert "No bright satellites were overhead" in r.text
+    assert "No bright satellites were visible overhead" in r.text

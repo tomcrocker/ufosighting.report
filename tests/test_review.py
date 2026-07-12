@@ -27,6 +27,9 @@ def test_approve_posts_and_lives(client, app_db, monkeypatch):
     monkeypatch.setattr("app.posting.reddit.script_token", lambda: "bot")
     respx.post("https://oauth.reddit.com/api/submit").mock(
         return_value=httpx.Response(200, json={"json": {"errors": [], "data": {"name": "t3_qq"}}}))
+    respx.get("https://oauth.reddit.com/api/info").mock(
+        return_value=httpx.Response(200, json={"data": {"children": [
+            {"data": {"removed_by_category": None}}]}}))
     sid = seed(app_db, status="pending_review", reddit_username="w")
     tok = _admin(client, app_db)
     r = client.post(f"/admin/review/{sid}/approve",

@@ -152,7 +152,7 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
             except reddit.RedditError:
                 reddit.approve(reddit.read_token(), post_id=post_id)
             print(f"self-approved spam-filtered post {post_id}")
-    except reddit.RedditError as exc:
+    except Exception as exc:  # rescue is best-effort — never break the posting
         print(f"self-approve check on {post_id} failed (non-fatal): {exc}")
     conn.execute(
         "UPDATE sightings SET reddit_post_id=?, status='live', username_verified=?, "

@@ -16,6 +16,9 @@ def test_valid_token_posts_and_goes_live(client, app_db, monkeypatch):
     monkeypatch.setattr("app.posting.reddit.script_token", lambda: "bot")
     respx.post("https://oauth.reddit.com/api/submit").mock(
         return_value=httpx.Response(200, json={"json": {"errors": [], "data": {"name": "t3_pp"}}}))
+    respx.get("https://oauth.reddit.com/api/info").mock(
+        return_value=httpx.Response(200, json={"data": {"children": [
+            {"data": {"removed_by_category": None}}]}}))
     sid = _pending(app_db)
     r = client.get("/verify/tok-abc")
     assert r.status_code == 200 and "live" in r.text.lower()

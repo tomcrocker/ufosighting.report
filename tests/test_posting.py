@@ -213,3 +213,20 @@ def test_live_native_post_not_approved(db_conn, monkeypatch):
                         lambda tok, *, post_id: approved.append(post_id))
     posting.post_sighting(db_conn, sid, verified=True)
     assert not approved
+
+
+def test_details_comment_gets_pinned(db_conn, monkeypatch):
+    sid = _seed_ready(db_conn)
+    _mk_media(db_conn, sid, ("uploads/a.jpg", "image", None))
+    calls = {}
+    _native_stubs(monkeypatch, calls)
+    monkeypatch.setattr(posting.reddit_media, "submit_image", lambda tok, **k: None)
+    monkeypatch.setattr(posting.reddit_media, "wait_for_post_id", lambda tok, **k: "img99")
+    monkeypatch.setattr(posting.reddit_media, "comment",
+                        lambda tok, *, post_id, text: "cmt99")
+    monkeypatch.setattr(posting.reddit_media, "pin_comment",
+                        lambda tok, *, comment_id: calls.update(pinned=comment_id))
+    monkeypatch.setattr(posting.reddit, "fetch_post",
+                        lambda tok, pid: {"removed_by_category": None})
+    posting.post_sighting(db_conn, sid, verified=True)
+    assert calls["pinned"] == "cmt99"

@@ -139,10 +139,26 @@ def wait_for_post_id(token: str, *, username: str, title: str, timeout_s: int,
     return None
 
 
-def comment(token: str, *, post_id: str, text: str) -> None:
+def comment(token: str, *, post_id: str, text: str) -> str | None:
+    """Post a top-level comment; returns the new comment id (for pinning)."""
     resp = httpx.post(COMMENT_URL,
                       data={"api_type": "json", "thing_id": f"t3_{post_id}", "text": text},
                       headers=_headers(token), timeout=30)
     if resp.status_code != 200:
         raise RedditError(f"comment failed: HTTP {resp.status_code}")
+    body = resp.json()
+    _check_errors(body)
+    things = ((body.get("json", {}) or {}).get("data") or {}).get("things") or []
+    return things[0]["data"].get("id") if things else None
+
+
+def pin_comment(token: str, *, comment_id: str) -> None:
+    """Distinguish + sticky the bot's own comment (needs mod rights). Pinned
+    details comments sit at the top of the thread under the media post."""
+    resp = httpx.post("https://oauth.reddit.com/api/distinguish",
+                      data={"api_type": "json", "id": f"t1_{comment_id}",
+                            "how": "yes", "sticky": "true"},
+                      headers=_headers(token), timeout=20)
+    if resp.status_code != 200:
+        raise RedditError(f"distinguish failed: HTTP {resp.status_code}")
     _check_errors(resp.json())

@@ -138,3 +138,20 @@ def test_comment_posts_thing_id():
         return_value=httpx.Response(200, json={"json": {"errors": []}}))
     reddit_media.comment("tok", post_id="1abc", text="hello")
     assert b"thing_id=t3_1abc" in route.calls[0].request.content
+
+
+@respx.mock
+def test_comment_returns_id():
+    respx.post("https://oauth.reddit.com/api/comment").mock(
+        return_value=httpx.Response(200, json={"json": {"errors": [], "data": {
+            "things": [{"kind": "t1", "data": {"id": "cmt42"}}]}}}))
+    assert reddit_media.comment("tok", post_id="1abc", text="hi") == "cmt42"
+
+
+@respx.mock
+def test_pin_comment_distinguishes_sticky():
+    route = respx.post("https://oauth.reddit.com/api/distinguish").mock(
+        return_value=httpx.Response(200, json={"json": {"errors": []}}))
+    reddit_media.pin_comment("tok", comment_id="cmt42")
+    body = route.calls[0].request.content
+    assert b"id=t1_cmt42" in body and b"how=yes" in body and b"sticky=true" in body

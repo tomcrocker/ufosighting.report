@@ -133,3 +133,46 @@ def test_sync_survives_token_failure_in_comment_pass(db_conn, monkeypatch):
     monkeypatch.setattr(sync.reddit, "script_token", no_token)
     result = sync.sync_once(db_conn, comment_sleep=lambda s: None)
     assert result == {"checked": 1, "updated": 0, "comments": 0}
+
+
+def _seed_site(db_conn, post_id, status="live"):
+    sid = _seed(db_conn, post_id, status)
+    db_conn.execute("UPDATE sightings SET source='site' WHERE id=?", (sid,))
+    db_conn.commit()
+    return sid
+
+
+def test_sync_self_approves_spam_removed_bot_post(db_conn, monkeypatch):
+    sid = _seed_site(db_conn, "bot1")
+    _fake_infos(monkeypatch, {"bot1": reddit.PostInfo("reddit", 5, 2)})
+    approved = []
+    monkeypatch.setattr(sync.reddit, "approve",
+                        lambda tok, *, post_id: approved.append(post_id))
+    sync.sync_once(db_conn, comment_sleep=lambda s: None)
+    assert approved == ["bot1"]
+    row = db_conn.execute("SELECT status FROM sightings WHERE id=?", (sid,)).fetchone()
+    assert row["status"] == "live"  # rescued, not flipped to removed
+
+
+def test_sync_respects_mod_removal_of_bot_post(db_conn, monkeypatch):
+    sid = _seed_site(db_conn, "bot2")
+    _fake_infos(monkeypatch, {"bot2": reddit.PostInfo("moderator", 5, 2)})
+    approved = []
+    monkeypatch.setattr(sync.reddit, "approve",
+                        lambda tok, *, post_id: approved.append(post_id))
+    sync.sync_once(db_conn, comment_sleep=lambda s: None)
+    assert not approved
+    row = db_conn.execute("SELECT status FROM sightings WHERE id=?", (sid,)).fetchone()
+    assert row["status"] == "removed_on_reddit"
+
+
+def test_sync_never_approves_ingested_posts(db_conn, monkeypatch):
+    sid = _seed(db_conn, "ing1")
+    db_conn.execute("UPDATE sightings SET source='reddit' WHERE id=?", (sid,))
+    db_conn.commit()
+    _fake_infos(monkeypatch, {"ing1": reddit.PostInfo("reddit", 5, 2)})
+    approved = []
+    monkeypatch.setattr(sync.reddit, "approve",
+                        lambda tok, *, post_id: approved.append(post_id))
+    sync.sync_once(db_conn, comment_sleep=lambda s: None)
+    assert not approved

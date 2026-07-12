@@ -24,7 +24,7 @@ FULL_WINDOW_HOURS = 30 * 24
 def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
               comment_sleep=time.sleep) -> dict:
     rows = conn.execute(
-        """SELECT id, reddit_post_id, status FROM sightings
+        """SELECT id, reddit_post_id, status, source FROM sightings
            WHERE reddit_post_id IS NOT NULL
              AND status IN ('live', 'removed_on_reddit', 'deleted_by_user')
              AND created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)""",
@@ -36,10 +36,27 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
     updated = 0
     touched = []
     live_rows = []
+    approve_token = None
     for r in rows:
         info = infos.get(r["reddit_post_id"])
         if info is None:
             continue
+        # Self-rescue: the sitewide spam filter keeps removing the young bot
+        # account's media posts. The bot (or the fallback mod account) can
+        # approve our OWN posts (source='site'); mod removals are respected,
+        # and ingested posts are never ours to approve.
+        if r["source"] == "site" and info.removed_by_category == "reddit":
+            try:
+                if approve_token is None:
+                    try:
+                        approve_token = reddit.script_token()
+                    except reddit.RedditError:
+                        approve_token = reddit.read_token()
+                reddit.approve(approve_token, post_id=r["reddit_post_id"])
+                info = reddit.PostInfo(None, info.score, info.num_comments)
+                print(f"sync: self-approved spam-removed post {r['reddit_post_id']}")
+            except reddit.RedditError as exc:
+                print(f"sync: self-approve of {r['reddit_post_id']} failed: {exc}")
         new_status = reddit.status_from_removed_by_category(info.removed_by_category)
         conn.execute(
             "UPDATE sightings SET reddit_score=?, reddit_num_comments=?, status=? WHERE id=?",

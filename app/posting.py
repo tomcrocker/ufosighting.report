@@ -114,9 +114,12 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
     )
     if native:
         try:
-            reddit_media.comment(token, post_id=post_id, text=body)
+            comment_id = reddit_media.comment(token, post_id=post_id, text=body)
+            if comment_id:
+                # pin the details to the top of the thread (bot is a mod)
+                reddit_media.pin_comment(token, comment_id=comment_id)
         except reddit.RedditError as exc:
-            print(f"details comment on {post_id} failed (non-fatal): {exc}")
+            print(f"details comment/pin on {post_id} failed (non-fatal): {exc}")
         # The sitewide spam filter routinely removes media posts from the
         # young bot account. The bot moderates the target subreddit, so it
         # can rescue its own post — best-effort, non-fatal elsewhere.

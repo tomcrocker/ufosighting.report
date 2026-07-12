@@ -62,10 +62,14 @@ def reverse(lat: float, lon: float) -> dict | None:
         )
     except httpx.HTTPError:
         return None
-    if resp.status_code != 200 or "error" in resp.json():
+    try:
+        data = resp.json()
+    except ValueError:
         return None
-    out = _parse(resp.json())
-    addr = resp.json().get("address", {})
+    if resp.status_code != 200 or "error" in data or "lat" not in data:
+        return None
+    out = _parse(data)
+    addr = data.get("address", {})
     region = addr.get("state") or addr.get("province") or addr.get("county") or ""
     parts = [p for p in (out["city"], region, out["country"]) if p]
     out["label"] = ", ".join(dict.fromkeys(parts)) or out["display_name"]

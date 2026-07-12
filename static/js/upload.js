@@ -19,6 +19,12 @@
     submitBtn.disabled = inflight > 0;
     if (inflight > 0) submitBtn.textContent = "Uploading…";
     else submitBtn.textContent = "Submit & post to r/UFOs";
+    // While an upload is in flight the media confirmations aren't shown yet
+    // (files join `media` only on success) — block Next so the user can't
+    // leave the step and end up with required checkboxes inside a hidden
+    // section, which would silently kill native form validation on submit.
+    const nextBtn = document.getElementById("nextbtn");
+    if (nextBtn) nextBtn.disabled = inflight > 0;
     // guideline confirmations apply only when media is attached
     const confirms = document.getElementById("media-confirms");
     if (confirms) {

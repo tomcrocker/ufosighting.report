@@ -98,20 +98,34 @@
   const locInput = document.getElementById("location_text");
 
   // Dropped pin -> nearest town/city via reverse geocode. The location field
-  // is required, so this is what makes pin-only submissions pass validation;
-  // if the geocoder is down we fall back to plain coordinates.
+  // is required, so this is what makes pin-only submissions pass validation.
+  // Guards: a sequence token drops stale/out-of-order responses (the server
+  // throttles Nominatim to ~1 req/s, so multi-second latency is normal), and
+  // a response never overwrites text the user edited after the pin drop.
+  let reverseSeq = 0;
+  let lastAutoFill = "";
+  function fieldIsOurs() {
+    const v = locInput.value.trim();
+    return v === "" || v === lastAutoFill;
+  }
+  function autoFill(text, city, country) {
+    locInput.value = text;
+    lastAutoFill = text;
+    document.getElementById("city").value = city || "";
+    document.getElementById("country").value = country || "";
+  }
   function reversePin(lat, lon) {
+    const seq = ++reverseSeq;
     const coordLabel = (+lat).toFixed(3) + ", " + (+lon).toFixed(3);
+    // fill coordinates immediately so Next works even before the lookup lands
+    if (fieldIsOurs()) autoFill(coordLabel, "", "");
     fetch("/api/reverse?lat=" + lat + "&lon=" + lon)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d) => {
-        locInput.value = d.label || coordLabel;
-        document.getElementById("city").value = d.city || "";
-        document.getElementById("country").value = d.country || "";
+        if (seq !== reverseSeq || !fieldIsOurs()) return; // stale or user-edited
+        autoFill(d.label || coordLabel, d.city, d.country);
       })
-      .catch(() => {
-        if (!locInput.value.trim()) locInput.value = coordLabel;
-      });
+      .catch(() => {});
   }
 
   if (window.L && document.getElementById("pinmap")) {
@@ -142,17 +156,20 @@
           const data = await resp.json();
           sugBox.innerHTML = "";
           data.results.forEach((r) => {
-            const div = document.createElement("div");
-            div.className = "suggestion";
-            div.textContent = r.display_name;
-            div.onclick = () => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "suggestion";
+            btn.textContent = r.display_name;
+            btn.onclick = () => {
+              reverseSeq++; // an explicit choice beats any in-flight pin lookup
               locInput.value = r.display_name;
+              lastAutoFill = ""; // user-chosen text — never auto-overwrite it
               document.getElementById("city").value = r.city || "";
               document.getElementById("country").value = r.country || "";
               setPin(r.lat, r.lon, 10);
               sugBox.innerHTML = "";
             };
-            sugBox.appendChild(div);
+            sugBox.appendChild(btn);
           });
         } catch (e) { /* geocoder down — pin drop still works */ }
       }, 350);
@@ -224,5 +241,21 @@
       if (requiredOk(current)) { current++; render(); }
     });
     prevBtn.addEventListener("click", () => { current--; render(); });
+
+    // Safety net: native validation can't focus a required control inside a
+    // hidden step (the browser then blocks the POST with no visible feedback)
+    // — jump to the offending step instead so the message is seen.
+    form.addEventListener("submit", (e) => {
+      for (let i = 0; i < steps.length; i++) {
+        const bad = [...steps[i].querySelectorAll("input[required], textarea[required]")]
+          .find((f) => f.type !== "hidden" && !f.checkValidity());
+        if (bad) {
+          if (i !== current) { current = i; render(); }
+          e.preventDefault();
+          setTimeout(() => bad.reportValidity(), 60);
+          return;
+        }
+      }
+    });
   }
 })();

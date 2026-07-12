@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app import db, geocode, helpers, r2, ratelimit, reddit, turnstile, verify
+from app.countries import COUNTRY_NAMES
 from app.config import get_settings
 from app.web import client_ip, new_csrf, templates
 
@@ -186,7 +187,7 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
     if len(clean["rule_out"]) < 20:
         errors.append(
             "Briefly rule out common explanations (aircraft, drone, Starlink, "
-            "planet, balloon…) — a single sentence is fine."
+            "planet, balloon…) — one sentence of at least 20 characters."
         )
     if form.get("confirm_eyewitness") not in ("1", "on", "true"):
         errors.append("Confirm you saw this with your own eyes at the time.")
@@ -194,6 +195,11 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
     clean["location_text"] = (form.get("location_text") or "").strip()
     if len(clean["location_text"]) < 2:
         errors.append("Enter a location.")
+    elif clean["location_text"].lower().rstrip(".") in COUNTRY_NAMES:
+        errors.append(
+            "A whole country isn't precise enough to investigate — name the "
+            "town or area (within ~20 km is ideal)."
+        )
     clean["city"] = (form.get("city") or "").strip() or None
     clean["country"] = (form.get("country") or "").strip() or None
 

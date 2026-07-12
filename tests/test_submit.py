@@ -182,3 +182,26 @@ def test_rule_out_stored_and_in_post_body(client, app_db):
         sighted_local="x", location_line="y", media_urls=[], gallery_url="u",
         attribution="")
     assert "Why not a common object" in body and RULE_OUT in body
+
+
+def test_country_only_location_rejected(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, location_text="France", city="",
+                                          country="France", lat="", lon=""),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 422 and "precise" in r.text.lower()
+    # case-insensitive
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, location_text="  UNITED STATES ",
+                                          city="", country="", lat="", lon=""),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 422
+
+
+def test_city_named_like_region_still_accepted(client, app_db):
+    csrf = get_csrf(client)
+    # "Singapore" is a city-state — must remain submittable
+    r = client.post("/submit", data=gform(csrf, location_text="Singapore",
+                                          city="Singapore", country="Singapore"),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200

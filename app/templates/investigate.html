@@ -22,9 +22,9 @@
 <div class="inv-controls">
   <input type="search" id="inv-q" placeholder="Search objects&hellip;" aria-label="Search objects">
   <div class="inv-chips" id="inv-chips">
-    <button type="button" class="chip on" data-cat="">All</button>
+    <button type="button" class="chip on" aria-pressed="true" data-cat="">All</button>
     {% for c in categories %}
-    <button type="button" class="chip" data-cat="{{ c }}">{{ c }}</button>
+    <button type="button" class="chip" aria-pressed="false" data-cat="{{ c }}">{{ c }}</button>
     {% endfor %}
   </div>
 </div>
@@ -65,8 +65,9 @@
   }
   chips.forEach(function (chip) {
     chip.addEventListener('click', function () {
-      chips.forEach(function (c) { c.classList.remove('on'); });
+      chips.forEach(function (c) { c.classList.remove('on'); c.setAttribute('aria-pressed', 'false'); });
       chip.classList.add('on');
+      chip.setAttribute('aria-pressed', 'true');
       cat = chip.dataset.cat;
       apply();
     });

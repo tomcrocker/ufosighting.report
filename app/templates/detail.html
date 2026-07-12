@@ -184,6 +184,11 @@
         <button class="btn {% if action == 'hide' %}danger{% endif %}">{{ label }}</button>
       </form>
       {% endfor %}
+      <form method="post" action="/admin/sighting/{{ s.id }}/delete" style="display:inline"
+            onsubmit="return confirm('Permanently delete this sighting, its media files, and search entry? This cannot be undone.')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn danger">Delete forever</button>
+      </form>
     </div>
     {% endif %}
   </aside>

@@ -91,3 +91,71 @@ def test_status_page_renders_for_admin(client, app_db, monkeypatch):
     assert r.status_code == 200
     assert "Bot login" in r.text and "OK" in r.text
     assert "YouTube queue" in r.text
+
+
+def test_basic_auth_disabled_without_password(client, app_db):
+    # no ADMIN_PASSWORD in the test env -> admin stays a hidden 404
+    assert client.get("/admin").status_code == 404
+
+
+def test_basic_auth_challenge_and_login(client, app_db, monkeypatch):
+    import base64
+    from app.config import get_settings
+    monkeypatch.setenv("ADMIN_PASSWORD", "hunter2-strong")
+    get_settings.cache_clear()
+    r = client.get("/admin")
+    assert r.status_code == 401
+    assert r.headers["www-authenticate"].startswith("Basic")
+    # wrong password
+    bad = base64.b64encode(b"tmosh:wrong").decode()
+    assert client.get("/admin", headers={"Authorization": f"Basic {bad}"}).status_code == 401
+    # correct credentials -> page + session cookie for site-wide admin state
+    good = base64.b64encode(b"tmosh:hunter2-strong").decode()
+    r = client.get("/admin", headers={"Authorization": f"Basic {good}"})
+    assert r.status_code == 200
+    assert "sid" in r.cookies
+    # session now carries admin across the site (no Basic header needed)
+    r2 = client.get("/admin/status")
+    assert r2.status_code == 200
+
+
+def test_basic_auth_rejects_non_admin_username(client, app_db, monkeypatch):
+    import base64
+    from app.config import get_settings
+    monkeypatch.setenv("ADMIN_PASSWORD", "hunter2-strong")
+    get_settings.cache_clear()
+    creds = base64.b64encode(b"randomguy:hunter2-strong").decode()
+    assert client.get("/admin", headers={"Authorization": f"Basic {creds}"}).status_code == 401
+
+
+def test_admin_delete_removes_everything(client, app_db, monkeypatch):
+    from app import auth
+    from tests.test_public import seed
+    deleted_keys = []
+    monkeypatch.setattr("app.routes.admin.r2.delete_key", lambda k: deleted_keys.append(k))
+    unindexed = []
+    monkeypatch.setattr("app.routes.admin.search.delete_sightings",
+                        lambda ids: unindexed.extend(ids))
+    sid = seed(app_db, title="Delete me sighting")
+    app_db.execute("INSERT INTO media (sighting_id, r2_key, kind, thumb_key, display_key) "
+                   "VALUES (?, 'uploads/x.jpg', 'image', 'thumbs/x.jpg', 'display/x.jpg')", (sid,))
+    app_db.execute("INSERT INTO comments (reddit_comment_id, sighting_id, author, body) "
+                   "VALUES ('dc1', ?, 'a', 'b')", (sid,))
+    app_db.commit()
+    tok = _admin(client, app_db)
+    r = client.post(f"/admin/sighting/{sid}/delete",
+                    data={"csrf_token": auth.csrf_for(tok)}, follow_redirects=False)
+    assert r.status_code == 303
+    assert app_db.execute("SELECT COUNT(*) FROM sightings WHERE id=?", (sid,)).fetchone()[0] == 0
+    assert app_db.execute("SELECT COUNT(*) FROM comments WHERE sighting_id=?", (sid,)).fetchone()[0] == 0
+    assert sorted(deleted_keys) == ["display/x.jpg", "thumbs/x.jpg", "uploads/x.jpg"]
+    assert unindexed == [sid]
+
+
+def test_admin_delete_needs_csrf(client, app_db):
+    from tests.test_public import seed
+    sid = seed(app_db)
+    _admin(client, app_db)
+    r = client.post(f"/admin/sighting/{sid}/delete", data={"csrf_token": "wrong"})
+    assert r.status_code == 403
+    assert app_db.execute("SELECT COUNT(*) FROM sightings WHERE id=?", (sid,)).fetchone()[0] == 1

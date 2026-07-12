@@ -58,6 +58,10 @@ def create_app(start_thumb_worker: bool = True) -> FastAPI:
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        sid = getattr(request.state, "set_sid", None)
+        if sid:  # basic-auth login mints a session (see web.require_admin)
+            resp.set_cookie("sid", sid, max_age=get_settings().session_ttl_seconds,
+                            httponly=True, samesite="lax")
         return resp
 
     @app.exception_handler(StarletteHTTPException)
@@ -74,6 +78,7 @@ def create_app(start_thumb_worker: bool = True) -> FastAPI:
                                 headers=getattr(exc, "headers", None))
         return templates.TemplateResponse(
             request, "error.html", {"user": None, "code": exc.status_code},
-            status_code=exc.status_code)
+            status_code=exc.status_code,
+            headers=getattr(exc, "headers", None))  # e.g. WWW-Authenticate
 
     return app

@@ -1,7 +1,7 @@
 import secrets
 from pathlib import Path
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, Response
 from fastapi.templating import Jinja2Templates
 
 from app import auth, db, helpers, mdrender, r2
@@ -50,7 +50,33 @@ def is_admin(user: auth.Session | None) -> bool:
     return bool(user) and user.username.lower() in get_settings().admin_users
 
 
-def require_admin(user: auth.Session | None = Depends(current_user)) -> auth.Session:
-    if not is_admin(user):
+def require_admin(request: Request, response: Response,
+                  user: auth.Session | None = Depends(current_user),
+                  conn=Depends(db.get_db)) -> auth.Session:
+    """Admin gate: existing admin session, or HTTP Basic (ADMIN_PASSWORD env).
+    A successful Basic login mints a normal session cookie so admin controls
+    show up across the whole site, not just under /admin. With no
+    ADMIN_PASSWORD configured the area stays hidden as a 404."""
+    if is_admin(user):
+        return user
+    s = get_settings()
+    if not s.admin_password:
         raise HTTPException(status_code=404)
-    return user
+    header = request.headers.get("authorization", "")
+    if header.lower().startswith("basic "):
+        import base64
+        import secrets as _secrets
+        try:
+            decoded = base64.b64decode(header[6:]).decode()
+            username, _, password = decoded.partition(":")
+        except (ValueError, UnicodeDecodeError):
+            username, password = "", ""
+        if (username.lower() in s.admin_users
+                and _secrets.compare_digest(password, s.admin_password)):
+            sid = auth.create_session(conn, username, "basic", s.session_ttl_seconds)
+            # routes return TemplateResponses, which discard cookies set on
+            # the injected Response — the app middleware applies this instead
+            request.state.set_sid = sid
+            return auth.get_session(conn, sid)
+    raise HTTPException(status_code=401,
+                        headers={"WWW-Authenticate": 'Basic realm="moderators"'})

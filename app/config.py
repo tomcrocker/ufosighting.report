@@ -29,6 +29,7 @@ class Settings:
     subreddit: str
     sighting_flair_id: str
     admin_users: tuple[str, ...]
+    admin_password: str
     user_agent: str
     session_ttl_seconds: int
     max_image_bytes: int
@@ -82,6 +83,7 @@ def get_settings() -> Settings:
         admin_users=tuple(
             u.strip().lower() for u in _env("ADMIN_USERS", "").split(",") if u.strip()
         ),
+        admin_password=_env("ADMIN_PASSWORD", ""),
         user_agent="web:report.ufosighting:v1.0 (by /u/tmosh)",
         session_ttl_seconds=3600,
         max_image_bytes=25 * 1024 * 1024,

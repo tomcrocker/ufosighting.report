@@ -3,7 +3,7 @@ import hmac
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from app import auth, db, posting, search
+from app import auth, db, posting, r2, search
 from app.web import require_admin, templates
 
 router = APIRouter()
@@ -40,6 +40,35 @@ def admin_home(request: Request, conn=Depends(db.get_db), user=Depends(require_a
         {"user": user, "hidden": hidden, "featured": featured, "pending": pending,
          "csrf_token": auth.csrf_for(user.id)},
     )
+
+
+@router.post("/admin/sighting/{sighting_id}/delete")
+async def admin_delete(
+    request: Request, sighting_id: int,
+    conn=Depends(db.get_db), user=Depends(require_admin),
+):
+    """Permanent deletion: DB row (media/comments/yt_jobs cascade), the R2
+    objects, and the search doc. Unlike hide, there is no undo."""
+    form = await request.form()
+    if not hmac.compare_digest(str(form.get("csrf_token", "")), auth.csrf_for(user.id)):
+        raise HTTPException(status_code=403, detail="Bad CSRF token")
+    row = conn.execute("SELECT id FROM sightings WHERE id=?", (sighting_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404)
+    media = conn.execute(
+        "SELECT r2_key, thumb_key, display_key FROM media WHERE sighting_id=?",
+        (sighting_id,)).fetchall()
+    for m in media:
+        for key in (m["r2_key"], m["thumb_key"], m["display_key"]):
+            if key:
+                try:
+                    r2.delete_key(key)
+                except Exception as exc:
+                    print(f"admin delete: R2 key {key} failed: {exc}")
+    conn.execute("DELETE FROM sightings WHERE id=?", (sighting_id,))
+    conn.commit()
+    search.delete_sightings([sighting_id])
+    return RedirectResponse("/", status_code=303)
 
 
 @router.get("/admin/status")

@@ -45,15 +45,23 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
         # account's media posts. The bot (or the fallback mod account) can
         # approve our OWN posts (source='site'); mod removals are respected,
         # and ingested posts are never ours to approve.
-        if r["source"] == "site" and info.removed_by_category == "reddit":
+        if r["source"] == "site":
             try:
                 if approve_token is None:
                     # the personal mod account: stable login + full mod perms
                     # (the bot may lack the "posts" permission or app access)
                     approve_token = reddit.read_token()
-                reddit.approve(approve_token, post_id=r["reddit_post_id"])
-                info = reddit.PostInfo(None, info.score, info.num_comments)
-                print(f"sync: self-approved spam-removed post {r['reddit_post_id']}")
+                if info.removed_by_category == "reddit":
+                    reddit.approve(approve_token, post_id=r["reddit_post_id"])
+                    info = reddit.PostInfo(None, info.score, info.num_comments)
+                    print(f"sync: self-approved spam-removed post {r['reddit_post_id']}")
+                # the bot's pinned details comment gets spam-filtered too
+                for cid in reddit.fetch_removed_bot_comments(
+                        approve_token, r["reddit_post_id"],
+                        get_settings().script_username):
+                    reddit.approve(approve_token, comment_id=cid)
+                    print(f"sync: self-approved removed bot comment {cid} "
+                          f"on {r['reddit_post_id']}")
             except reddit.RedditError as exc:
                 print(f"sync: self-approve of {r['reddit_post_id']} failed: {exc}")
         new_status = reddit.status_from_removed_by_category(info.removed_by_category)

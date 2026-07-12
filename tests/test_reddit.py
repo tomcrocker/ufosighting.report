@@ -167,3 +167,11 @@ def test_approve_posts_thing_id():
         return_value=httpx.Response(200, json={}))
     reddit.approve("tok", post_id="1abc")
     assert b"id=t3_1abc" in route.calls[0].request.content
+
+
+@respx.mock
+def test_approve_comment_uses_t1_fullname():
+    route = respx.post("https://oauth.reddit.com/api/approve").mock(
+        return_value=httpx.Response(200, json={}))
+    reddit.approve("tok", comment_id="cmt9")
+    assert b"id=t1_cmt9" in route.calls[0].request.content

@@ -176,3 +176,16 @@ def test_sync_never_approves_ingested_posts(db_conn, monkeypatch):
                         lambda tok, *, post_id: approved.append(post_id))
     sync.sync_once(db_conn, comment_sleep=lambda s: None)
     assert not approved
+
+
+def test_sync_rescues_removed_bot_comment(db_conn, monkeypatch):
+    sid = _seed_site(db_conn, "bot3")
+    _fake_infos(monkeypatch, {"bot3": reddit.PostInfo(None, 5, 2)})
+    monkeypatch.setattr(sync.reddit, "fetch_removed_bot_comments",
+                        lambda tok, pid, bot: ["cmtX"] if pid == "bot3" else [])
+    approved = []
+    monkeypatch.setattr(sync.reddit, "approve",
+                        lambda tok, *, post_id=None, comment_id=None:
+                        approved.append(comment_id or post_id))
+    sync.sync_once(db_conn, comment_sleep=lambda s: None)
+    assert "cmtX" in approved

@@ -140,17 +140,47 @@ def status_from_removed_by_category(rbc: str | None) -> str:
     return "removed_on_reddit"
 
 
-def approve(access_token: str, *, post_id: str) -> None:
-    """Mod-approve a post (used to self-rescue bot posts the sitewide spam
-    filter removes — works only where the bot account moderates)."""
+def approve(access_token: str, *, post_id: str | None = None,
+            comment_id: str | None = None) -> None:
+    """Mod-approve a post or comment (self-rescue for bot content the
+    sitewide spam filter removes — works only where the account moderates)."""
+    fullname = f"t3_{post_id}" if post_id else f"t1_{comment_id}"
     resp = httpx.post(
         "https://oauth.reddit.com/api/approve",
-        data={"id": f"t3_{post_id}"},
+        data={"id": fullname},
         headers=_headers(access_token),
         timeout=20,
     )
     if resp.status_code != 200:
         raise RedditError(f"approve failed: HTTP {resp.status_code}")
+
+
+def fetch_removed_bot_comments(access_token: str, post_id: str,
+                               bot_username: str) -> list[str]:
+    """Comment ids by the bot on this post that a mod-view shows as removed
+    (spam-filtered). Requires a moderator token — removed comments are
+    invisible in the public view."""
+    try:
+        resp = httpx.get(
+            f"https://oauth.reddit.com/comments/{post_id}",
+            params={"depth": 1, "limit": 20},
+            headers=_headers(access_token),
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            return []
+        listing = resp.json()
+        if len(listing) < 2:
+            return []
+        out = []
+        for child in listing[1]["data"]["children"]:
+            d = child.get("data", {})
+            if (d.get("author") == bot_username
+                    and (d.get("banned_by") or d.get("removed") or d.get("spam"))):
+                out.append(d["id"])
+        return out
+    except (httpx.HTTPError, ValueError, KeyError, IndexError):
+        return []
 
 
 def send_message(access_token: str, *, to: str, subject: str, text: str) -> None:

@@ -228,5 +228,8 @@ def test_details_comment_gets_pinned(db_conn, monkeypatch):
                         lambda tok, *, comment_id: calls.update(pinned=comment_id))
     monkeypatch.setattr(posting.reddit, "fetch_post",
                         lambda tok, pid: {"removed_by_category": None})
+    monkeypatch.setattr(posting.reddit, "approve",
+                        lambda tok, **k: calls.update(approved=k))
     posting.post_sighting(db_conn, sid, verified=True)
     assert calls["pinned"] == "cmt99"
+    assert calls["approved"] == {"comment_id": "cmt99"}  # preemptive approve

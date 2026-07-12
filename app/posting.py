@@ -118,6 +118,12 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
             if comment_id:
                 # pin the details to the top of the thread (bot is a mod)
                 reddit_media.pin_comment(token, comment_id=comment_id)
+                # preemptive approve: marks the comment mod-approved so the
+                # spam filter leaves it alone (no-op if it wasn't removed)
+                try:
+                    reddit.approve(token, comment_id=comment_id)
+                except reddit.RedditError:
+                    reddit.approve(reddit.read_token(), comment_id=comment_id)
         except reddit.RedditError as exc:
             print(f"details comment/pin on {post_id} failed (non-fatal): {exc}")
         # The sitewide spam filter routinely removes media posts from the

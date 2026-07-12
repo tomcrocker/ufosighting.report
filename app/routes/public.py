@@ -314,10 +314,14 @@ def detail(
                            "name": helpers.compass_name(meta["compass_deg"]),
                            "ref": meta.get("compass_ref", "true")}
                 break
+        hhmm = row["sighted_at"][11:16]
         sky = {
-            "adsb": (f"https://globe.adsbexchange.com/?lat={lat}&lon={lon}"
-                     f"&zoom=9&showTrace={day}"),
-            "fr24": f"https://www.flightradar24.com/{lat},{lon}/9",
+            # tar1090 playback: ?replay=YYYY-MM-DD-HH:MM rewinds the whole
+            # area to that moment (showTrace needs a specific airframe)
+            "adsb": (f"https://globe.adsbexchange.com/?lat={lat:.3f}&lon={lon:.3f}"
+                     f"&zoom=9&replay={day}-{hhmm}"),
+            # FR24 parses >2 decimals as a flight callsign ("flight not found")
+            "fr24": f"https://www.flightradar24.com/{lat:.2f},{lon:.2f}/9",
             "heavens": f"https://www.heavens-above.com/?lat={lat}&lng={lon}",
             "tad": f"https://www.timeanddate.com/astronomy/night/@{lat},{lon}",
             "heading": heading,

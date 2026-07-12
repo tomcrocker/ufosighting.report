@@ -205,3 +205,22 @@ def test_city_named_like_region_still_accepted(client, app_db):
                                           city="Singapore", country="Singapore"),
                     cookies={"csrf": csrf})
     assert r.status_code == 200
+
+
+def test_coordinates_as_location_fill_latlon(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, location_text="48.4284, -123.3656",
+                                          city="", country="", lat="", lon=""),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+    row = app_db.execute("SELECT lat, lon, location_text FROM sightings "
+                         "ORDER BY id DESC LIMIT 1").fetchone()
+    assert abs(row["lat"] - 48.4284) < 1e-4 and abs(row["lon"] + 123.3656) < 1e-4
+
+
+def test_bogus_coordinates_rejected(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, location_text="123.9, -200.0",
+                                          city="", country="", lat="", lon=""),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 422

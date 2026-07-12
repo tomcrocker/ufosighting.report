@@ -193,8 +193,22 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
         errors.append("Confirm you saw this with your own eyes at the time.")
 
     clean["location_text"] = (form.get("location_text") or "").strip()
+    coord_m = re.fullmatch(
+        r"(-?\d{1,3}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)",
+        clean["location_text"].replace("°", ""))
     if len(clean["location_text"]) < 2:
         errors.append("Enter a location.")
+    elif coord_m:
+        # bare coordinates are a valid (and precise) location
+        try:
+            c_lat, c_lon = float(coord_m.group(1)), float(coord_m.group(2))
+            if not (-90 <= c_lat <= 90 and -180 <= c_lon <= 180):
+                raise ValueError
+            if not (form.get("lat") or "").strip():
+                form = dict(form)
+                form["lat"], form["lon"] = str(c_lat), str(c_lon)
+        except ValueError:
+            errors.append("Those coordinates don't look valid (lat, lon).")
     elif clean["location_text"].lower().rstrip(".") in COUNTRY_NAMES:
         errors.append(
             "A whole country isn't precise enough to investigate — name the "

@@ -28,7 +28,7 @@ def _parse(item: dict) -> dict:
         "lat": float(item["lat"]),
         "lon": float(item["lon"]),
         "city": addr.get("city") or addr.get("town") or addr.get("village")
-        or addr.get("municipality") or "",
+        or addr.get("hamlet") or addr.get("suburb") or addr.get("municipality") or "",
         "country": addr.get("country", ""),
         "addresstype": item.get("addresstype", ""),
     }
@@ -48,15 +48,12 @@ def search(q: str, limit: int = 5) -> list[dict]:
     return [_parse(i) for i in resp.json()]
 
 
-def reverse(lat: float, lon: float) -> dict | None:
-    """Nearest town/city for a dropped pin (Nominatim zoom 10 = city level).
-    Returns {label, city, country, ...} with a short human label — never a
-    street address — or None if the geocoder is unavailable."""
+def _reverse_once(lat: float, lon: float, zoom: int) -> dict | None:
     _throttle()
     try:
         resp = httpx.get(
             REVERSE_URL,
-            params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": 10,
+            params={"lat": lat, "lon": lon, "format": "jsonv2", "zoom": zoom,
                     "addressdetails": 1, "accept-language": "en"},
             headers={"User-Agent": get_settings().user_agent},
             timeout=10,
@@ -71,9 +68,26 @@ def reverse(lat: float, lon: float) -> dict | None:
         return None
     out = _parse(data)
     addr = data.get("address", {})
-    region = addr.get("state") or addr.get("province") or addr.get("county") or ""
-    parts = [p for p in (out["city"], region, out["country"]) if p]
-    out["label"] = ", ".join(dict.fromkeys(parts)) or out["display_name"]
+    out["_region"] = (addr.get("state") or addr.get("province")
+                      or addr.get("county") or "")
+    return out
+
+
+def reverse(lat: float, lon: float) -> dict | None:
+    """Nearest town/city for a dropped pin. Zoom 10 (city level) first, then
+    zoom 12 (village/suburb) when no settlement came back. Returns {label,
+    city, country, ...} — never a street address, and never a bare country
+    or region: the caller should fall back to coordinates instead, which at
+    least are precise (a country-only 'location' is unusable)."""
+    out = _reverse_once(lat, lon, 10)
+    if out is not None and not out["city"]:
+        finer = _reverse_once(lat, lon, 12)
+        if finer is not None and finer["city"]:
+            out = finer
+    if out is None or not out["city"]:
+        return None
+    parts = [p for p in (out["city"], out.get("_region", ""), out["country"]) if p]
+    out["label"] = ", ".join(dict.fromkeys(parts))
     return out
 
 

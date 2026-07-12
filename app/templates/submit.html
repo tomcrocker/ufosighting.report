@@ -33,7 +33,8 @@
         <p class="muted">The town or area is fine — ideally within 20&nbsp;km of the spot
           (the r/UFOs guideline). A whole country isn't precise enough to investigate.</p>
         <input name="location_text" id="location_text" required minlength="2" autocomplete="off"
-               placeholder="Search a town or area…" value="{{ values.location_text or '' }}">
+               placeholder="Search a town or area — or paste coordinates like 48.43, -123.36"
+               value="{{ values.location_text or '' }}">
         <div class="suggestions" id="geo-suggestions"></div>
         <div id="pinmap"></div>
         <p class="muted">…or click the map to drop a pin — we'll name the nearest town for you.</p>

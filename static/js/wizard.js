@@ -144,10 +144,28 @@
 
   const sugBox = document.getElementById("geo-suggestions");
   let geoTimer = null;
+  const COORD_RE = /^(-?\d{1,3}(?:\.\d+)?)\s*[, ]\s*(-?\d{1,3}(?:\.\d+)?)$/;
   if (locInput && sugBox) {
     locInput.addEventListener("input", () => {
       clearTimeout(geoTimer);
       const q = locInput.value.trim();
+      // typed coordinates: offer to pin them directly, skip the geocoder
+      const cm = COORD_RE.exec(q.replace(/°/g, ""));
+      if (cm && Math.abs(+cm[1]) <= 90 && Math.abs(+cm[2]) <= 180) {
+        sugBox.innerHTML = "";
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "suggestion";
+        btn.textContent = "\u{1F4CD} Use coordinates " + (+cm[1]).toFixed(4) + ", " + (+cm[2]).toFixed(4);
+        btn.onclick = () => {
+          reverseSeq++;           // cancel any in-flight pin lookup
+          lastAutoFill = "";      // their coordinates — never overwrite
+          setPin(+cm[1], +cm[2], 10);
+          sugBox.innerHTML = "";
+        };
+        sugBox.appendChild(btn);
+        return;
+      }
       if (q.length < 3) { sugBox.innerHTML = ""; return; }
       geoTimer = setTimeout(async () => {
         try {

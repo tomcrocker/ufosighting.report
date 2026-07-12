@@ -145,3 +145,37 @@ def test_candidates_never_country_only():
 def test_candidates_dedupes_and_caps():
     out = geocode.candidates("Paris, France (Paris)", city="Paris", country="France")
     assert len(out) == len(set(out)) and len(out) <= 5
+
+
+@respx.mock
+def test_reverse_retries_finer_zoom_for_city(monkeypatch):
+    monkeypatch.setattr(geocode, "_throttle", lambda: None)
+    calls = []
+
+    def responder(request):
+        calls.append(dict(request.url.params))
+        if request.url.params["zoom"] == "10":
+            return httpx.Response(200, json={
+                "display_name": "British Columbia, Canada", "lat": "52", "lon": "-125",
+                "addresstype": "state",
+                "address": {"state": "British Columbia", "country": "Canada"}})
+        return httpx.Response(200, json={
+            "display_name": "Tatla Lake, BC, Canada", "lat": "52", "lon": "-124.6",
+            "addresstype": "village",
+            "address": {"village": "Tatla Lake", "state": "British Columbia",
+                        "country": "Canada"}})
+
+    respx.get("https://nominatim.openstreetmap.org/reverse").mock(side_effect=responder)
+    out = geocode.reverse(52.0, -125.0)
+    assert out["city"] == "Tatla Lake"
+    assert [c["zoom"] for c in calls] == ["10", "12"]
+
+
+@respx.mock
+def test_reverse_country_only_returns_none(monkeypatch):
+    monkeypatch.setattr(geocode, "_throttle", lambda: None)
+    respx.get("https://nominatim.openstreetmap.org/reverse").mock(
+        return_value=httpx.Response(200, json={
+            "display_name": "Algeria", "lat": "28", "lon": "2",
+            "addresstype": "country", "address": {"country": "Algeria"}}))
+    assert geocode.reverse(28.0, 2.0) is None

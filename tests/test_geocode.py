@@ -112,3 +112,36 @@ def test_api_geocode_filters_countries(client, monkeypatch):
     r = client.get("/api/geocode?q=canada")
     names = [x["display_name"] for x in r.json()["results"]]
     assert "Canada" not in names and len(names) == 1
+
+
+# --- candidate ladder for fuzzy/verbose location strings ---
+
+def test_candidates_strips_parentheticals():
+    out = geocode.candidates("Jeannette, PA (an hour outside Pittsburgh)")
+    assert out[0] == "Jeannette, PA"
+
+
+def test_candidates_handles_near_prefixes():
+    out = geocode.candidates("Ontario, near Thunder Bay")
+    assert "Thunder Bay, Ontario" in out or "Ontario, Thunder Bay" in out
+
+
+def test_candidates_drops_leading_descriptor():
+    out = geocode.candidates("Toledo Express Airport, Holland Ohio")
+    assert "Holland Ohio" in out
+
+
+def test_candidates_uses_city_country():
+    out = geocode.candidates("Sweetwater County heights", city="Rock Springs",
+                             country="United States")
+    assert "Rock Springs, United States" in out
+
+
+def test_candidates_never_country_only():
+    out = geocode.candidates("", city="", country="Germany")
+    assert out == []
+
+
+def test_candidates_dedupes_and_caps():
+    out = geocode.candidates("Paris, France (Paris)", city="Paris", country="France")
+    assert len(out) == len(set(out)) and len(out) <= 5

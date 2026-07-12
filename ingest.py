@@ -195,8 +195,11 @@ def ingest_post(conn, post: dict, token=None, op_comments: list[str] | None = No
                                          post_created_iso=post_created_iso)
 
     coords = None
-    if clamped.get("location_text"):
-        coords = geocode.forward(conn, clamped["location_text"])
+    for q in geocode.candidates(clamped.get("location_text") or "",
+                                clamped.get("city"), clamped.get("country")):
+        coords = geocode.forward(conn, q)
+        if coords:
+            break
 
     sighted_at, tz_name = build_sighted_at(clamped, post_created_iso)
     title = (post.get("title") or "Untitled sighting")[:300]

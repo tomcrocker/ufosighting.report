@@ -1,3 +1,4 @@
+import re
 import threading
 import time
 
@@ -74,6 +75,42 @@ def reverse(lat: float, lon: float) -> dict | None:
     parts = [p for p in (out["city"], region, out["country"]) if p]
     out["label"] = ", ".join(dict.fromkeys(parts)) or out["display_name"]
     return out
+
+
+_PARENS = re.compile(r"\s*\([^)]*\)")
+_NEAR = re.compile(r"\b(?:near|close to|outside|just outside|west|east|north|south)"
+                   r"(?:[- ](?:of|from))?\s+", re.I)
+
+
+def candidates(location_text: str, city: str | None = None,
+               country: str | None = None) -> list[str]:
+    """Geocode query ladder for LLM-extracted location strings — Nominatim
+    chokes on verbose text ('Jeannette, PA (an hour outside Pittsburgh)'),
+    so try progressively simpler variants. Never yields a bare country:
+    a country centroid is a useless sighting pin."""
+    out: list[str] = []
+
+    def add(q: str | None):
+        q = re.sub(r"\s+", " ", (q or "")).strip(" ,")
+        if q and q.lower() != (country or "").lower() and q not in out:
+            out.append(q)
+
+    text = _PARENS.sub("", location_text or "").strip(" ,")
+    add(text)
+    parts = [p.strip() for p in text.split(",") if p.strip()]
+    if len(parts) >= 2:
+        add(", ".join(parts[1:]))          # drop the wordy leading descriptor
+        add(", ".join(parts[-2:]))         # the two broadest parts
+        # "Region, near Town" style: promote the place after the qualifier
+        for p in parts:
+            m = _NEAR.search(p)
+            if m:
+                add(p[m.end():] + ", " + parts[0])
+    if city and country:
+        add(f"{city}, {country}")
+    elif city:
+        add(city)
+    return out[:5]
 
 
 def forward(conn, q: str) -> dict | None:

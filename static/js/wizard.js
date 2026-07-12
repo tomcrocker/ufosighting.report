@@ -131,9 +131,16 @@
   if (window.L && document.getElementById("pinmap")) {
     const hasPin = latInput.value !== "";
     map = L.map("pinmap").setView(hasPin ? [+latInput.value, +lonInput.value] : [30, 0], hasPin ? 8 : 2);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
       attribution: "&copy; OpenStreetMap &copy; CARTO",
       subdomains: "abcd",
+    }).addTo(map);
+    // labels above the pin marker so city names stay readable while zooming
+    map.createPane("labels");
+    map.getPane("labels").style.zIndex = 650;
+    map.getPane("labels").style.pointerEvents = "none";
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png", {
+      subdomains: "abcd", pane: "labels",
     }).addTo(map);
     if (hasPin) marker = L.marker([+latInput.value, +lonInput.value]).addTo(map);
     map.on("click", (e) => {

@@ -92,9 +92,17 @@
     if (!el || !window.L) return;
     const map = L.map("map", { zoomControl: false, worldCopyJump: true }).setView([39.8, -98.5], 4);
     L.control.zoom({ position: "bottomright" }).addTo(map);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png", {
       attribution: "&copy; OpenStreetMap &copy; CARTO",
       subdomains: "abcd", maxZoom: 19,
+    }).addTo(map);
+    // city/place names in their own pane ABOVE the heatmap and markers —
+    // otherwise the glow buries the labels and navigating is guesswork
+    map.createPane("labels");
+    map.getPane("labels").style.zIndex = 650;
+    map.getPane("labels").style.pointerEvents = "none";
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png", {
+      subdomains: "abcd", maxZoom: 19, pane: "labels",
     }).addTo(map);
 
     const clusterLayer = L.markerClusterGroup({

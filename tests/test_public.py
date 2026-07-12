@@ -372,7 +372,7 @@ def test_sky_context_links(client, app_db):
     assert "globe.adsbexchange.com" in r.text and "replay=2026-07-01-06:00" in r.text
     assert "flightradar24.com/48.43,-123.36/9" in r.text
     assert "heavens-above.com" in r.text
-    assert "timeanddate.com/astronomy/night/@48.43,-123.36" in r.text
+    assert "in-the-sky.org/skymap.php?year=2026&amp;month=7&amp;day=1" in r.text
     assert "205.6" in r.text and "SSW" in r.text  # camera heading + compass name
 
 

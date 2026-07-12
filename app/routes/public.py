@@ -322,8 +322,12 @@ def detail(
                      f"&zoom=9&replay={day}-{hhmm}"),
             # FR24 parses >2 decimals as a flight callsign ("flight not found")
             "fr24": f"https://www.flightradar24.com/{lat:.2f},{lon:.2f}/9",
-            "heavens": f"https://www.heavens-above.com/?lat={lat}&lng={lon}",
-            "tad": f"https://www.timeanddate.com/astronomy/night/@{lat},{lon}",
+            "heavens": f"https://www.heavens-above.com/?lat={lat:.4f}&lng={lon:.4f}",
+            # in-the-sky honors date params (location is a one-time setting
+            # on their side); timeanddate ignored ?month/year — verified
+            "skychart": (f"https://in-the-sky.org/skymap.php?year={day[:4]}"
+                         f"&month={int(day[5:7])}&day={int(day[8:10])}"
+                         f"&latitude={lat:.4f}&longitude={lon:.4f}"),
             "heading": heading,
         }
     base = get_settings().base_url

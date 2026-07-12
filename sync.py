@@ -48,10 +48,9 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
         if r["source"] == "site" and info.removed_by_category == "reddit":
             try:
                 if approve_token is None:
-                    try:
-                        approve_token = reddit.script_token()
-                    except reddit.RedditError:
-                        approve_token = reddit.read_token()
+                    # the personal mod account: stable login + full mod perms
+                    # (the bot may lack the "posts" permission or app access)
+                    approve_token = reddit.read_token()
                 reddit.approve(approve_token, post_id=r["reddit_post_id"])
                 info = reddit.PostInfo(None, info.score, info.num_comments)
                 print(f"sync: self-approved spam-removed post {r['reddit_post_id']}")

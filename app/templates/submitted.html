@@ -3,10 +3,14 @@
 {% block content %}
 <section class="panel narrow">
   <h1>Almost there — check your Reddit inbox</h1>
-  <p>We sent <strong>u/{{ username }}</strong> a private message with a link to confirm this
-     sighting was submitted by you. Click it and your sighting posts to the subreddit right away.</p>
-  <p class="muted">Didn't get it, or that's not your account? No problem — a moderator will review
-     your sighting and post it. Nothing is lost.</p>
+  <p>We sent <strong>u/{{ username }}</strong> a private message from
+     <strong>u/{{ bot_username }}</strong> with a confirmation link.</p>
+  <p><strong>Your sighting is not live yet.</strong> Clicking that link confirms you are who
+     you say you are — as soon as you do, your sighting posts to the subreddit and appears
+     in the gallery.</p>
+  <p class="muted">Didn't get it, or that's not your account? No problem — after
+     {{ verify_hours }} hours a moderator will review your sighting and post it, credited
+     as self-reported. Nothing is lost.</p>
   <a class="btn" href="/">Back to the gallery</a>
 </section>
 {% endblock %}

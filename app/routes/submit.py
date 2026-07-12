@@ -393,4 +393,7 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
     conn.commit()
     ratelimit.record(conn, ip, "submit")
     _try_send_verify_dm(conn, username, token)
-    return templates.TemplateResponse(request, "submitted.html", {"user": None, "username": username})
+    return templates.TemplateResponse(
+        request, "submitted.html",
+        {"user": None, "username": username,
+         "bot_username": s.script_username, "verify_hours": s.verify_window_hours})

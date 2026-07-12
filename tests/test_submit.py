@@ -255,3 +255,12 @@ def test_capture_device_optional_and_capped(client, app_db):
     assert r.status_code == 200
     row = app_db.execute("SELECT capture_device FROM sightings ORDER BY id DESC LIMIT 1").fetchone()
     assert len(row["capture_device"]) == 100
+
+
+def test_submitted_page_names_bot_and_gates(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf), cookies={"csrf": csrf})
+    assert r.status_code == 200
+    assert "u/modbot" in r.text                 # SCRIPT_USERNAME in the test env
+    assert "not live yet" in r.text
+    assert "6 hours" in r.text                  # verify window default

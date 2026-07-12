@@ -149,6 +149,10 @@ def index(
             top_window=t, page=page,
         )
         cards_list = [card(r) for r in rows]
+    stats = conn.execute(
+        f"""SELECT COUNT(*) AS n, MAX(created_at) AS latest FROM sightings
+            WHERE status IN {PUBLIC_STATUSES_SQL}"""
+    ).fetchone()
     countries = [
         r["country"] for r in conn.execute(
             f"""SELECT DISTINCT country FROM sightings
@@ -184,6 +188,8 @@ def index(
             "page": page,
             "pages": max(1, math.ceil(total / PER_PAGE)),
             "total": total,
+            "grand_total": stats["n"],
+            "latest_at": stats["latest"],
             "qs": qs,
         },
     )
@@ -352,6 +358,46 @@ def sitemap(conn=Depends(db.get_db)):
         + "\n</urlset>"
     )
     return Response(content=body, media_type="application/xml")
+
+
+@router.get("/feed.xml")
+def feed(conn=Depends(db.get_db)):
+    """RSS of the latest sightings — the UFO community lives in feed readers."""
+    import email.utils
+    from datetime import datetime, timezone
+    base = get_settings().base_url
+    rows = conn.execute(
+        f"""SELECT id, title, description, created_at FROM sightings
+            WHERE status IN {PUBLIC_STATUSES_SQL}
+            ORDER BY created_at DESC LIMIT 50""").fetchall()
+    items = []
+    for r in rows:
+        url = f"{base}/sighting/{r['id']}/{helpers.slugify(r['title'])}"
+        dt = datetime.strptime(r["created_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc)
+        desc = (r["description"] or "")[:400]
+        items.append(
+            "<item>"
+            f"<title>{_xml(r['title'])}</title>"
+            f"<link>{url}</link>"
+            f"<guid isPermaLink=\"true\">{url}</guid>"
+            f"<pubDate>{email.utils.format_datetime(dt)}</pubDate>"
+            f"<description>{_xml(desc)}</description>"
+            "</item>")
+    body = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<rss version="2.0"><channel>'
+        "<title>ufosighting.report — latest UFO sightings</title>"
+        f"<link>{base}/</link>"
+        "<description>New UFO sighting reports with original-quality media, "
+        "from r/UFOs and direct submissions.</description>"
+        + "".join(items) + "</channel></rss>")
+    return Response(content=body, media_type="application/rss+xml")
+
+
+def _xml(s: str) -> str:
+    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;"))
 
 
 @router.get("/robots.txt")

@@ -498,3 +498,15 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 }
 .faq summary { cursor: pointer; font-weight: 600; }
 .faq p { margin: 10px 0 2px; color: var(--muted); }
+
+/* hero stats + error page */
+.hero-stats { color: var(--muted); font-size: .92rem; margin-top: -6px; }
+.hero-stats strong { color: var(--accent); }
+.error-page { text-align: center; }
+.error-saucer { width: 240px; margin: 0 auto 8px; display: block; }
+.error-page h1 { font-size: 3rem; margin: 0 0 8px; }
+
+/* admin status */
+.status-checks .ok { color: var(--accent); font-weight: 600; }
+.status-checks .bad { color: var(--danger); font-weight: 600; }
+.status-checks .muted { margin-left: 8px; }

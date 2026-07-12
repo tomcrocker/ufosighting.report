@@ -289,3 +289,36 @@ def test_submitted_noindex_submit_indexable(client, app_db, monkeypatch):
     r = client.get("/submit")
     assert "noindex" not in r.text
     assert 'rel="canonical" href="http://testserver/submit"' in r.text
+
+
+def test_custom_404_page(client):
+    r = client.get("/sighting/999999")
+    assert r.status_code == 404
+    assert "abducted" in r.text and "<html" in r.text
+
+
+def test_api_404_stays_json(client):
+    r = client.get("/api/reverse?lat=999&lon=0")
+    assert r.status_code == 400
+    assert r.json()["detail"]
+
+
+def test_security_headers(client):
+    r = client.get("/")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "SAMEORIGIN"
+
+
+def test_feed_xml(client, app_db):
+    seed(app_db, title="Feed check sighting & more")
+    r = client.get("/feed.xml")
+    assert r.status_code == 200
+    assert "application/rss+xml" in r.headers["content-type"]
+    assert "Feed check sighting &amp; more" in r.text
+    assert "<pubDate>" in r.text
+
+
+def test_hero_stats(client, app_db):
+    seed(app_db)
+    r = client.get("/")
+    assert "sightings archived" in r.text and "/feed.xml" in r.text

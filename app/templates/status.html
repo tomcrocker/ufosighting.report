@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}System status — ufosighting.report{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<h1>System status</h1>
+<table class="facts status-checks">
+  {% for name, ok, detail in checks %}
+  <tr>
+    <td>{{ name }}</td>
+    <td>{% if ok %}<span class="ok">&#9679; OK</span>{% else %}<span class="bad">&#9679; FAILING</span>{% endif %}
+        <span class="muted">{{ detail }}</span></td>
+  </tr>
+  {% endfor %}
+  {% for label, value in facts %}
+  <tr><td>{{ label }}</td><td>{{ value }}</td></tr>
+  {% endfor %}
+</table>
+<p class="muted">Bot login failing with everything else green usually means Reddit
+   silently dropped the bot from the app's developer list — re-add it at
+   <a href="https://www.reddit.com/prefs/apps">reddit.com/prefs/apps</a>.</p>
+<p><a class="btn" href="/admin">Back to admin</a></p>
+{% endblock %}

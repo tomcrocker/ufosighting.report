@@ -42,6 +42,58 @@ def admin_home(request: Request, conn=Depends(db.get_db), user=Depends(require_a
     )
 
 
+@router.get("/admin/status")
+def system_status(request: Request, conn=Depends(db.get_db), user=Depends(require_admin)):
+    """One-glance health: catches the silent failures (bot dev-list drops,
+    dead xAI keys) that otherwise only surface as missing DMs days later."""
+    from app import reddit, search
+    from app.config import get_settings
+    import httpx as _httpx
+    s = get_settings()
+    checks = []
+
+    def check(name, fn, detail=""):
+        try:
+            ok, extra = fn()
+            checks.append((name, ok, extra or detail))
+        except Exception as exc:
+            checks.append((name, False, str(exc)[:160]))
+
+    check("Bot login (u/%s)" % s.script_username,
+          lambda: (bool(reddit.script_token()), "posting + verify DMs OK"))
+    if s.read_username:
+        check("Read login (u/%s)" % s.read_username,
+              lambda: (bool(reddit.read_token()), "ingest + sync OK"))
+    def _meili():
+        if not search.enabled():
+            return False, "MEILI_URL not set"
+        url, headers, _ = search._base()
+        r = _httpx.get(f"{url}/health", headers=headers, timeout=5)
+        return r.status_code == 200, "index reachable"
+    check("Meilisearch", _meili)
+    def _xai():
+        from app import extract
+        return bool(extract.extract_fields(
+            "[TITLE]\nOrb over Phoenix at 9pm July 1 2025")), "extraction OK"
+    check("xAI extraction", _xai)
+
+    row = conn.execute("SELECT MAX(created_at) AS latest FROM sightings WHERE source='reddit'").fetchone()
+    yt = dict(conn.execute("SELECT status, COUNT(*) FROM yt_jobs GROUP BY status"))
+    pending = conn.execute("SELECT COUNT(*) FROM sightings WHERE status='pending_review'").fetchone()[0]
+    facts = [
+        ("Last ingested sighting", row["latest"] or "never"),
+        ("Pending mod review", pending),
+        ("YouTube queue", f"{yt.get('pending', 0)} pending / {yt.get('failed', 0)} failed"),
+        ("Public sightings", conn.execute(
+            "SELECT COUNT(*) FROM sightings WHERE status IN "
+            "('live','deleted_by_user','removed_on_reddit')").fetchone()[0]),
+    ]
+    return templates.TemplateResponse(
+        request, "status.html",
+        {"user": user, "checks": checks, "facts": facts,
+         "csrf_token": auth.csrf_for(user.id)})
+
+
 @router.get("/admin/review")
 def review_queue(request: Request, conn=Depends(db.get_db), user=Depends(require_admin)):
     rows = conn.execute(

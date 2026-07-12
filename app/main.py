@@ -2,8 +2,10 @@ import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import HTTPException as FastAPIHTTPException
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import db
 from app.config import get_settings
@@ -49,4 +51,29 @@ def create_app(start_thumb_worker: bool = True) -> FastAPI:
     from app.routes import admin as admin_routes
 
     app.include_router(admin_routes.router)
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        resp = await call_next(request)
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        return resp
+
+    @app.exception_handler(StarletteHTTPException)
+    async def html_errors(request: Request, exc: StarletteHTTPException):
+        # API callers keep JSON; humans get a page instead of {"detail": ...}
+        from fastapi.responses import JSONResponse
+
+        from app.web import templates
+        if request.url.path.startswith("/api/") or exc.status_code < 400:
+            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code,
+                                headers=getattr(exc, "headers", None))
+        if exc.status_code in (301, 302, 303, 307, 308):
+            return JSONResponse({"detail": exc.detail}, status_code=exc.status_code,
+                                headers=getattr(exc, "headers", None))
+        return templates.TemplateResponse(
+            request, "error.html", {"user": None, "code": exc.status_code},
+            status_code=exc.status_code)
+
     return app

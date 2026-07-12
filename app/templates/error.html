@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} — ufosighting.report{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<section class="panel narrow error-page">
+  <svg class="error-saucer" viewBox="0 0 320 200" fill="none" aria-hidden="true">
+    <defs><radialGradient id="beamE" cx="50%" cy="0%" r="90%">
+      <stop offset="0%" stop-color="#6ee7a0" stop-opacity=".4"/>
+      <stop offset="100%" stop-color="#6ee7a0" stop-opacity="0"/>
+    </radialGradient></defs>
+    <polygon points="132,90 188,90 232,200 88,200" fill="url(#beamE)"/>
+    <ellipse cx="160" cy="82" rx="72" ry="19" fill="#1b2740" stroke="#6ee7a0" stroke-width="2"/>
+    <ellipse cx="160" cy="68" rx="34" ry="22" fill="#233350" stroke="#7aa2ff" stroke-width="1.5"/>
+    <circle cx="128" cy="88" r="4" fill="#6ee7a0"/><circle cx="160" cy="92" r="4" fill="#7aa2ff"/><circle cx="192" cy="88" r="4" fill="#6ee7a0"/>
+  </svg>
+  <h1>{{ code }}</h1>
+  {% if code == 404 %}
+  <p>This page has been abducted — or never existed. The archive, however, is very real.</p>
+  {% else %}
+  <p>Something went wrong on our end. The incident has been logged for investigation.</p>
+  {% endif %}
+  <p>
+    <a class="btn primary" href="/">Browse sightings</a>
+    <a class="btn" href="/map">Open the map</a>
+  </p>
+</section>
+{% endblock %}

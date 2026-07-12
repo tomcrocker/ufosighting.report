@@ -75,3 +75,19 @@ def test_action_rejects_unknown_action(client, app_db):
         data={"csrf_token": auth.csrf_for(sid), "action": "explode"},
     )
     assert r.status_code == 400
+
+
+def test_status_page_requires_admin(client, app_db):
+    assert client.get("/admin/status").status_code == 404
+
+
+def test_status_page_renders_for_admin(client, app_db, monkeypatch):
+    from app import auth, reddit
+    monkeypatch.setattr(reddit, "script_token", lambda: "tok")
+    monkeypatch.setattr(reddit, "read_token", lambda: "tok")
+    monkeypatch.setattr("app.extract.extract_fields", lambda text: {"date": "2025-07-01"})
+    tok = _admin(client, app_db)
+    r = client.get("/admin/status")
+    assert r.status_code == 200
+    assert "Bot login" in r.text and "OK" in r.text
+    assert "YouTube queue" in r.text

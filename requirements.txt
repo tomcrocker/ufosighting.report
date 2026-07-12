@@ -9,3 +9,4 @@ python-multipart>=0.0.9
 pytest>=8.2
 respx>=0.21
 mistune>=3.0
+pillow-heif>=0.16

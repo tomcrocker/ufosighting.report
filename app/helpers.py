@@ -114,7 +114,8 @@ def format_post_body(
     if attribution:
         parts.append(attribution)
     parts.append(
-        f"[View this sighting in the gallery]({gallery_url}) — "
-        f"*submitted via [ufosighting.report](https://ufosighting.report)*"
+        f"[Original-quality media and full report]({gallery_url}) — Reddit re-encodes "
+        f"uploads; the gallery keeps the untouched originals for analysis. "
+        f"*Submitted via [ufosighting.report](https://ufosighting.report)*"
     )
     return "\n\n".join(parts)

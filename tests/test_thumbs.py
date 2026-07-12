@@ -77,3 +77,41 @@ def test_process_pending_gives_up_after_two_attempts(db_conn, monkeypatch):
     row = db_conn.execute("SELECT thumb_key, thumb_attempts FROM media").fetchone()
     assert row["thumb_key"] is None
     assert row["thumb_attempts"] == 2
+
+
+def test_worker_stores_exif_and_autofills_device(db_conn, monkeypatch):
+    import io
+    import json as _json
+    from PIL import Image
+    from app import thumbs
+
+    img = Image.new("RGB", (60, 40), "black")
+    exif = Image.Exif()
+    exif[0x010F] = "Apple"
+    exif[0x0110] = "iPhone 16 Pro"
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", exif=exif)
+    jpeg = buf.getvalue()
+
+    db_conn.execute("INSERT INTO sightings (source, reddit_username, title, sighted_at, status) "
+                    "VALUES ('site','u','t','2026-01-01T00:00:00Z','live')")
+    sid = db_conn.execute("SELECT MAX(id) FROM sightings").fetchone()[0]
+    db_conn.execute("INSERT INTO media (sighting_id, r2_key, kind) "
+                    "VALUES (?, 'uploads/2026/07/aa.jpg', 'image')", (sid,))
+    db_conn.commit()
+
+    class FakeResp:
+        content = jpeg
+        def raise_for_status(self): pass
+
+    monkeypatch.setattr(thumbs.httpx, "get", lambda url, timeout: FakeResp())
+    stored = {}
+    monkeypatch.setattr(thumbs.r2, "put_bytes", lambda k, d, ct: stored.update({k: len(d)}))
+    assert thumbs.process_pending(db_conn) == 1
+
+    m = db_conn.execute("SELECT * FROM media WHERE sighting_id=?", (sid,)).fetchone()
+    meta = _json.loads(m["exif_json"])
+    assert meta["model"] == "iPhone 16 Pro"
+    assert m["display_key"] is None  # plain JPEG needs no derivative
+    row = db_conn.execute("SELECT capture_device FROM sightings WHERE id=?", (sid,)).fetchone()
+    assert row["capture_device"] == "Apple iPhone 16 Pro"

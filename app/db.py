@@ -168,12 +168,22 @@ _MIGRATION_COLUMNS = [
 ]
 
 
+_MEDIA_MIGRATION_COLUMNS = [
+    ("exif_json", "TEXT"),
+    ("display_key", "TEXT"),
+]
+
+
 def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA_TABLES)
     existing = {r["name"] for r in conn.execute("PRAGMA table_info(sightings)")}
     for name, decl in _MIGRATION_COLUMNS:
         if name not in existing:
             conn.execute(f"ALTER TABLE sightings ADD COLUMN {name} {decl}")
+    existing_media = {r["name"] for r in conn.execute("PRAGMA table_info(media)")}
+    for name, decl in _MEDIA_MIGRATION_COLUMNS:
+        if name not in existing_media:
+            conn.execute(f"ALTER TABLE media ADD COLUMN {name} {decl}")
     conn.executescript(SCHEMA_INDEXES)
     conn.commit()
 

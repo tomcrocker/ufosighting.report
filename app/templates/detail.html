@@ -14,14 +14,35 @@
       {% if first.kind == 'video' %}
       <video controls preload="metadata" {% if first.thumb_url %}poster="{{ first.thumb_url }}"{% endif %} src="{{ first.url }}"></video>
       {% else %}
-      <img src="{{ first.url }}" alt="{{ s.title }}">
+      <img src="{{ first.display_url or first.url }}" alt="{{ s.title }}">
       {% endif %}
     </div>
     {% if media | length > 1 %}
     <div class="thumbstrip">
       {% for m in media %}
-      <img src="{{ m.thumb_url or m.url }}" data-url="{{ m.url }}" data-kind="{{ m.kind }}"
+      <img src="{{ m.thumb_url or m.display_url or m.url }}" data-url="{{ m.display_url or m.url }}" data-kind="{{ m.kind }}"
            class="{% if loop.first %}active{% endif %}" alt="">
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if s.source == 'site' %}
+    <div class="originals">
+      {% for m in media %}
+      <div class="original-row">
+        <a href="{{ m.url }}" download>&#11015;&#65039; Download original {{ loop.index }}</a>
+        <span class="muted">{{ m.ext | upper }}{% if m.size_mb %} &middot; {{ m.size_mb }} MB{% endif %}
+          &middot; untouched as uploaded</span>
+        {% if m.meta_rows %}
+        <details class="tech-details">
+          <summary>Technical details</summary>
+          <table class="facts">
+            {% for label, value in m.meta_rows %}
+            <tr><td>{{ label }}</td><td>{{ value }}</td></tr>
+            {% endfor %}
+          </table>
+        </details>
+        {% endif %}
+      </div>
       {% endfor %}
     </div>
     {% endif %}

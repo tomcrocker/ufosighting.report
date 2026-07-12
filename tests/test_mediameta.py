@@ -1,0 +1,70 @@
+import io
+import json
+import subprocess
+
+from PIL import ExifTags, Image
+
+from app import mediameta
+
+
+def _jpeg_with_exif() -> bytes:
+    img = Image.new("RGB", (120, 80), "black")
+    exif = Image.Exif()
+    exif[0x010F] = "Apple"            # Make
+    exif[0x0110] = "iPhone 16 Pro"    # Model
+    exif[0x0131] = "18.1"             # Software
+    ifd = {
+        0x9003: "2026:07:10 22:15:00",   # DateTimeOriginal
+        0x829A: (1, 25),                 # ExposureTime 1/25
+        0x829D: 1.8,                     # FNumber
+        0x8827: 640,                     # ISO
+        0x920A: 6.86,                    # FocalLength
+    }
+    for k, v in ifd.items():
+        exif[k] = v
+    out = io.BytesIO()
+    img.save(out, "JPEG", exif=exif)
+    return out.getvalue()
+
+
+def test_extract_image_meta_curated_fields():
+    meta = mediameta.extract_image_meta(_jpeg_with_exif())
+    assert meta["make"] == "Apple" and meta["model"] == "iPhone 16 Pro"
+    assert meta["width"] == 120 and meta["format"] == "JPEG"
+    assert meta["captured_at"] == "2026:07:10 22:15:00"
+
+
+def test_extract_image_meta_garbage_is_empty():
+    assert mediameta.extract_image_meta(b"not an image") == {}
+
+
+def test_extract_video_meta_parses_ffprobe(monkeypatch):
+    probe = {
+        "format": {"duration": "26.44", "bit_rate": "3500000",
+                   "tags": {"creation_time": "2026-07-10T22:15:00Z",
+                            "com.apple.quicktime.model": "iPhone 16 Pro"}},
+        "streams": [{"codec_type": "video", "codec_name": "hevc",
+                     "width": 3840, "height": 2160, "avg_frame_rate": "60/1"}],
+    }
+
+    class FakeProc:
+        returncode = 0
+        stdout = json.dumps(probe).encode()
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeProc())
+    meta = mediameta.extract_video_meta("https://media.test/v.mp4")
+    assert meta["codec"] == "hevc" and meta["width"] == 3840
+    assert meta["fps"] == 60.0 and meta["duration_s"] == 26.44
+    assert meta["model"] == "iPhone 16 Pro"
+    assert meta["captured_at"] == "2026-07-10T22:15:00Z"
+
+
+def test_public_rows_gps_gate():
+    meta = {"make": "Apple", "width": 100, "height": 50,
+            "gps_lat": 48.123456, "gps_lon": -123.654321}
+    with_gps = dict(mediameta.public_rows(meta, include_gps=True))
+    without = dict(mediameta.public_rows(meta, include_gps=False))
+    assert "GPS (from file)" in with_gps
+    assert with_gps["GPS (from file)"] == "48.123, -123.654"  # rounded ~100m
+    assert "GPS (from file)" not in without
+    assert with_gps["Resolution"] == "100×50"

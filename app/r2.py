@@ -13,6 +13,10 @@ ALLOWED_IMAGE = {
     "image/png": ".png",
     "image/webp": ".webp",
     "image/gif": ".gif",
+    # HEIC/HEIF accepted so iPhones upload ORIGINALS instead of silently
+    # transcoding to JPEG at pick time — originals matter for analysis
+    "image/heic": ".heic",
+    "image/heif": ".heif",
 }
 ALLOWED_VIDEO = {
     "video/mp4": ".mp4",

@@ -442,3 +442,14 @@ span.flatpickr-weekday { color: var(--muted) !important; }
   padding: 10px 14px; border-radius: var(--radius); margin: 0 0 12px;
 }
 .field-invalid { border-color: var(--danger) !important; }
+
+/* Original media downloads + technical metadata on detail pages */
+.originals { margin-top: 12px; display: grid; gap: 8px; }
+.original-row {
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; font-size: .9rem;
+}
+.original-row .muted { margin-left: 8px; font-size: .82rem; }
+.tech-details { margin-top: 8px; }
+.tech-details summary { cursor: pointer; color: var(--accent2); font-size: .85rem; }
+.tech-details table { margin-top: 8px; font-size: .85rem; }

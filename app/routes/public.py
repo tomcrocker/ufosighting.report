@@ -5,7 +5,7 @@ import urllib.parse
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, Response
 
-from app import auth, db, helpers, r2, search as meili
+from app import auth, db, helpers, mediameta, r2, search as meili
 from app.config import get_settings
 from app.investigate_data import ENTRIES as INVESTIGATE_ENTRIES
 from app.web import current_user, is_admin, templates
@@ -204,14 +204,23 @@ def detail(
     s["sighted_local"] = helpers.from_utc(row["sighted_at"], row["tz_name"])
     for field in ("movement", "sensors", "witness_background"):
         s[field] = json.loads(row[field]) if row[field] else []
-    media_items = [
-        {
+    media_items = []
+    for m in media:
+        meta = json.loads(m["exif_json"]) if m["exif_json"] else {}
+        media_items.append({
             "url": r2.public_url(m["r2_key"]),
             "thumb_url": r2.public_url(m["thumb_key"]) if m["thumb_key"] else None,
+            # HEIC originals get a JPEG derivative for browsers that can't
+            # render them; the original stays available via the download link
+            "display_url": r2.public_url(m["display_key"]) if m["display_key"] else None,
             "kind": m["kind"],
-        }
-        for m in media
-    ]
+            "ext": m["r2_key"].rsplit(".", 1)[-1],
+            "size_mb": round(m["size_bytes"] / 1048576, 1) if m["size_bytes"] else None,
+            # GPS from EXIF can expose a home address — only shown when the
+            # reporter did NOT ask to obscure the location
+            "meta_rows": mediameta.public_rows(
+                meta, include_gps=not row["location_obscured"]),
+        })
     reddit_url = None
     if row["reddit_post_id"]:
         # subreddit-agnostic permalink: reddit redirects /comments/{id}/ to the

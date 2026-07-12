@@ -39,3 +39,13 @@ def test_presign_rejects_oversize(client):
         json={"filename": "big.mp4", "content_type": "video/mp4", "size_bytes": 501 * 1024 * 1024},
     )
     assert r.status_code == 400
+
+
+def test_presign_accepts_heic(client, monkeypatch):
+    monkeypatch.setattr("app.r2.presign_put", lambda k, ct, s: "https://r2.test/put")
+    r = client.post("/api/presign", json={"filename": "IMG_1234.heic",
+                                          "content_type": "image/heic",
+                                          "size_bytes": 4 * 1024 * 1024})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["key"].endswith(".heic") and body["kind"] == "image"

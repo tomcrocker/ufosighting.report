@@ -227,11 +227,17 @@ table.admin td, table.admin th { padding: 8px; border-bottom: 1px solid var(--li
 .check input { width: auto; }
 #pinmap { height: 300px; border-radius: var(--radius); border: 1px solid var(--line); margin-top: 12px; }
 .suggestions { position: relative; }
+/* suggestions are <button>s (keyboard-focusable) — restyle from UA defaults */
 .suggestion {
-  padding: 8px 12px; background: var(--bg2); border: 1px solid var(--line);
-  border-top: none; cursor: pointer; font-size: .92rem;
+  display: block; width: 100%; text-align: left; font: inherit;
+  font-size: .92rem; color: var(--text);
+  padding: 10px 12px; background: var(--bg2);
+  border: 1px solid var(--line); border-top: none; cursor: pointer;
 }
-.suggestion:hover { background: var(--panel); color: var(--accent); }
+.suggestion:first-child { border-top: 1px solid var(--line); }
+.suggestion:hover, .suggestion:focus {
+  background: var(--panel); color: var(--accent); outline: none;
+}
 .madlib { margin: 20px 0; font-size: 1.1rem; }
 .madlib > span { margin-right: 8px; }
 .chips { display: inline-flex; flex-wrap: wrap; gap: 8px; vertical-align: middle; margin: 6px 8px 6px 0; }

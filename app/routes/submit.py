@@ -71,7 +71,7 @@ def geocode_endpoint(q: str = "", request: Request = None, conn=Depends(db.get_d
         return {"results": _geocode_cache[cache_key]}
     ratelimit.record(conn, ip, "geocode")
     try:
-        results = geocode.search(q, limit=5)
+        results = geocode.suggest(q, limit=6)
     except httpx.HTTPError:
         raise HTTPException(status_code=502, detail="Geocoder unavailable, drop a pin instead")
     results = [r for r in results if r.get("addresstype") not in _TOO_BROAD]

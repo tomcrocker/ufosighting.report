@@ -8,6 +8,12 @@ from app.config import get_settings
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
+PHOTON_URL = "https://photon.komoot.io/api"
+
+# Photon feature types too broad to be a sighting location (guideline ~20 km)
+_BROAD_TYPES = {"country", "state", "continent", "sea", "ocean", "region"}
+_SETTLEMENT = {"city", "town", "village", "hamlet", "suburb", "locality",
+               "borough", "quarter", "neighbourhood", "district"}
 _MIN_INTERVAL = 1.1
 _lock = threading.Lock()
 _last_call = [0.0]
@@ -32,6 +38,45 @@ def _parse(item: dict) -> dict:
         "country": addr.get("country", ""),
         "addresstype": item.get("addresstype", ""),
     }
+
+
+def suggest(q: str, limit: int = 6) -> list[dict]:
+    """Autocomplete via Photon (komoot) — purpose-built for as-you-type OSM
+    search (typo-tolerant, fast, and permitted for autocomplete, which
+    Nominatim's usage policy is not). Countries/states are filtered: not
+    precise enough to be a sighting location."""
+    resp = httpx.get(PHOTON_URL, params={"q": q, "limit": limit * 2, "lang": "en"},
+                     headers={"User-Agent": get_settings().user_agent}, timeout=6)
+    if resp.status_code != 200:
+        return []
+    out = []
+    for feat in resp.json().get("features", []):
+        p = feat.get("properties", {})
+        kind = p.get("osm_value") or p.get("type") or ""
+        if kind in _BROAD_TYPES:
+            continue
+        # skip transit/street/building noise; keep places + natural landmarks
+        if p.get("osm_key") in ("railway", "highway", "public_transport",
+                                "aeroway", "amenity", "shop", "office",
+                                "building"):
+            continue
+        try:
+            lon, lat = feat["geometry"]["coordinates"][:2]
+        except (KeyError, IndexError, TypeError):
+            continue
+        name = p.get("name") or ""
+        city = name if kind in _SETTLEMENT else (p.get("city") or "")
+        label_parts = [name, p.get("city"), p.get("county"), p.get("state"),
+                       p.get("country")]
+        label = ", ".join(dict.fromkeys(x for x in label_parts if x))
+        if not label or any(r["display_name"] == label for r in out):
+            continue  # county + city of the same name produce identical labels
+        out.append({"display_name": label, "lat": float(lat), "lon": float(lon),
+                    "city": city, "country": p.get("country") or "",
+                    "addresstype": kind})
+        if len(out) >= limit:
+            break
+    return out
 
 
 def search(q: str, limit: int = 5) -> list[dict]:

@@ -99,19 +99,39 @@ def test_api_reverse_validates_coords(client):
     assert client.get("/api/reverse?lat=999&lon=0").status_code == 400
 
 
+def _photon(features):
+    return httpx.Response(200, json={"features": features})
+
+
+def _feat(name, kind, lon, lat, **props):
+    return {"geometry": {"coordinates": [lon, lat]},
+            "properties": {"name": name, "osm_value": kind, "type": kind, **props}}
+
+
 @respx.mock
-def test_api_geocode_filters_countries(client, monkeypatch):
-    monkeypatch.setattr(geocode, "_throttle", lambda: None)
-    respx.get("https://nominatim.openstreetmap.org/search").mock(
-        return_value=httpx.Response(200, json=[
-            {"display_name": "Canada", "lat": "61", "lon": "-98",
-             "addresstype": "country", "address": {"country": "Canada"}},
-            {"display_name": "Canada Bay, Sydney, Australia", "lat": "-33.86", "lon": "151.11",
-             "addresstype": "suburb", "address": {"city": "Sydney", "country": "Australia"}},
-        ]))
-    r = client.get("/api/geocode?q=canada")
-    names = [x["display_name"] for x in r.json()["results"]]
-    assert "Canada" not in names and len(names) == 1
+def test_api_geocode_filters_countries_and_states(client):
+    respx.get("https://photon.komoot.io/api").mock(return_value=_photon([
+        _feat("Canada", "country", -98, 61, country="Canada"),
+        _feat("Victoria", "state", 144.7, -36.6, country="Australia"),
+        _feat("Victoria", "city", -123.37, 48.43, state="British Columbia",
+              country="Canada"),
+    ]))
+    r = client.get("/api/geocode?q=victoria")
+    results = r.json()["results"]
+    assert len(results) == 1
+    assert results[0]["display_name"] == "Victoria, British Columbia, Canada"
+    assert results[0]["city"] == "Victoria" and results[0]["lat"] == 48.43
+
+
+@respx.mock
+def test_suggest_labels_and_settlement_city():
+    respx.get("https://photon.komoot.io/api").mock(return_value=_photon([
+        _feat("Saanich Peninsula", "locality", -123.4, 48.6,
+              city="Saanich", state="British Columbia", country="Canada"),
+    ]))
+    out = geocode.suggest("saanich")
+    assert out[0]["city"] == "Saanich Peninsula"
+    assert out[0]["display_name"] == "Saanich Peninsula, Saanich, British Columbia, Canada"
 
 
 # --- candidate ladder for fuzzy/verbose location strings ---

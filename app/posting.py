@@ -22,6 +22,15 @@ def _upload(token: str, key: str) -> reddit_media.Asset:
         token, key.rsplit("/", 1)[-1], _mime(key), _fetch_r2(key))
 
 
+def _reddit_safe_key(m) -> str:
+    """Reddit's upload API rejects HEIC/HEIF — send the JPEG display
+    derivative instead; the site keeps serving the untouched original."""
+    key = m["r2_key"]
+    if key.lower().rsplit(".", 1)[-1] in ("heic", "heif") and m["display_key"]:
+        return m["display_key"]
+    return key
+
+
 def _post_native(token: str, media: list, title: str) -> str | None:
     """Try a native media post. Returns the post id, None to request the
     self-post fallback, and raises RedditError only after Reddit accepted an
@@ -41,13 +50,13 @@ def _post_native(token: str, media: list, title: str) -> str | None:
                                       flair_id=s.sighting_flair_id)
             timeout = reddit_media.VIDEO_POLL_TIMEOUT
         elif len(images) == 1:
-            asset = _upload(token, images[0]["r2_key"])
+            asset = _upload(token, _reddit_safe_key(images[0]))
             reddit_media.submit_image(token, subreddit=s.subreddit, title=title,
                                       image_url=asset.url,
                                       flair_id=s.sighting_flair_id)
             timeout = reddit_media.IMAGE_POLL_TIMEOUT
         elif images:
-            assets = [_upload(token, m["r2_key"]) for m in images[:20]]
+            assets = [_upload(token, _reddit_safe_key(m)) for m in images[:20]]
             return reddit_media.submit_gallery(
                 token, subreddit=s.subreddit, title=title,
                 asset_ids=[a.asset_id for a in assets],
@@ -82,7 +91,7 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
     for f in ("movement", "sensors", "witness_background"):
         clean[f] = json.loads(row[f]) if row[f] else []
     media = conn.execute(
-        "SELECT r2_key, thumb_key, kind FROM media WHERE sighting_id=? ORDER BY sort_order",
+        "SELECT r2_key, thumb_key, display_key, kind FROM media WHERE sighting_id=? ORDER BY sort_order",
         (sighting_id,),
     ).fetchall()
     slug = helpers.slugify(row["title"])
@@ -126,25 +135,25 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
                     reddit.approve(reddit.read_token(), comment_id=comment_id)
         except reddit.RedditError as exc:
             print(f"details comment/pin on {post_id} failed (non-fatal): {exc}")
-        # The sitewide spam filter routinely removes media posts from the
-        # young bot account. Rescue via mod-approve: the bot first, then the
-        # personal mod account (the bot may lack the "posts" mod permission
-        # or have lost app access). Best-effort, non-fatal.
-        try:
-            info = reddit.fetch_post(token, post_id)
-            if info and info.get("removed_by_category") == "reddit":
-                try:
-                    reddit.approve(token, post_id=post_id)
-                except reddit.RedditError:
-                    reddit.approve(reddit.read_token(), post_id=post_id)
-                print(f"self-approved spam-filtered post {post_id}")
-        except reddit.RedditError as exc:
-            print(f"self-approve check on {post_id} failed (non-fatal): {exc}")
     else:
         post_id = reddit.submit_post(
             token, subreddit=s.subreddit,
             title=title, body=body, flair_id=s.sighting_flair_id,
         )
+    # The sitewide spam filter removes the young bot account's posts (media
+    # AND plain self posts). Rescue via mod-approve: the bot first, then the
+    # personal mod account (the bot may lack the "posts" mod permission or
+    # have lost app access). Best-effort, non-fatal.
+    try:
+        info = reddit.fetch_post(token, post_id)
+        if info and info.get("removed_by_category") == "reddit":
+            try:
+                reddit.approve(token, post_id=post_id)
+            except reddit.RedditError:
+                reddit.approve(reddit.read_token(), post_id=post_id)
+            print(f"self-approved spam-filtered post {post_id}")
+    except reddit.RedditError as exc:
+        print(f"self-approve check on {post_id} failed (non-fatal): {exc}")
     conn.execute(
         "UPDATE sightings SET reddit_post_id=?, status='live', username_verified=?, "
         "verify_token=NULL WHERE id=?",

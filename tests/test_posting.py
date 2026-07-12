@@ -18,6 +18,9 @@ def test_post_sighting_verified(db_conn, monkeypatch):
     monkeypatch.setattr(posting.reddit, "script_token", lambda: "bot-tok")
     respx.post("https://oauth.reddit.com/api/submit").mock(
         return_value=httpx.Response(200, json={"json": {"errors": [], "data": {"name": "t3_zzz"}}}))
+    respx.get("https://oauth.reddit.com/api/info").mock(  # rescue check: post is live
+        return_value=httpx.Response(200, json={"data": {"children": [
+            {"data": {"id": "zzz", "removed_by_category": None}}]}}))
     sid = _seed_ready(db_conn)
     pid = posting.post_sighting(db_conn, sid, verified=True)
     assert pid == "zzz"
@@ -31,6 +34,9 @@ def test_post_sighting_self_reported_attribution(db_conn, monkeypatch):
     monkeypatch.setattr(posting.reddit, "script_token", lambda: "bot-tok")
     route = respx.post("https://oauth.reddit.com/api/submit").mock(
         return_value=httpx.Response(200, json={"json": {"errors": [], "data": {"name": "t3_qq"}}}))
+    respx.get("https://oauth.reddit.com/api/info").mock(
+        return_value=httpx.Response(200, json={"data": {"children": [
+            {"data": {"id": "qq", "removed_by_category": None}}]}}))
     sid = _seed_ready(db_conn)
     posting.post_sighting(db_conn, sid, verified=False)
     body = route.calls[0].request.content
@@ -233,3 +239,37 @@ def test_details_comment_gets_pinned(db_conn, monkeypatch):
     posting.post_sighting(db_conn, sid, verified=True)
     assert calls["pinned"] == "cmt99"
     assert calls["approved"] == {"comment_id": "cmt99"}  # preemptive approve
+
+
+def test_heic_uploads_display_derivative_to_reddit(db_conn, monkeypatch):
+    sid = _seed_ready(db_conn)
+    db_conn.execute("INSERT INTO media (sighting_id, r2_key, kind, thumb_key, display_key, sort_order)"
+                    " VALUES (?,?,?,?,?,0)",
+                    (sid, "uploads/2026/07/abc.heic", "image", "thumbs/abc.jpg",
+                     "display/2026/07/abc.jpg"))
+    db_conn.commit()
+    calls = {}
+    _native_stubs(monkeypatch, calls)
+    monkeypatch.setattr(posting.reddit_media, "submit_image",
+                        lambda tok, **k: calls.update(image=k))
+    monkeypatch.setattr(posting.reddit_media, "wait_for_post_id", lambda tok, **k: "h1")
+    monkeypatch.setattr(posting.reddit, "fetch_post",
+                        lambda tok, pid: {"removed_by_category": None})
+    monkeypatch.setattr(posting.reddit, "approve", lambda tok, **k: None)
+    posting.post_sighting(db_conn, sid, verified=True)
+    # the JPEG derivative went to Reddit, not the HEIC original
+    assert calls["uploads"] == [("abc.jpg", "image/jpeg")]
+
+
+def test_fallback_self_post_also_self_approves(db_conn, monkeypatch):
+    sid = _seed_ready(db_conn)  # no media -> self post path
+    monkeypatch.setattr(posting.reddit, "script_token", lambda: "tok")
+    monkeypatch.setattr(posting.reddit_media, "find_recent_post_id", lambda *a, **k: None)
+    monkeypatch.setattr(posting.reddit, "submit_post", lambda tok, **k: "self5")
+    monkeypatch.setattr(posting.reddit, "fetch_post",
+                        lambda tok, pid: {"removed_by_category": "reddit"})
+    approved = []
+    monkeypatch.setattr(posting.reddit, "approve",
+                        lambda tok, **k: approved.append(k.get("post_id")))
+    assert posting.post_sighting(db_conn, sid, verified=True) == "self5"
+    assert approved == ["self5"]

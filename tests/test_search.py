@@ -126,26 +126,34 @@ def test_pins_pass_has_geo(client, app_db, monkeypatch):
 
 
 @respx.mock
-def test_search_page_renders_facets(client, app_db, monkeypatch):
+def test_search_redirects_to_gallery(client):
+    r = client.get("/search?q=orb&shape=sphere", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "/?q=orb&shape=sphere"
+
+
+@respx.mock
+def test_gallery_search_via_meili(client, app_db, monkeypatch):
     _enable(monkeypatch)
     sid = seed(app_db, title="Faceted orb result")
-    respx.post(f"{MEILI}/indexes/sightings/search").mock(
+    route = respx.post(f"{MEILI}/indexes/sightings/search").mock(
         return_value=httpx.Response(200, json={
-            "hits": [{"id": sid}], "estimatedTotalHits": 1,
-            "facetDistribution": {"shape": {"sphere": 4},
-                                  "country": {"Canada": 3},
-                                  "source": {"reddit": 5}}}))
-    r = client.get("/search?q=orb")
+            "hits": [{"id": sid}], "estimatedTotalHits": 1}))
+    r = client.get("/?q=orb")
     assert r.status_code == 200
     assert "Faceted orb result" in r.text
-    assert "Canada (3)" in r.text and "(5)" in r.text
+    assert "1</strong> result" in r.text
+    # text queries use Meili relevance — no sort key in the request
+    import json as _json
+    body = _json.loads(route.calls[0].request.content)
+    assert body["q"] == "orb" and "sort" not in body
 
 
 def test_search_page_fallback_fts(client, app_db):
     # meili disabled -> FTS5 path still works
     seed(app_db, title="Fallback triangle result",
          description="A triangle over the bay " * 10)
-    r = client.get("/search?q=triangle")
+    r = client.get("/?q=triangle")
     assert "Fallback triangle result" in r.text
 
 

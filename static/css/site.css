@@ -418,3 +418,13 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 /* teasers are truncated upstream; clamp uniformly so the browser adds the ellipsis */
 .inv-teaser { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .inv-more { display: inline-block; margin-top: 8px; font-size: .85rem; color: var(--accent); }
+
+/* Gallery search bar (search lives on the gallery, Blue Book style) */
+.home-search { display: flex; gap: 8px; flex-basis: 100%; }
+.home-search input[type=search] {
+  flex: 1; font-size: 1.05rem; padding: 11px 14px;
+  background: var(--bg2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.home-search input[type=search]:focus { border-color: var(--accent); outline: none; }
+.results-line { margin: -8px 0 16px; }

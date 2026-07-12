@@ -8,7 +8,13 @@
      <a href="/map">map</a>, or <a href="/submit">report what you saw</a>.</p>
 </section>
 <form class="filters" method="get" action="/">
+  <div class="home-search">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search sightings — places, shapes, keywords…"
+           aria-label="Search sightings">
+    <button class="btn primary" type="submit">Search</button>
+  </div>
   <select name="sort" onchange="this.form.submit()">
+    {% if q %}<option value="relevance" {% if sort == 'relevance' %}selected{% endif %}>Best match</option>{% endif %}
     <option value="new" {% if sort == 'new' %}selected{% endif %}>Newest</option>
     <option value="old" {% if sort == 'old' %}selected{% endif %}>Oldest</option>
     <option value="top" {% if sort == 'top' %}selected{% endif %}>Top</option>
@@ -39,6 +45,10 @@
   </select>
   <button class="btn">Filter</button>
 </form>
+{% if q %}
+<p class="muted results-line"><strong>{{ total }}</strong> result{{ '' if total == 1 else 's' }}
+  for &ldquo;{{ q }}&rdquo; — <a href="/">clear search</a></p>
+{% endif %}
 {% include "_cards.html" %}
 {% if pages > 1 %}
 <div class="pager">

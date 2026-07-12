@@ -145,17 +145,20 @@ def search_ids(*, q="", shape=None, country=None, source=None, date_from=None,
             filters.append(f"sighted_ts >= {cutoff}")
     elif sort == "old":
         sort_expr = ["sighted_ts:asc"]
+    elif sort == "relevance":
+        sort_expr = None  # Meili's ranking — the right default for text queries
     else:
         sort_expr = ["sighted_ts:desc"]
 
     body = {
         "q": q or "",
         "filter": filters,
-        "sort": sort_expr,
         "offset": (page - 1) * per_page,
         "limit": per_page,
         "attributesToRetrieve": ["id"],
     }
+    if sort_expr:
+        body["sort"] = sort_expr
     if facets:
         body["facets"] = list(facets)
     try:

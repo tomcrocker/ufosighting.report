@@ -44,7 +44,7 @@ def test_sitemap_lists_live_sightings(client, app_db):
     r = client.get("/sitemap.xml")
     assert r.status_code == 200
     assert f"/sighting/{sid}/" in r.text
-    assert r.text.count("<url>") == 5  # home, map, search, investigate + 1 sighting
+    assert r.text.count("<url>") == 4  # home, map, investigate + 1 sighting
 
 
 def test_robots(client):

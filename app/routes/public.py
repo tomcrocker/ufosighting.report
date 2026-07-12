@@ -98,35 +98,55 @@ def hydrate_cards(conn, ids: list[int]) -> list[dict]:
 @router.get("/")
 def index(
     request: Request,
+    q: str = "",
     shape: str = "",
     country: str = "",
     date_from: str = Query("", alias="from"),
     date_to: str = Query("", alias="to"),
     media: str = "",
-    sort: str = "new",
+    sort: str = "",
     t: str = "all",
     page: int = 1,
     conn=Depends(db.get_db),
     user=Depends(current_user),
 ):
     page = max(1, page)
+    q = q.strip()
+    # text queries default to Meili relevance; browsing defaults to newest
     if sort not in SORTS:
-        sort = "new"
+        sort = "relevance" if q else "new"
     if t not in TOP_WINDOW_HOURS:
         t = "all"
     hit = meili.search_ids(
-        shape=shape or None, country=country or None,
+        q=q, shape=shape or None, country=country or None,
         date_from=date_from or None, date_to=date_to or None,
         media_kind=media or None, sort=sort, top_window=t,
         page=page, per_page=PER_PAGE,
     )
     if hit is not None:
         cards_list, total = hydrate_cards(conn, hit["ids"]), hit["total"]
-    else:  # SQL fallback (meili disabled or down)
+    elif q:  # FTS5 fallback for text queries (meili disabled or down)
+        # quoted prefix terms: safe against FTS syntax, matches plurals (orb→orbs)
+        match = " ".join('"' + term.replace('"', "") + '"*' for term in q.split())
+        rows = conn.execute(
+            f"""SELECT s.*,
+                  (SELECT m.thumb_key FROM media m WHERE m.sighting_id = s.id
+                     ORDER BY m.sort_order LIMIT 1) AS thumb_key,
+                  (SELECT m.kind FROM media m WHERE m.sighting_id = s.id
+                     ORDER BY m.sort_order LIMIT 1) AS first_kind
+               FROM sightings_fts f
+               JOIN sightings s ON s.id = f.rowid
+               WHERE sightings_fts MATCH ? AND s.status IN {PUBLIC_STATUSES_SQL}
+               ORDER BY f.rank LIMIT ?""",
+            (match, PER_PAGE),
+        ).fetchall()
+        cards_list, total = [card(r) for r in rows], len(rows)
+    else:  # SQL fallback for plain browsing
         rows, total = query_sightings(
             conn, shape=shape or None, country=country or None,
             date_from=date_from or None, date_to=date_to or None,
-            media_kind=media or None, sort=sort, top_window=t, page=page,
+            media_kind=media or None, sort=sort if sort in SORTS else "new",
+            top_window=t, page=page,
         )
         cards_list = [card(r) for r in rows]
     countries = [
@@ -136,9 +156,9 @@ def index(
                ORDER BY country"""
         )
     ]
-    filters = {"shape": shape, "country": country, "from": date_from, "to": date_to,
-               "media": media}
-    if sort != "new":
+    filters = {"q": q, "shape": shape, "country": country, "from": date_from,
+               "to": date_to, "media": media}
+    if sort not in ("new", "relevance"):
         filters["sort"] = sort
     if sort == "top" and t != "all":
         filters["t"] = t
@@ -149,6 +169,7 @@ def index(
             "user": user,
             "cards": cards_list,
             "f": filters,
+            "q": q,
             "sort": sort,
             "t": t,
             "top_windows": list(TOP_WINDOW_HOURS),
@@ -263,63 +284,17 @@ def pins(
 
 
 @router.get("/search")
-def search(
-    request: Request,
-    q: str = "",
-    shape: str = "",
-    country: str = "",
-    src: str = "",
-    date_from: str = Query("", alias="from"),
-    date_to: str = Query("", alias="to"),
-    conn=Depends(db.get_db),
-    user=Depends(current_user),
-):
-    query = q.strip()
-    hit = None
-    if query or shape or country or src or date_from or date_to:
-        hit = meili.search_ids(
-            q=query, shape=shape or None, country=country or None,
-            source=src or None, date_from=date_from or None, date_to=date_to or None,
-            page=1, per_page=60, facets=("shape", "country", "source"),
-        )
-    if hit is not None:
-        return templates.TemplateResponse(
-            request, "search.html",
-            {"user": user, "q": q, "cards": hydrate_cards(conn, hit["ids"]),
-             "facets": hit["facets"], "shapes": helpers.SHAPES,
-             "f": {"shape": shape, "country": country, "src": src,
-                   "from": date_from, "to": date_to}},
-        )
-    # FTS5 fallback (meili disabled or down) — query box only, no facet counts
-    results = []
-    if query:
-        match = " ".join('"' + term.replace('"', "") + '"' for term in query.split())
-        rows = conn.execute(
-            """SELECT s.*,
-                  (SELECT m.thumb_key FROM media m WHERE m.sighting_id = s.id
-                     ORDER BY m.sort_order LIMIT 1) AS thumb_key,
-                  (SELECT m.kind FROM media m WHERE m.sighting_id = s.id
-                     ORDER BY m.sort_order LIMIT 1) AS first_kind
-               FROM sightings_fts f
-               JOIN sightings s ON s.id = f.rowid
-               WHERE sightings_fts MATCH ? AND s.status IN ('live', 'deleted_by_user', 'removed_on_reddit')
-               ORDER BY f.rank LIMIT 60""",
-            (match,),
-        ).fetchall()
-        results = [card(r) for r in rows]
-    return templates.TemplateResponse(
-        request, "search.html",
-        {"user": user, "q": q, "cards": results, "facets": {},
-         "shapes": helpers.SHAPES,
-         "f": {"shape": shape, "country": country, "src": src,
-               "from": date_from, "to": date_to}},
-    )
+def search_redirect(request: Request):
+    """Search lives on the gallery now — permanent redirect keeps old links."""
+    qs = str(request.url.query)
+    return Response(status_code=301,
+                    headers={"Location": "/" + (f"?{qs}" if qs else "")})
 
 
 @router.get("/sitemap.xml")
 def sitemap(conn=Depends(db.get_db)):
     base = get_settings().base_url
-    urls = [f"{base}/", f"{base}/map", f"{base}/search", f"{base}/investigate"]
+    urls = [f"{base}/", f"{base}/map", f"{base}/investigate"]
     for r in conn.execute(
         f"SELECT id, title FROM sightings WHERE status IN {PUBLIC_STATUSES_SQL} ORDER BY id"
     ):

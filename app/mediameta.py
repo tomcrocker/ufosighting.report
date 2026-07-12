@@ -30,6 +30,11 @@ _EXIF_FIELDS = {
     "ISOSpeedRatings": "iso",
     "PhotographicSensitivity": "iso",
     "FocalLength": "focal_length_mm",
+    "FocalLengthIn35mmFilm": "focal_length_35mm",
+    "DigitalZoomRatio": "digital_zoom",
+    "SubsecTimeOriginal": "subsec",
+    "BrightnessValue": "brightness_ev",
+    "ExposureBiasValue": "exposure_bias_ev",
     "Software": "software",
 }
 
@@ -82,8 +87,24 @@ def extract_image_meta(data: bytes) -> dict:
             lon = _gps_decimal(gps.get(4), gps.get(3))
             if lat is not None and lon is not None:
                 out["gps_lat"], out["gps_lon"] = lat, lon
+            alt = _ratio(gps.get(6))
+            if alt is not None:
+                # GPSAltitudeRef 1 = below sea level
+                out["gps_altitude_m"] = round(-alt if gps.get(5) == 1 else alt, 1)
+            bearing = _ratio(gps.get(17))  # GPSImgDirection — camera heading
+            if bearing is not None:
+                ref = gps.get(16, "T")  # T = true north, M = magnetic
+                out["compass_deg"] = round(bearing, 1)
+                out["compass_ref"] = "magnetic" if ref == "M" else "true"
     except Exception:
         pass
+    for k in ("brightness_ev", "exposure_bias_ev", "digital_zoom"):
+        if k in out:
+            v = _ratio(out[k])
+            if v is None:
+                out.pop(k)
+            else:
+                out[k] = round(v, 2)
     return out
 
 
@@ -152,6 +173,15 @@ def extract_video_meta(url: str) -> dict:
             handler = (stream.get("tags", {}) or {}).get("handler_name", "")
             if "gopro" in handler.lower() and "make" not in out:
                 out["make"] = "GoPro"
+            transfer = stream.get("color_transfer") or ""
+            if transfer in ("smpte2084", "arib-std-b67"):
+                out["hdr"] = "HDR (PQ)" if transfer == "smpte2084" else "HDR (HLG)"
+        elif stream.get("codec_type") == "audio" and "audio" not in out:
+            out["audio"] = (f"{stream.get('codec_name', '?')} "
+                            f"{stream.get('channels', '?')}ch "
+                            f"{stream.get('sample_rate', '?')}Hz")
+    if "audio" not in out and data.get("streams"):
+        out["audio"] = "none (silent file)"
     return out
 
 
@@ -161,9 +191,17 @@ PUBLIC_FIELDS = [
     ("make", "Device make"), ("model", "Device model"), ("lens", "Lens"),
     ("captured_at", "Captured at"), ("width", None), ("height", None),
     ("exposure", "Exposure"), ("f_number", "Aperture (f/)"), ("iso", "ISO"),
-    ("focal_length_mm", "Focal length (mm)"), ("software", "Software"),
+    ("focal_length_mm", "Focal length (mm)"),
+    ("focal_length_35mm", "Focal length (35mm equiv.)"),
+    ("digital_zoom", "Digital zoom"),
+    ("compass_deg", None),  # rendered with its ref below
+    ("gps_altitude_m", "GPS altitude (m)"),
+    ("brightness_ev", "Scene brightness (EV)"),
+    ("exposure_bias_ev", "Exposure bias (EV)"),
+    ("software", "Software"),
     ("codec", "Video codec"), ("fps", "Frame rate"),
     ("duration_s", "Duration (s)"), ("bitrate_kbps", "Bitrate (kbps)"),
+    ("hdr", "Dynamic range"), ("audio", "Audio"),
     ("encoder", "Encoder"), ("format", "Container"),
 ]
 
@@ -172,6 +210,10 @@ def public_rows(meta: dict, *, include_gps: bool) -> list[tuple[str, str]]:
     rows = []
     if meta.get("width") and meta.get("height"):
         rows.append(("Resolution", f"{meta['width']}×{meta['height']}"))
+    if meta.get("compass_deg") is not None:
+        # camera heading is analysis gold: check the sky in that direction
+        rows.append(("Camera heading",
+                     f"{meta['compass_deg']}° ({meta.get('compass_ref', 'true')} north)"))
     for key, label in PUBLIC_FIELDS:
         if label is None or key in ("width", "height"):
             continue

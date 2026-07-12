@@ -108,3 +108,52 @@ def test_extract_video_meta_android_version(monkeypatch):
     meta = mediameta.extract_video_meta("https://media.test/a.mp4")
     assert meta["software"] == "Android 15"
     assert meta["make"] == "Google" and meta["model"] == "Pixel 9 Pro"
+
+
+def test_extract_compass_and_altitude():
+    img = Image.new("RGB", (60, 40), "black")
+    exif = Image.Exif()
+    gps_ifd = {1: "N", 2: (48.0, 25.0, 42.24), 3: "W", 4: (123.0, 21.0, 56.16),
+               5: 0, 6: 31.5, 16: "T", 17: 227.4}
+    exif[ExifTags.IFD.GPSInfo] = gps_ifd
+    out = io.BytesIO()
+    img.save(out, "JPEG", exif=exif)
+    meta = mediameta.extract_image_meta(out.getvalue())
+    assert meta["gps_altitude_m"] == 31.5
+    assert meta["compass_deg"] == 227.4 and meta["compass_ref"] == "true"
+    rows = dict(mediameta.public_rows(meta, include_gps=True))
+    assert rows["Camera heading"] == "227.4° (true north)"
+
+
+def test_video_audio_and_hdr(monkeypatch):
+    probe = {
+        "format": {"tags": {}},
+        "streams": [
+            {"codec_type": "video", "codec_name": "hevc", "width": 3840,
+             "height": 2160, "avg_frame_rate": "30/1", "color_transfer": "smpte2084"},
+            {"codec_type": "audio", "codec_name": "aac", "channels": 2,
+             "sample_rate": "48000"},
+        ],
+    }
+
+    class FakeProc:
+        returncode = 0
+        stdout = json.dumps(probe).encode()
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeProc())
+    meta = mediameta.extract_video_meta("https://media.test/h.mp4")
+    assert meta["hdr"] == "HDR (PQ)"
+    assert meta["audio"] == "aac 2ch 48000Hz"
+
+
+def test_video_silent_flagged(monkeypatch):
+    probe = {"format": {"tags": {}},
+             "streams": [{"codec_type": "video", "codec_name": "h264",
+                          "width": 1920, "height": 1080, "avg_frame_rate": "30/1"}]}
+
+    class FakeProc:
+        returncode = 0
+        stdout = json.dumps(probe).encode()
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeProc())
+    assert mediameta.extract_video_meta("u")["audio"] == "none (silent file)"

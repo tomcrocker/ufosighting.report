@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}How to report a UFO sighting — ufosighting.report{% endblock %}
+{% block content %}
+<div class="guide">
+  <section class="guide-hero">
+    <h1>How to report a UFO sighting</h1>
+    <p class="muted">A good report can be investigated. A great one can't be dismissed.
+       Here's how to file one that holds up — and what happens after you hit submit.</p>
+    <a class="btn primary" href="/submit">Report a sighting</a>
+  </section>
+
+  <section class="guide-section">
+    <h2>First: rule out the ordinary</h2>
+    <p>Roughly 90% of sightings turn out to be something known. Checking takes two
+       minutes and makes your report far stronger — the wizard will ask you what you
+       ruled out and why.</p>
+    <div class="guide-cols">
+      <div class="guide-card">
+        <h3>&#128269;&nbsp; The usual suspects</h3>
+        <p>Starlink trains, aircraft at odd angles, planets (Venus!), Chinese lanterns,
+           balloons, birds, contrails, rocket launches, drones.
+           Browse the full <a href="/investigate">commonly misidentified objects</a> gallery.</p>
+      </div>
+      <div class="guide-card">
+        <h3>&#128736;&#65039;&nbsp; Two-minute checks</h3>
+        <p><a href="https://www.flightradar24.com" target="_blank" rel="noopener">FlightRadar24</a>
+           / <a href="https://globe.adsbexchange.com" target="_blank" rel="noopener">ADS-B Exchange</a>
+           for aircraft &middot;
+           <a href="https://stellarium-web.org" target="_blank" rel="noopener">Stellarium</a>
+           for planets and stars &middot;
+           <a href="https://www.heavens-above.com" target="_blank" rel="noopener">Heavens-Above</a>
+           for satellites and Starlink passes.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="guide-section">
+    <h2>Upload originals — this matters more than you think</h2>
+    <div class="guide-cols">
+      <div class="guide-card guide-card-accent">
+        <h3>&#128248;&nbsp; Reddit destroys evidence</h3>
+        <p>Reddit re-encodes every upload and <strong>strips all metadata</strong> —
+           the compression artifacts it adds are themselves a common source of false
+           "anomalies", and the technical data analysts need is gone forever.</p>
+      </div>
+      <div class="guide-card guide-card-accent">
+        <h3>&#128737;&#65039;&nbsp; This site preserves it</h3>
+        <p>Files you upload here are stored <strong>byte-for-byte untouched</strong> and
+           offered for download alongside the Reddit post. iPhone HEIC and 4K video
+           come through at full quality.</p>
+      </div>
+    </div>
+    <ul class="guide-list">
+      <li><strong>Upload the original file</strong>, straight from your camera roll — not a
+          screenshot, not an edit, not something re-saved through another app.</li>
+      <li>We read the technical metadata (EXIF) automatically: camera model, lens,
+          exposure, capture time, GPS, even the <strong>compass direction you were
+          facing</strong> — which lets investigators recreate your exact sky view and check
+          it against satellites and flight paths.</li>
+      <li><strong>You stay in control</strong>: after uploading you'll see exactly what
+          metadata the file contains, with checkboxes to publish or withhold the device
+          details, timestamp, and location. Withheld location data is scrubbed from the
+          published file, not just hidden.</li>
+      <li>Edited or filtered footage is flagged by its own metadata — original files are
+          simply more credible.</li>
+    </ul>
+  </section>
+
+  <section class="guide-section">
+    <h2>What the wizard asks, and why</h2>
+    <ol class="guide-steps">
+      <li><strong>Where.</strong> A town or area within ~20&nbsp;km — drop a pin and we name
+          the nearest town, or paste coordinates. A whole country can't be investigated.
+          If it happened at your home, tick the obscure-location box.</li>
+      <li><strong>When.</strong> As precise as you can. If you captured media, we can often
+          recover the exact second from the file itself.</li>
+      <li><strong>Your story.</strong> What you saw, conditions, how it ended — plus one
+          sentence on what you ruled out, and confirmation you saw it with your own eyes
+          at the time.</li>
+      <li><strong>The object.</strong> Count, shape, distance, apparent size, movement.</li>
+      <li><strong>Features &amp; the five observables.</strong> Wings? Rotors? Sound? Then the
+          five hallmarks investigators look for: sudden extreme acceleration, speed without
+          sonic boom or contrail, difficulty observing it clearly, moving between air and
+          water, and flight with no visible means of lift.</li>
+      <li><strong>Media.</strong> Up to 10 files — images to 25&nbsp;MB, video to 500&nbsp;MB.
+          Original files, please. No trail-cam or doorbell footage, no filming a TV screen.</li>
+      <li><strong>Witnesses &amp; context.</strong> Who else saw it; any sensor detections;
+          relevant background (pilot, military, etc.).</li>
+    </ol>
+  </section>
+
+  <section class="guide-section">
+    <h2>What happens after you submit</h2>
+    <ol class="guide-steps">
+      <li><strong>u/{{ bot_username }}</strong> sends your Reddit account a private message
+          with a confirmation link.</li>
+      <li><strong>Click it</strong> — that proves you are who you said, and your sighting
+          posts to the subreddit instantly, credited to your username as
+          <em>verified</em>.</li>
+      <li>No link clicked? After {{ verify_hours }} hours a moderator reviews and posts it,
+          credited as <em>self-reported</em>. Nothing is lost either way.</li>
+      <li>Your sighting joins the <a href="/">gallery</a> and <a href="/map">map</a>
+          permanently — even if the Reddit post is later deleted, the archive entry,
+          original media, and top comments are preserved.</li>
+    </ol>
+  </section>
+
+  <section class="guide-section">
+    <h2>FAQ</h2>
+    <details class="faq"><summary>Do I need to log in with Reddit?</summary>
+      <p>No login — you just type your Reddit username. The confirmation DM proves it's
+         really you. The bot posts on your behalf and credits you.</p></details>
+    <details class="faq"><summary>I don't remember the exact time.</summary>
+      <p>Your best guess is fine — and if you uploaded original media, the file's own
+         timestamp usually pins it down precisely.</p></details>
+    <details class="faq"><summary>What about my privacy?</summary>
+      <p>If the sighting was at your home, tick the obscure-location box — we round the
+         map pin and show only your town. Uploaded files' GPS data is shown to you before
+         publishing, and you choose whether it's included; withheld GPS is scrubbed from
+         the published file itself.</p></details>
+    <details class="faq"><summary>Which file formats work?</summary>
+      <p>Photos: JPEG, PNG, WebP, GIF, and iPhone HEIC (uploaded in true original
+         quality). Video: MP4, MOV, WebM — including 4K/HEVC and HDR.</p></details>
+    <details class="faq"><summary>Why did the wizard reject my location or title?</summary>
+      <p>Locations must be more precise than a country (within ~20&nbsp;km ideally), and
+         titles need at least 15 characters — they become the Reddit post title, so
+         "Orbs!" doesn't help anyone find or assess your report.</p></details>
+    <details class="faq"><summary>Can my report be removed?</summary>
+      <p>Subreddit moderators can remove posts that break the rules — but the archive
+         entry here persists, marked with its Reddit status, unless it violates site
+         policy.</p></details>
+  </section>
+
+  <section class="guide-hero">
+    <p class="muted">Ready when you are.</p>
+    <a class="btn primary" href="/submit">Report a sighting</a>
+  </section>
+</div>
+{% endblock %}

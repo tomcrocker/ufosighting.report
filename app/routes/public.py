@@ -297,6 +297,15 @@ def pins(
     }
 
 
+@router.get("/guide")
+def guide(request: Request, user=Depends(current_user)):
+    s = get_settings()
+    return templates.TemplateResponse(
+        request, "guide.html",
+        {"user": user, "bot_username": s.script_username or "ufosightingsbot",
+         "verify_hours": s.verify_window_hours})
+
+
 @router.get("/search")
 def search_redirect(request: Request):
     """Search lives on the gallery now — permanent redirect keeps old links."""
@@ -308,7 +317,7 @@ def search_redirect(request: Request):
 @router.get("/sitemap.xml")
 def sitemap(conn=Depends(db.get_db)):
     base = get_settings().base_url
-    urls = [f"{base}/", f"{base}/map", f"{base}/investigate"]
+    urls = [f"{base}/", f"{base}/map", f"{base}/investigate", f"{base}/guide"]
     for r in conn.execute(
         f"SELECT id, title FROM sightings WHERE status IN {PUBLIC_STATUSES_SQL} ORDER BY id"
     ):

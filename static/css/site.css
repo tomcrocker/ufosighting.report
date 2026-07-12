@@ -471,3 +471,30 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .obs-heading { margin-top: 28px; }
 .obs-row span { display: grid; }
 .obs-row small { font-size: .78rem; }
+
+/* /guide — reporting guide */
+.guide { max-width: 860px; margin: 0 auto; }
+.guide-hero { text-align: center; padding: 28px 0 20px; }
+.guide-hero h1 { margin-bottom: 8px; }
+.guide-hero .btn { margin-top: 14px; }
+.guide-section { margin: 36px 0; }
+.guide-section h2 {
+  border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 16px;
+}
+.guide-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0; }
+@media (max-width: 640px) { .guide-cols { grid-template-columns: 1fr; } }
+.guide-card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 16px 18px;
+}
+.guide-card h3 { margin: 0 0 8px; font-size: 1rem; }
+.guide-card-accent { border-color: #2f4f3f; }
+.guide-list { display: grid; gap: 10px; padding-left: 20px; }
+.guide-steps { display: grid; gap: 12px; padding-left: 22px; counter-reset: none; }
+.guide-steps li { padding-left: 4px; }
+.faq {
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 16px; margin-bottom: 8px;
+}
+.faq summary { cursor: pointer; font-weight: 600; }
+.faq p { margin: 10px 0 2px; color: var(--muted); }

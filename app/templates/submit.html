@@ -4,7 +4,7 @@
 <div class="wizard">
   <div class="wizard-main">
     <div class="wizard-progress"><div class="bar" id="progressbar"></div></div>
-    <p class="muted">Report a UFO sighting to r/UFOs. You'll confirm it's you with a quick Reddit message — no account login needed.
+    <p class="muted">Report a UFO sighting to r/UFOs. You'll confirm it's you with a quick Reddit message — no account login needed. First time? Read the <a href="/guide" target="_blank">reporting guide</a>.
       <span class="req">*</span> = required</p>
     {% for e in errors %}<p class="flash error">{{ e }}</p>{% endfor %}
     <form method="post" action="/submit" id="sighting-form" {% if show_all %}data-show-all="1"{% endif %}>

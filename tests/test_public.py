@@ -221,3 +221,12 @@ def test_detail_shows_top_comments(client, app_db):
 def test_detail_no_comments_section_when_empty(client, app_db):
     sid = seed(app_db)
     assert "Top comments on Reddit" not in client.get(f"/sighting/{sid}").text
+
+
+def test_guide_page(client):
+    r = client.get("/guide")
+    assert r.status_code == 200
+    for text in ("How to report a UFO sighting", "u/modbot", "6 hours",
+                 "commonly misidentified", "byte-for-byte untouched",
+                 "five observables", "/investigate"):
+        assert text in r.text, text

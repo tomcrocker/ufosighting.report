@@ -355,3 +355,27 @@ def test_related_absent_without_geo_or_matches(client, app_db):
     lone = seed(app_db, title="Lonely sighting", lat=None, lon=None)
     r = client.get(f"/sighting/{lone}/lonely-sighting")
     assert "Possibly related" not in r.text
+
+
+# --- sky context links ---
+
+def test_sky_context_links(client, app_db):
+    import json as _json
+    sid = seed(app_db, title="Sky context check", sighted_at="2026-07-01T06:00:00Z",
+               lat=48.43, lon=-123.36)
+    app_db.execute("INSERT INTO media (sighting_id, r2_key, kind, exif_json) VALUES "
+                   "(?, 'uploads/sky.jpg', 'image', ?)",
+                   (sid, _json.dumps({"compass_deg": 205.6, "compass_ref": "true"})))
+    app_db.commit()
+    r = client.get(f"/sighting/{sid}/sky-context-check")
+    assert "What was in the sky" in r.text
+    assert "globe.adsbexchange.com" in r.text and "showTrace=2026-07-01" in r.text
+    assert "heavens-above.com" in r.text
+    assert "timeanddate.com/astronomy/night/@48.43,-123.36" in r.text
+    assert "205.6" in r.text and "SSW" in r.text  # camera heading + compass name
+
+
+def test_sky_context_absent_without_geo(client, app_db):
+    sid = seed(app_db, title="No geo no sky", lat=None, lon=None)
+    r = client.get(f"/sighting/{sid}/no-geo-no-sky")
+    assert "What was in the sky" not in r.text

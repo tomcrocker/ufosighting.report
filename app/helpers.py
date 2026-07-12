@@ -74,6 +74,14 @@ def humanize_duration(seconds: int | None) -> str:
     return f"{hours_str} hour{'s' if hours != 1 else ''}"
 
 
+_WINDS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+          "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+
+
+def compass_name(deg: float) -> str:
+    return _WINDS[round((deg % 360) / 22.5) % 16]
+
+
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     from math import asin, cos, radians, sin, sqrt
     rlat1, rlon1, rlat2, rlon2 = map(radians, (lat1, lon1, lat2, lon2))

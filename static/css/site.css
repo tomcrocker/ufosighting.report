@@ -526,3 +526,7 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .rel-sub { font-size: .8rem; margin: 0 0 10px; }
 .rel-item { margin: 0 0 10px; line-height: 1.4; }
 .rel-item .muted { font-size: .82rem; }
+
+/* sky-context panel */
+.sky-panel { margin-top: 16px; padding: 16px 18px; }
+.sky-panel h3 { margin: 0 0 8px; }

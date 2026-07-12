@@ -105,3 +105,11 @@ def test_haversine_known_distance():
     d = haversine_km(48.4284, -123.3656, 49.2827, -123.1207)
     assert 90 < d < 98
     assert haversine_km(48.0, -123.0, 48.0, -123.0) == 0
+
+
+def test_compass_name():
+    from app.helpers import compass_name
+    assert compass_name(0) == "N"
+    assert compass_name(205.6) == "SSW"
+    assert compass_name(359) == "N"
+    assert compass_name(90) == "E"

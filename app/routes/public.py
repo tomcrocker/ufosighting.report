@@ -302,13 +302,33 @@ def detail(
     related_map = None
     if related:
         related_map = (f"/map?from={row['sighted_at'][:10]}&to={row['sighted_at'][:10]}")
+    # sky-context: hand analysts the exact time/place (and camera heading)
+    sky = None
+    if row["lat"] is not None:
+        lat, lon, day = row["lat"], row["lon"], row["sighted_at"][:10]
+        heading = None
+        for m in media:
+            meta = json.loads(m["exif_json"]) if m["exif_json"] else {}
+            if meta.get("compass_deg") is not None:
+                heading = {"deg": meta["compass_deg"],
+                           "name": helpers.compass_name(meta["compass_deg"]),
+                           "ref": meta.get("compass_ref", "true")}
+                break
+        sky = {
+            "adsb": (f"https://globe.adsbexchange.com/?lat={lat}&lon={lon}"
+                     f"&zoom=9&showTrace={day}"),
+            "fr24": f"https://www.flightradar24.com/{lat},{lon}/9",
+            "heavens": f"https://www.heavens-above.com/?lat={lat}&lng={lon}",
+            "tad": f"https://www.timeanddate.com/astronomy/night/@{lat},{lon}",
+            "heading": heading,
+        }
     base = get_settings().base_url
     return templates.TemplateResponse(
         request, "detail.html",
         {"user": user, "s": s, "media": media_items, "reddit_url": reddit_url, "admin": admin,
          "comments": comment_rows,
          "canonical": f"{base}/sighting/{s['id']}/{s['slug']}",
-         "related": related, "related_map": related_map,
+         "related": related, "related_map": related_map, "sky": sky,
          "csrf_token": auth.csrf_for(user.id) if user else ""},
     )
 

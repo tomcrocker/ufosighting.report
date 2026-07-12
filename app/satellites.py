@@ -23,6 +23,10 @@ WINDOW_MIN = 15          # look ±15 min around the sighting
 BRIGHT_MIN_ALT = 15      # degrees
 STARLINK_MIN_ALT = 20
 TRAIN_MIN_SATS = 5       # same launch batch, sunlit, overhead = a train
+# Only orbit-raising Starlink (fresh launches, still low + clustered) look
+# like the famous "train"; operational-shell sats are spread out. Low orbit
+# = faster: mean motion above ~15.4 rev/day ≈ below ~450 km.
+TRAIN_MIN_MEAN_MOTION = 15.4
 
 _loader = None
 _eph = None
@@ -122,7 +126,6 @@ def passes_for(lat: float, lon: float, when_iso: str) -> dict:
     eph = _ephemeris()
     sun_dark = None
     if eph is not None:
-        from skyfield.api import N  # noqa: F401  (kept for clarity)
         astro = (eph["earth"] + observer).at(times).observe(eph["sun"]).apparent()
         sun_alt = astro.altaz()[0].degrees
         # visible-sky rule: any part of the window with sun below -6°
@@ -155,8 +158,12 @@ def passes_for(lat: float, lon: float, when_iso: str) -> dict:
             "time": times[peak].utc_strftime("%H:%M"),
         }
         if group == "starlink":
-            starlink_visible += 1
-            starlink_batches.setdefault(sat.model.intldesg[:5], []).append(entry)
+            mid = len(times) // 2
+            if alts[mid] > STARLINK_MIN_ALT:
+                starlink_visible += 1  # simultaneous count, not window-cumulative
+            if sat.model.no_kozai * 229.1831 > TRAIN_MIN_MEAN_MOTION:
+                # rev/day = no_kozai (rad/min) * 1440 / (2*pi)
+                starlink_batches.setdefault(sat.model.intldesg[:5], []).append(entry)
         else:
             bright.append(entry)
     bright.sort(key=lambda e: -e["alt"])

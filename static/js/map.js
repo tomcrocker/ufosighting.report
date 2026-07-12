@@ -54,36 +54,77 @@
     });
   }
 
+  let allPins = [];
+  let heatLayer = null;
+
+  function renderPins(map, clusterLayer, from, to) {
+    // client-side date filter — every pin already carries its date
+    const pins = allPins.filter((p) =>
+      (!from || p.date >= from) && (!to || p.date <= to));
+    clusterLayer.clearLayers();
+    if (heatLayer) map.removeLayer(heatLayer);
+    document.getElementById("map-count").textContent = pins.length;
+    document.getElementById("map-total").textContent = allPins.length;
+    const w = regionalWeights(pins);
+    const heat = [];
+    pins.forEach((p) => {
+      L.marker([p.lat, p.lon], { icon: markerIcon() })
+        .bindPopup(pinPopup(p), { minWidth: 220 })
+        .addTo(clusterLayer);
+      heat.push([p.lat, p.lon, inUS(p.lat, p.lon) ? w.us : w.intl]);
+    });
+    // maxZoom 7 (Blue Book uses 10): intensity scales by 2^(zoom-maxZoom),
+    // and with ~10x fewer points than Blue Book the glow needs the boost
+    // to match the reference visually at the initial zoom-4 view.
+    heatLayer = L.heatLayer(heat, {
+      radius: 18, blur: 20, maxZoom: 7, minOpacity: 0.05, max: 1.0,
+      gradient: {
+        0.0: "rgba(74, 222, 128, 0)",
+        0.3: "rgba(74, 222, 128, 0.08)",
+        0.5: "rgba(120, 230, 100, 0.15)",
+        0.65: "rgba(200, 240, 80, 0.3)",
+        0.8: "rgba(250, 204, 21, 0.5)",
+        0.9: "rgba(251, 146, 60, 0.6)",
+        1.0: "rgba(255, 100, 50, 0.7)",
+      },
+    }).addTo(map);
+  }
+
+  function initDateFilter(map, clusterLayer) {
+    const fromEl = document.getElementById("date-from");
+    const toEl = document.getElementById("date-to");
+    const applyBtn = document.getElementById("date-apply");
+    const clearBtn = document.getElementById("date-clear");
+
+    function apply(push) {
+      renderPins(map, clusterLayer, fromEl.value, toEl.value);
+      clearBtn.hidden = !fromEl.value && !toEl.value;
+      if (push) {
+        const params = new URLSearchParams();
+        if (fromEl.value) params.set("from", fromEl.value);
+        if (toEl.value) params.set("to", toEl.value);
+        history.replaceState({}, "", "/map" + (params.toString() ? "?" + params : ""));
+      }
+    }
+    applyBtn.addEventListener("click", () => apply(true));
+    clearBtn.addEventListener("click", () => {
+      fromEl.value = toEl.value = "";
+      apply(true);
+    });
+    // shareable links: /map?from=2025-12-01&to=2025-12-31
+    const qs = new URLSearchParams(location.search);
+    fromEl.value = qs.get("from") || "";
+    toEl.value = qs.get("to") || "";
+    return () => apply(false);
+  }
+
   function loadPins(map, clusterLayer) {
+    const applyInitial = initDateFilter(map, clusterLayer);
     fetch("/api/pins")
       .then((r) => r.json())
       .then((data) => {
-        const pins = data.pins;
-        document.getElementById("map-count").textContent = pins.length;
-        document.getElementById("map-total").textContent = pins.length;
-        const w = regionalWeights(pins);
-        const heat = [];
-        pins.forEach((p) => {
-          L.marker([p.lat, p.lon], { icon: markerIcon() })
-            .bindPopup(pinPopup(p), { minWidth: 220 })
-            .addTo(clusterLayer);
-          heat.push([p.lat, p.lon, inUS(p.lat, p.lon) ? w.us : w.intl]);
-        });
-        // maxZoom 7 (Blue Book uses 10): intensity scales by 2^(zoom-maxZoom),
-        // and with ~10x fewer points than Blue Book the glow needs the boost
-        // to match the reference visually at the initial zoom-4 view.
-        L.heatLayer(heat, {
-          radius: 18, blur: 20, maxZoom: 7, minOpacity: 0.05, max: 1.0,
-          gradient: {
-            0.0: "rgba(74, 222, 128, 0)",
-            0.3: "rgba(74, 222, 128, 0.08)",
-            0.5: "rgba(120, 230, 100, 0.15)",
-            0.65: "rgba(200, 240, 80, 0.3)",
-            0.8: "rgba(250, 204, 21, 0.5)",
-            0.9: "rgba(251, 146, 60, 0.6)",
-            1.0: "rgba(255, 100, 50, 0.7)",
-          },
-        }).addTo(map);
+        allPins = data.pins;
+        applyInitial();
       });
   }
 

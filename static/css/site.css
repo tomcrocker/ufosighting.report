@@ -510,3 +510,12 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .status-checks .ok { color: var(--accent); font-weight: 600; }
 .status-checks .bad { color: var(--danger); font-weight: 600; }
 .status-checks .muted { margin-left: 8px; }
+
+/* map date-range filter (inside the legend panel) */
+.legend-dates { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.legend-dates input[type=date] {
+  background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px 7px; font: inherit; font-size: .78rem;
+}
+.legend-date-btns { display: flex; gap: 6px; }
+.legend-date-btns .btn { padding: 4px 10px; font-size: .75rem; }

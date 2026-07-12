@@ -27,6 +27,7 @@ def _static_version() -> str:
 
 
 templates.env.globals["static_v"] = _static_version()
+templates.env.globals["base_url"] = get_settings().base_url
 
 
 def client_ip(request: Request) -> str:

@@ -163,10 +163,16 @@ def index(
     if sort == "top" and t != "all":
         filters["t"] = t
     qs = urllib.parse.urlencode({k: v for k, v in filters.items() if v})
+    base = get_settings().base_url
+    canon_params = {k: v for k, v in filters.items() if v and k != "q"}
+    if page > 1:
+        canon_params["page"] = page
+    canon_qs = urllib.parse.urlencode(canon_params)
     return templates.TemplateResponse(
         request, "index.html",
         {
             "user": user,
+            "canonical": f"{base}/" + (f"?{canon_qs}" if canon_qs else ""),
             "cards": cards_list,
             "f": filters,
             "q": q,
@@ -196,6 +202,11 @@ def detail(
     admin = is_admin(user)
     if row is None or (row["status"] not in PUBLIC_STATUSES and not admin):
         raise HTTPException(status_code=404)
+    canonical_slug = helpers.slugify(row["title"])
+    if slug != canonical_slug:
+        # one canonical URL per sighting — /sighting/{id} and stale slugs 301
+        return Response(status_code=301, headers={
+            "Location": f"/sighting/{sighting_id}/{canonical_slug}"})
     media = conn.execute(
         "SELECT * FROM media WHERE sighting_id=? ORDER BY sort_order", (sighting_id,)
     ).fetchall()
@@ -236,10 +247,12 @@ def detail(
         "SELECT author, body, score, permalink FROM comments "
         "WHERE sighting_id=? ORDER BY score DESC", (sighting_id,)
     ).fetchall()
+    base = get_settings().base_url
     return templates.TemplateResponse(
         request, "detail.html",
         {"user": user, "s": s, "media": media_items, "reddit_url": reddit_url, "admin": admin,
          "comments": comment_rows,
+         "canonical": f"{base}/sighting/{s['id']}/{s['slug']}",
          "csrf_token": auth.csrf_for(user.id) if user else ""},
     )
 
@@ -247,7 +260,9 @@ def detail(
 @router.get("/map")
 def map_page(request: Request, user=Depends(current_user)):
     return templates.TemplateResponse(
-        request, "map.html", {"user": user, "shapes": helpers.SHAPES}
+        request, "map.html",
+        {"user": user, "shapes": helpers.SHAPES,
+         "canonical": f"{get_settings().base_url}/map"}
     )
 
 
@@ -256,7 +271,8 @@ def investigate(request: Request, user=Depends(current_user)):
     categories = sorted({c for e in INVESTIGATE_ENTRIES for c in e["categories"]})
     return templates.TemplateResponse(
         request, "investigate.html",
-        {"user": user, "entries": INVESTIGATE_ENTRIES, "categories": categories},
+        {"user": user, "entries": INVESTIGATE_ENTRIES, "categories": categories,
+         "canonical": f"{get_settings().base_url}/investigate"},
     )
 
 
@@ -303,7 +319,8 @@ def guide(request: Request, user=Depends(current_user)):
     return templates.TemplateResponse(
         request, "guide.html",
         {"user": user, "bot_username": s.script_username or "ufosightingsbot",
-         "verify_hours": s.verify_window_hours})
+         "verify_hours": s.verify_window_hours,
+         "canonical": f"{s.base_url}/guide"})
 
 
 @router.get("/search")
@@ -317,15 +334,21 @@ def search_redirect(request: Request):
 @router.get("/sitemap.xml")
 def sitemap(conn=Depends(db.get_db)):
     base = get_settings().base_url
-    urls = [f"{base}/", f"{base}/map", f"{base}/investigate", f"{base}/guide"]
+    urls = [(f"{base}/", None), (f"{base}/map", None),
+            (f"{base}/investigate", None), (f"{base}/guide", None)]
     for r in conn.execute(
-        f"SELECT id, title FROM sightings WHERE status IN {PUBLIC_STATUSES_SQL} ORDER BY id"
+        f"SELECT id, title, created_at FROM sightings "
+        f"WHERE status IN {PUBLIC_STATUSES_SQL} ORDER BY id"
     ):
-        urls.append(f"{base}/sighting/{r['id']}/{helpers.slugify(r['title'])}")
+        urls.append((f"{base}/sighting/{r['id']}/{helpers.slugify(r['title'])}",
+                     r["created_at"][:10]))
+    def entry(u, lastmod):
+        lm = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
+        return f"  <url><loc>{u}</loc>{lm}</url>"
     body = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        + "\n".join(f"  <url><loc>{u}</loc></url>" for u in urls)
+        + "\n".join(entry(u, lm) for u, lm in urls)
         + "\n</urlset>"
     )
     return Response(content=body, media_type="application/xml")

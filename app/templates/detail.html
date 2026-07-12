@@ -1,9 +1,57 @@
 {% extends "base.html" %}
-{% block title %}{{ s.title }} — ufosighting.report{% endblock %}
-{% block head %}
+{% block title %}{{ s.title }} — UFO sighting{% if s.city or s.country %}, {{ s.city or s.country }}{% endif %} ({{ s.sighted_at[:10] }}){% endblock %}
+{% block meta_description %}{{ s.description[:155] }}{% endblock %}
+{% block og_type %}article{% endblock %}
+{% block og %}
 <meta property="og:title" content="{{ s.title }}">
 <meta property="og:description" content="{{ s.description[:200] }}">
-{% if media and media[0].thumb_url %}<meta property="og:image" content="{{ media[0].thumb_url }}">{% endif %}
+<meta property="og:image" content="{{ (media and (media[0].thumb_url or media[0].display_url)) or base_url + '/static/og-default.png' }}">
+{% endblock %}
+{% block head %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": {{ s.title | tojson }},
+  "datePublished": {{ s.sighted_at | tojson }},
+  "dateModified": {{ s.created_at | tojson }},
+  "author": {"@type": "Person", "name": {{ ("u/" + s.reddit_username) | tojson }}},
+  "publisher": {"@type": "Organization", "name": "ufosighting.report",
+                "url": {{ base_url | tojson }}},
+  "mainEntityOfPage": {{ canonical | tojson }},
+  {% if media %}"image": {{ ((media[0].thumb_url or media[0].display_url or media[0].url)) | tojson }},{% endif %}
+  "description": {{ s.description[:300] | tojson }},
+  {% if s.lat is not none %}"contentLocation": {"@type": "Place",
+    {% if s.city or s.country %}"name": {{ ((s.city or '') + (', ' if s.city and s.country else '') + (s.country or '')) | tojson }},{% endif %}
+    "geo": {"@type": "GeoCoordinates", "latitude": {{ s.lat }}, "longitude": {{ s.lon }}}},{% endif %}
+  "articleSection": "UFO sighting report"
+}
+</script>
+{% if media and media[0].kind == 'video' %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "name": {{ s.title | tojson }},
+  "description": {{ s.description[:300] | tojson }},
+  "contentUrl": {{ media[0].url | tojson }},
+  {% if media[0].thumb_url %}"thumbnailUrl": {{ media[0].thumb_url | tojson }},{% endif %}
+  "uploadDate": {{ s.created_at | tojson }}
+}
+</script>
+{% endif %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "UFO sightings",
+     "item": {{ base_url | tojson }}},
+    {"@type": "ListItem", "position": 2, "name": {{ s.title | tojson }},
+     "item": {{ canonical | tojson }}}
+  ]
+}
+</script>
 {% endblock %}
 {% block content %}
 <article class="detail">
@@ -117,6 +165,9 @@
       {% if s.witness_background %}<tr><td>Reporter background</td><td>{{ s.witness_background | join(', ') }}</td></tr>{% endif %}
       <tr><td>Status</td><td>{{ s.status }}</td></tr>
     </table>
+    {% if s.country %}
+    <p class="muted more-in"><a href="/?country={{ s.country | urlencode }}">More sightings in {{ s.country }} &rarr;</a></p>
+    {% endif %}
     {% if reddit_url %}
     <p><a class="btn primary" href="{{ reddit_url }}">Discuss on Reddit</a><br>
        <span class="muted">&#9650; {{ s.reddit_score }} · {{ s.reddit_num_comments }} comments</span></p>

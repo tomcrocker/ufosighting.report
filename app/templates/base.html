@@ -3,7 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}UFO Sighting Reports — ufosighting.report{% endblock %}</title>
+  <title>{% block title %}UFO Sighting Reports — photos, videos & map | ufosighting.report{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}The UFO sighting archive of r/UFOs — browse thousands of eyewitness reports with original-quality photos and videos, an interactive map, and technical metadata for analysis.{% endblock %}">
+  {% if canonical %}<link rel="canonical" href="{{ canonical }}">{% endif %}
+  {% block robots %}{% endblock %}
+  <meta property="og:site_name" content="ufosighting.report">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  {% if canonical %}<meta property="og:url" content="{{ canonical }}">{% endif %}
+  {% block og %}
+  <meta property="og:title" content="{{ self.title() }}">
+  <meta property="og:description" content="{{ self.meta_description() }}">
+  <meta property="og:image" content="{{ base_url }}/static/og-default.png">
+  {% endblock %}
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128760;</text></svg>">
   <link rel="stylesheet" href="/static/css/site.css?v={{ static_v }}">
   {% block head %}{% endblock %}

@@ -1,5 +1,26 @@
 {% extends "base.html" %}
 {% block title %}How to report a UFO sighting — ufosighting.report{% endblock %}
+{% block meta_description %}Step-by-step guide to filing a UFO sighting report that holds up: rule out common objects, upload original unedited media (Reddit strips metadata — we preserve it), and verify your identity.{% endblock %}
+{% block head %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "Do I need to log in with Reddit to report a UFO sighting?",
+     "acceptedAnswer": {"@type": "Answer", "text": "No login — you type your Reddit username and confirm via a private message. The bot posts on your behalf and credits you."}},
+    {"@type": "Question", "name": "What if I don't remember the exact time of the sighting?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Your best guess is fine — and if you upload original media, the file's own timestamp usually pins it down precisely."}},
+    {"@type": "Question", "name": "Does uploading media reveal my location?",
+     "acceptedAnswer": {"@type": "Answer", "text": "You see exactly what metadata your files contain before publishing and choose whether device, time, and GPS data are included. Withheld GPS is scrubbed from the published file."}},
+    {"@type": "Question", "name": "Which photo and video formats are supported?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Photos: JPEG, PNG, WebP, GIF, and iPhone HEIC in true original quality. Video: MP4, MOV, WebM — including 4K HEVC and HDR."}},
+    {"@type": "Question", "name": "Why does the site preserve original files?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Reddit re-encodes uploads and strips all metadata. This site stores files byte-for-byte untouched with their technical metadata, so sightings can actually be analyzed."}}
+  ]
+}
+</script>
+{% endblock %}
 {% block content %}
 <div class="guide">
   <section class="guide-hero">

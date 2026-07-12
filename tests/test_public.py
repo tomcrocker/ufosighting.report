@@ -230,3 +230,62 @@ def test_guide_page(client):
                  "commonly misidentified", "byte-for-byte untouched",
                  "five observables", "/investigate"):
         assert text in r.text, text
+
+
+# --- SEO ---
+
+def test_detail_bare_id_redirects_to_slug(client, app_db):
+    sid = seed(app_db, title="Redirect me sighting")
+    r = client.get(f"/sighting/{sid}", follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == f"/sighting/{sid}/redirect-me-sighting"
+    r = client.get(f"/sighting/{sid}/wrong-stale-slug", follow_redirects=False)
+    assert r.status_code == 301
+
+
+def test_detail_seo_head(client, app_db):
+    import json as _json
+    import re as _re
+    sid = seed(app_db, title="Schema check orb", country="Canada", city="Victoria")
+    r = client.get(f"/sighting/{sid}/schema-check-orb")
+    assert 'rel="canonical"' in r.text
+    assert f"/sighting/{sid}/schema-check-orb" in r.text
+    blocks = _re.findall(r'<script type="application/ld\+json">(.*?)</script>', r.text, _re.S)
+    assert len(blocks) >= 2  # Article + BreadcrumbList
+    parsed = [_json.loads(b) for b in blocks]
+    types = {p["@type"] for p in parsed}
+    assert "Article" in types and "BreadcrumbList" in types
+    art = next(p for p in parsed if p["@type"] == "Article")
+    assert art["headline"] == "Schema check orb"
+    assert art["author"]["name"] == "u/witness1"
+    # geo present (seed provides lat/lon)
+    assert art["contentLocation"]["geo"]["latitude"]
+    assert "More sightings in Canada" in r.text
+
+
+def test_index_canonical_strips_search_query(client, app_db):
+    r = client.get("/?q=orbs&country=Canada")
+    assert 'rel="canonical" href="http://testserver/?country=Canada"' in r.text
+    r = client.get("/")
+    assert 'rel="canonical" href="http://testserver/"' in r.text
+
+
+def test_guide_faq_schema(client):
+    import json as _json
+    import re as _re
+    r = client.get("/guide")
+    blocks = _re.findall(r'<script type="application/ld\+json">(.*?)</script>', r.text, _re.S)
+    faq = next(_json.loads(b) for b in blocks if '"FAQPage"' in b)
+    assert len(faq["mainEntity"]) == 5
+
+
+def test_sitemap_lastmod(client, app_db):
+    seed(app_db)
+    r = client.get("/sitemap.xml")
+    assert "<lastmod>" in r.text
+
+
+def test_submitted_noindex_submit_indexable(client, app_db, monkeypatch):
+    r = client.get("/submit")
+    assert "noindex" not in r.text
+    assert 'rel="canonical" href="http://testserver/submit"' in r.text

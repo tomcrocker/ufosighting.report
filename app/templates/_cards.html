@@ -1,7 +1,7 @@
 <div class="grid">
   {% for c in cards %}
   <a class="card" href="/sighting/{{ c.id }}/{{ c.slug }}">
-    {% if c.thumb_url %}<img loading="lazy" src="{{ c.thumb_url }}" alt="">
+    {% if c.thumb_url %}<img loading="lazy" src="{{ c.thumb_url }}" alt="{{ c.title }}">
     {% else %}<div class="noimg">&#128760;</div>{% endif %}
     {% if c.kind == 'video' %}<span class="badge-video">&#9654;</span>{% endif %}
     <div class="meta">

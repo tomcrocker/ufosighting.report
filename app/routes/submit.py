@@ -346,6 +346,7 @@ def _render_form(request, values, errors, *, csrf, status_code=200):
                 "backgrounds": helpers.BACKGROUND_OPTIONS,
             },
             "show_all": bool(errors),
+            "canonical": f"{s.base_url}/submit",
         },
         status_code=status_code,
     )

@@ -4,7 +4,8 @@
 <div class="wizard">
   <div class="wizard-main">
     <div class="wizard-progress"><div class="bar" id="progressbar"></div></div>
-    <p class="muted">Report a UFO sighting to r/UFOs. You'll confirm it's you with a quick Reddit message — no account login needed.</p>
+    <p class="muted">Report a UFO sighting to r/UFOs. You'll confirm it's you with a quick Reddit message — no account login needed.
+      <span class="req">*</span> = required</p>
     {% for e in errors %}<p class="flash error">{{ e }}</p>{% endfor %}
     <form method="post" action="/submit" id="sighting-form" {% if show_all %}data-show-all="1"{% endif %}>
       <input type="hidden" name="csrf_token" value="{{ csrf }}">
@@ -29,7 +30,7 @@
       <input type="hidden" name="makes_noise" value="{{ values.makes_noise or '' }}">
 
       <section class="step" data-step="1">
-        <h1>Where did this sighting occur?</h1>
+        <h1>Where did this sighting occur? <span class="req">*</span></h1>
         <p class="muted">The town or area is fine — ideally within 20&nbsp;km of the spot
           (the r/UFOs guideline). A whole country isn't precise enough to investigate.</p>
         <input name="location_text" id="location_text" required minlength="2" autocomplete="off"
@@ -48,7 +49,7 @@
       <section class="step" data-step="2">
         <h1>When did the sighting happen?</h1>
         <p class="muted">If you don't remember exactly, your best guess is okay.</p>
-        <label>Date &amp; time
+        <label>Date &amp; time <span class="req">*</span>
           <input type="text" id="sighted_at_picker" required autocomplete="off"
                  placeholder="Click to pick a date and time">
         </label>
@@ -72,20 +73,20 @@
           <li>What did the object look like and how did it move?</li>
           <li>How did the sighting end?</li>
         </ul>
-        <label>Report title
-          <input name="title" required minlength="5" maxlength="300" value="{{ values.title or '' }}"
+        <label>Report title <span class="req">*</span>
+          <input name="title" required minlength="15" maxlength="300" value="{{ values.title or '' }}"
                  placeholder="e.g. Three orange orbs in triangle formation over Victoria, BC">
         </label>
-        <label>Your story
+        <label>Your story <span class="req">*</span>
           <textarea name="description" required minlength="150"
                     placeholder="Tell us more about your sighting.">{{ values.description or '' }}</textarea>
         </label>
         <p class="muted">Min 150 characters — <span id="charcount">0 / 150 min</span></p>
-        <label>Your Reddit username <span class="muted">— we'll credit you (self-reported until you confirm)</span>
+        <label>Your Reddit username <span class="req">*</span> <span class="muted">— we'll credit you (self-reported until you confirm)</span>
           <input name="reddit_username" required value="{{ values.reddit_username or '' }}"
                  placeholder="e.g. your_reddit_name" autocomplete="off">
         </label>
-        <label>Why is this not a common object? <span class="muted">— one sentence is fine</span>
+        <label>Why is this not a common object? <span class="req">*</span> <span class="muted">— one sentence is fine</span>
           <textarea name="rule_out" required minlength="20" class="rule-out"
                     placeholder="e.g. Checked FlightRadar24 — no aircraft in that direction; far too fast for a balloon.">{{ values.rule_out or '' }}</textarea>
         </label>
@@ -99,7 +100,7 @@
         <label class="check">
           <input type="checkbox" name="confirm_eyewitness" value="1" required
                  {% if values.confirm_eyewitness %}checked{% endif %}>
-          I saw this with my own eyes at the time — not something found later in photos or footage
+          I saw this with my own eyes at the time — not something found later in photos or footage <span class="req">*</span>
         </label>
       </section>
 
@@ -149,6 +150,11 @@
                accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm">
         <div class="filelist" id="filelist"></div>
         <div id="media-confirms" hidden>
+          <label style="margin-top:14px">What device captured this footage? <span class="muted">— optional</span>
+            <input name="capture_device" maxlength="100" autocomplete="off"
+                   placeholder="e.g. iPhone 16 Pro, Pixel 9, Sony A7 III + 200mm"
+                   value="{{ values.capture_device or '' }}">
+          </label>
           <p class="muted">A few confirmations about your media (r/UFOs guidelines):</p>
           <label class="check">
             <input type="checkbox" name="confirm_no_fixed_cam" value="1"
@@ -186,6 +192,7 @@
         {% endif %}
       </section>
 
+      <p class="wizard-error" id="wizard-error" hidden>Please fill in the required fields marked <span class="req">*</span></p>
       <div class="wizard-nav">
         <button type="button" class="btn" id="prevbtn">&larr; Previous</button>
         <button type="button" class="btn primary" id="nextbtn">Next &rarr;</button>

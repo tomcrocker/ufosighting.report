@@ -434,3 +434,11 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 }
 .home-search input[type=search]:focus { border-color: var(--accent); outline: none; }
 .results-line { margin: -8px 0 16px; }
+
+/* Required-field affordances on the wizard */
+.req { color: var(--danger); font-weight: 700; }
+.wizard-error {
+  background: #3a1520; border: 1px solid var(--danger); color: #ffc9c9;
+  padding: 10px 14px; border-radius: var(--radius); margin: 0 0 12px;
+}
+.field-invalid { border-color: var(--danger) !important; }

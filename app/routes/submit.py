@@ -121,8 +121,9 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
     clean: dict = {}
 
     clean["title"] = (form.get("title") or "").strip()
-    if not 5 <= len(clean["title"]) <= 300:
-        errors.append("Title must be 5-300 characters.")
+    if not 15 <= len(clean["title"]) <= 300:
+        errors.append("Title must be 15-300 characters — make it descriptive, "
+                      "it becomes the Reddit post title.")
 
     clean["description"] = (form.get("description") or "").strip()
     if len(clean["description"]) < helpers.MIN_STORY_CHARS:
@@ -191,6 +192,8 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
         )
     if form.get("confirm_eyewitness") not in ("1", "on", "true"):
         errors.append("Confirm you saw this with your own eyes at the time.")
+
+    clean["capture_device"] = (form.get("capture_device") or "").strip()[:100] or None
 
     clean["location_text"] = (form.get("location_text") or "").strip()
     coord_m = re.fullmatch(
@@ -364,8 +367,8 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
               shape, witnesses, num_objects, distance, apparent_size, movement,
               has_wings, has_rotors, has_plume, makes_noise, sensors, witness_background,
               location_text, city, country, lat, lon, location_obscured, rule_out,
-              submitter_ip, verify_token, verify_sent_at, status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+              capture_device, submitter_ip, verify_token, verify_sent_at, status)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
                    strftime('%Y-%m-%dT%H:%M:%SZ','now'),'pending_verify')""",
         (
             username, clean["title"], clean["description"], clean["sighted_at"],
@@ -377,7 +380,7 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
             json.dumps(clean["witness_background"]) if clean["witness_background"] else None,
             clean["location_text"], clean["city"], clean["country"],
             clean["lat"], clean["lon"], clean["location_obscured"], clean["rule_out"],
-            ip, token,
+            clean["capture_device"], ip, token,
         ),
     )
     sighting_id = cur.lastrowid

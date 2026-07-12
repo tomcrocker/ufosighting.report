@@ -210,14 +210,42 @@
   const showAll = form.dataset.showAll === "1";
   let current = 0;
 
+  const errBanner = document.getElementById("wizard-error");
+
+  function markInvalid(field) {
+    // native bubbles vanish fast — keep a persistent banner + red outline
+    // until the field is corrected
+    if (errBanner) errBanner.hidden = false;
+    const target = field.classList.contains("flatpickr-input")
+      ? field.previousElementSibling || field : field;
+    (target.type === "checkbox" ? target.closest(".check") || target : target)
+      .classList.add("field-invalid");
+    field.addEventListener("input", clearInvalid, { once: true });
+    field.addEventListener("change", clearInvalid, { once: true });
+  }
+
+  function clearInvalid(e) {
+    const f = e.target;
+    (f.type === "checkbox" ? f.closest(".check") || f : f).classList.remove("field-invalid");
+    if (errBanner && !form.querySelector(".field-invalid")) errBanner.hidden = true;
+  }
+
   function requiredOk(index) {
     // flatpickr with altInput turns #sighted_at_picker into a hidden input;
     // hidden required fields can't be validated by reportValidity(), so we
     // check the resulting sighted_date value explicitly instead.
     const step = steps[index];
+    let firstBad = null;
     for (const field of step.querySelectorAll("input[required], textarea[required]")) {
       if (field.type === "hidden" || field.offsetParent === null) continue;
-      if (!field.reportValidity()) return false;
+      if (!field.checkValidity()) {
+        markInvalid(field);
+        if (!firstBad) firstBad = field;
+      }
+    }
+    if (firstBad) {
+      firstBad.reportValidity();
+      return false;
     }
     if (step.querySelector("#sighted_at_picker")) {
       const dEl = document.getElementById("sighted_date");
@@ -225,6 +253,9 @@
         const alt = step.querySelector(".flatpickr-input.form-control, input.form-control")
           || document.getElementById("sighted_at_picker");
         if (alt && alt.setCustomValidity) {
+          if (errBanner) errBanner.hidden = false;
+          alt.classList.add("field-invalid");
+          alt.addEventListener("change", clearInvalid, { once: true });
           alt.setCustomValidity("Pick a date and time");
           alt.reportValidity();
           setTimeout(() => alt.setCustomValidity(""), 0);
@@ -277,6 +308,7 @@
         if (bad) {
           if (i !== current) { current = i; render(); }
           e.preventDefault();
+          markInvalid(bad);
           setTimeout(() => bad.reportValidity(), 60);
           return;
         }

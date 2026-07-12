@@ -164,6 +164,7 @@ _MIGRATION_COLUMNS = [
     ("verify_token", "TEXT"),
     ("verify_sent_at", "TEXT"),
     ("rule_out", "TEXT"),
+    ("capture_device", "TEXT"),
 ]
 
 

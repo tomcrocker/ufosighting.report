@@ -76,6 +76,8 @@
       </td></tr>
       {% endif %}
       {% if s.witnesses %}<tr><td>Witnesses</td><td>{{ s.witnesses }}</td></tr>{% endif %}
+      {% if s.capture_device %}<tr><td>Captured on</td><td>{{ s.capture_device }}</td></tr>{% endif %}
+      {% if s.rule_out %}<tr><td>Why not a common object</td><td>{{ s.rule_out }}</td></tr>{% endif %}
       {% if s.sensors %}<tr><td>Sensors</td><td>{{ s.sensors | join(', ') }}</td></tr>{% endif %}
       {% if s.witness_background %}<tr><td>Reporter background</td><td>{{ s.witness_background | join(', ') }}</td></tr>{% endif %}
       <tr><td>Status</td><td>{{ s.status }}</td></tr>

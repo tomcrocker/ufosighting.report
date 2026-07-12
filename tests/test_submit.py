@@ -224,3 +224,34 @@ def test_bogus_coordinates_rejected(client, app_db):
                                           city="", country="", lat="", lon=""),
                     cookies={"csrf": csrf})
     assert r.status_code == 422
+
+
+def test_short_title_rejected(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, title="Orbs!"), cookies={"csrf": csrf})
+    assert r.status_code == 422 and "15" in r.text
+
+
+def test_capture_device_stored_and_in_post_body(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, capture_device="iPhone 16 Pro"),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+    row = app_db.execute("SELECT capture_device FROM sightings ORDER BY id DESC LIMIT 1").fetchone()
+    assert row["capture_device"] == "iPhone 16 Pro"
+    from app import helpers
+    body = helpers.format_post_body(
+        {"capture_device": "iPhone 16 Pro", "tz_name": "UTC", "description": "d",
+         "movement": [], "sensors": [], "witness_background": []},
+        sighted_local="x", location_line="y", media_urls=[], gallery_url="u",
+        attribution="")
+    assert "Captured on:** iPhone 16 Pro" in body
+
+
+def test_capture_device_optional_and_capped(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, capture_device="x" * 300),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+    row = app_db.execute("SELECT capture_device FROM sightings ORDER BY id DESC LIMIT 1").fetchone()
+    assert len(row["capture_device"]) == 100

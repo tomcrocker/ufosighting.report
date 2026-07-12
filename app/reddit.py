@@ -140,6 +140,19 @@ def status_from_removed_by_category(rbc: str | None) -> str:
     return "removed_on_reddit"
 
 
+def approve(access_token: str, *, post_id: str) -> None:
+    """Mod-approve a post (used to self-rescue bot posts the sitewide spam
+    filter removes — works only where the bot account moderates)."""
+    resp = httpx.post(
+        "https://oauth.reddit.com/api/approve",
+        data={"id": f"t3_{post_id}"},
+        headers=_headers(access_token),
+        timeout=20,
+    )
+    if resp.status_code != 200:
+        raise RedditError(f"approve failed: HTTP {resp.status_code}")
+
+
 def send_message(access_token: str, *, to: str, subject: str, text: str) -> None:
     resp = httpx.post(
         COMPOSE_URL,

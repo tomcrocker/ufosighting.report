@@ -117,6 +117,16 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
             reddit_media.comment(token, post_id=post_id, text=body)
         except reddit.RedditError as exc:
             print(f"details comment on {post_id} failed (non-fatal): {exc}")
+        # The sitewide spam filter routinely removes media posts from the
+        # young bot account. The bot moderates the target subreddit, so it
+        # can rescue its own post — best-effort, non-fatal elsewhere.
+        try:
+            info = reddit.fetch_post(token, post_id)
+            if info and info.get("removed_by_category") == "reddit":
+                reddit.approve(token, post_id=post_id)
+                print(f"self-approved spam-filtered post {post_id}")
+        except reddit.RedditError as exc:
+            print(f"self-approve check on {post_id} failed (non-fatal): {exc}")
     else:
         post_id = reddit.submit_post(
             token, subreddit=s.subreddit,

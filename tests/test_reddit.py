@@ -159,3 +159,11 @@ def test_read_token_uses_read_account_with_separate_cache(monkeypatch):
     assert reddit.read_token() == "read-tok"
     assert reddit.script_token() == "bot-tok"   # separate cache entries
     assert reddit.read_token() == "read-tok"    # cached, no extra grant
+
+
+@respx.mock
+def test_approve_posts_thing_id():
+    route = respx.post("https://oauth.reddit.com/api/approve").mock(
+        return_value=httpx.Response(200, json={}))
+    reddit.approve("tok", post_id="1abc")
+    assert b"id=t3_1abc" in route.calls[0].request.content

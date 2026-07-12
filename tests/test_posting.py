@@ -182,3 +182,34 @@ def test_video_without_thumb_falls_back_to_self(db_conn, monkeypatch):
     monkeypatch.setattr(posting.reddit_media, "find_recent_post_id", lambda *a, **k: None)
     monkeypatch.setattr(posting.reddit, "submit_post", lambda tok, **k: "self42")
     assert posting.post_sighting(db_conn, sid, verified=True) == "self42"
+
+
+def test_spam_removed_native_post_self_approves(db_conn, monkeypatch):
+    sid = _seed_ready(db_conn)
+    _mk_media(db_conn, sid, ("uploads/a.jpg", "image", None))
+    calls = {}
+    _native_stubs(monkeypatch, calls)
+    monkeypatch.setattr(posting.reddit_media, "submit_image", lambda tok, **k: None)
+    monkeypatch.setattr(posting.reddit_media, "wait_for_post_id", lambda tok, **k: "img77")
+    monkeypatch.setattr(posting.reddit, "fetch_post",
+                        lambda tok, pid: {"id": pid, "removed_by_category": "reddit"})
+    monkeypatch.setattr(posting.reddit, "approve",
+                        lambda tok, *, post_id: calls.update(approved=post_id))
+    assert posting.post_sighting(db_conn, sid, verified=True) == "img77"
+    assert calls["approved"] == "img77"
+
+
+def test_live_native_post_not_approved(db_conn, monkeypatch):
+    sid = _seed_ready(db_conn)
+    _mk_media(db_conn, sid, ("uploads/a.jpg", "image", None))
+    calls = {}
+    _native_stubs(monkeypatch, calls)
+    monkeypatch.setattr(posting.reddit_media, "submit_image", lambda tok, **k: None)
+    monkeypatch.setattr(posting.reddit_media, "wait_for_post_id", lambda tok, **k: "img88")
+    monkeypatch.setattr(posting.reddit, "fetch_post",
+                        lambda tok, pid: {"id": pid, "removed_by_category": None})
+    approved = []
+    monkeypatch.setattr(posting.reddit, "approve",
+                        lambda tok, *, post_id: approved.append(post_id))
+    posting.post_sighting(db_conn, sid, verified=True)
+    assert not approved

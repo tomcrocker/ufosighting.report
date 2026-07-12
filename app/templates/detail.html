@@ -165,6 +165,18 @@
       {% if s.witness_background %}<tr><td>Reporter background</td><td>{{ s.witness_background | join(', ') }}</td></tr>{% endif %}
       <tr><td>Status</td><td>{{ s.status }}</td></tr>
     </table>
+    {% if related %}
+    <div class="panel related-panel">
+      <h3>Possibly related reports</h3>
+      <p class="muted rel-sub">Other sightings within {{ 100 }} km and 48 hours —
+         independent reports of the same event are the strongest evidence there is.</p>
+      {% for r in related %}
+      <p class="rel-item"><a href="/sighting/{{ r.id }}/{{ r.slug }}">{{ r.title }}</a><br>
+        <span class="muted">{{ r.km }} km away &middot; {{ r.when }}{% if r.place %} &middot; {{ r.place }}{% endif %}</span></p>
+      {% endfor %}
+      {% if related_map %}<p><a class="btn" href="{{ related_map }}">View that day on the map</a></p>{% endif %}
+    </div>
+    {% endif %}
     {% if s.country %}
     <p class="muted more-in"><a href="/?country={{ s.country | urlencode }}">More sightings in {{ s.country }} &rarr;</a></p>
     {% endif %}

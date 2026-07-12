@@ -74,6 +74,14 @@ def humanize_duration(seconds: int | None) -> str:
     return f"{hours_str} hour{'s' if hours != 1 else ''}"
 
 
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    from math import asin, cos, radians, sin, sqrt
+    rlat1, rlon1, rlat2, rlon2 = map(radians, (lat1, lon1, lat2, lon2))
+    a = (sin((rlat2 - rlat1) / 2) ** 2
+         + cos(rlat1) * cos(rlat2) * sin((rlon2 - rlon1) / 2) ** 2)
+    return 6371.0 * 2 * asin(sqrt(a))
+
+
 def to_utc(date_str: str, time_str: str, tz_name: str) -> datetime:
     local = datetime.fromisoformat(f"{date_str}T{time_str}").replace(tzinfo=ZoneInfo(tz_name))
     return local.astimezone(timezone.utc)

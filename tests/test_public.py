@@ -322,3 +322,36 @@ def test_hero_stats(client, app_db):
     seed(app_db)
     r = client.get("/")
     assert "sightings archived" in r.text and "/feed.xml" in r.text
+
+
+# --- sighting correlation ---
+
+def test_related_sightings_window_and_ranking(client, app_db):
+    base = seed(app_db, title="Anchor orb report", sighted_at="2026-07-01T06:00:00Z",
+                lat=48.43, lon=-123.36)
+    near = seed(app_db, title="Nearby same night", sighted_at="2026-07-01T08:00:00Z",
+                lat=48.65, lon=-123.40)     # ~25 km
+    farther = seed(app_db, title="Vancouver same night", sighted_at="2026-07-01T05:00:00Z",
+                   lat=49.28, lon=-123.12)  # ~93 km
+    seed(app_db, title="Too far away", sighted_at="2026-07-01T06:30:00Z",
+         lat=51.05, lon=-114.07)            # Calgary, ~700 km
+    seed(app_db, title="Too long ago", sighted_at="2026-06-20T06:00:00Z",
+         lat=48.45, lon=-123.37)
+    hidden = seed(app_db, title="Hidden nearby", sighted_at="2026-07-01T07:00:00Z",
+                  lat=48.44, lon=-123.37, status="hidden_by_admin")
+    r = client.get(f"/sighting/{base}/anchor-orb-report")
+    assert "Possibly related reports" in r.text
+    assert "Nearby same night" in r.text
+    assert "Vancouver same night" in r.text
+    assert "Too far away" not in r.text
+    assert "Too long ago" not in r.text
+    assert "Hidden nearby" not in r.text
+    # ranked by distance: nearby first
+    assert r.text.index("Nearby same night") < r.text.index("Vancouver same night")
+    assert "km away" in r.text
+
+
+def test_related_absent_without_geo_or_matches(client, app_db):
+    lone = seed(app_db, title="Lonely sighting", lat=None, lon=None)
+    r = client.get(f"/sighting/{lone}/lonely-sighting")
+    assert "Possibly related" not in r.text

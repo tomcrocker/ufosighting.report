@@ -195,6 +195,51 @@ def index(
     )
 
 
+RELATED_KM = 100
+RELATED_HOURS = 48
+
+
+def related_sightings(conn, row, limit: int = 5) -> list[dict]:
+    """Independent reports near in space AND time — the strongest signal a
+    sighting has. Bounding-box prefilter, exact haversine ranking."""
+    from datetime import datetime, timedelta, timezone
+    from math import cos, radians
+    if row["lat"] is None:
+        return []
+    ts = datetime.strptime(row["sighted_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=timezone.utc)
+    t0 = (ts - timedelta(hours=RELATED_HOURS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    t1 = (ts + timedelta(hours=RELATED_HOURS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    dlat = RELATED_KM / 111.0
+    dlon = RELATED_KM / (111.0 * max(0.2, cos(radians(row["lat"]))))
+    rows = conn.execute(
+        f"""SELECT id, title, sighted_at, lat, lon, city, country FROM sightings
+            WHERE status IN {PUBLIC_STATUSES_SQL} AND id != ?
+              AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
+              AND sighted_at BETWEEN ? AND ?""",
+        (row["id"], row["lat"] - dlat, row["lat"] + dlat,
+         row["lon"] - dlon, row["lon"] + dlon, t0, t1),
+    ).fetchall()
+    out = []
+    for r in rows:
+        km = helpers.haversine_km(row["lat"], row["lon"], r["lat"], r["lon"])
+        if km > RELATED_KM:
+            continue
+        other = datetime.strptime(r["sighted_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc)
+        dh = (other - ts).total_seconds() / 3600
+        if abs(dh) < 1:
+            when = "within the hour"
+        else:
+            when = f"{abs(dh):.0f} h {'later' if dh > 0 else 'earlier'}"
+        out.append({"id": r["id"], "title": r["title"],
+                    "slug": helpers.slugify(r["title"]),
+                    "km": round(km), "when": when,
+                    "place": r["city"] or r["country"] or ""})
+    out.sort(key=lambda x: x["km"])
+    return out[:limit]
+
+
 @router.get("/sighting/{sighting_id}")
 @router.get("/sighting/{sighting_id}/{slug}")
 def detail(
@@ -253,12 +298,17 @@ def detail(
         "SELECT author, body, score, permalink FROM comments "
         "WHERE sighting_id=? ORDER BY score DESC", (sighting_id,)
     ).fetchall()
+    related = related_sightings(conn, row)
+    related_map = None
+    if related:
+        related_map = (f"/map?from={row['sighted_at'][:10]}&to={row['sighted_at'][:10]}")
     base = get_settings().base_url
     return templates.TemplateResponse(
         request, "detail.html",
         {"user": user, "s": s, "media": media_items, "reddit_url": reddit_url, "admin": admin,
          "comments": comment_rows,
          "canonical": f"{base}/sighting/{s['id']}/{s['slug']}",
+         "related": related, "related_map": related_map,
          "csrf_token": auth.csrf_for(user.id) if user else ""},
     )
 

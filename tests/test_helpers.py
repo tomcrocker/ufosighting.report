@@ -97,3 +97,11 @@ def test_format_post_body_attribution():
         attribution="Reported by u/witness1 (verified via ufosighting.report)",
     )
     assert "Reported by u/witness1 (verified via ufosighting.report)" in body
+
+
+def test_haversine_known_distance():
+    from app.helpers import haversine_km
+    # Victoria BC -> Vancouver BC ≈ 93-94 km
+    d = haversine_km(48.4284, -123.3656, 49.2827, -123.1207)
+    assert 90 < d < 98
+    assert haversine_km(48.0, -123.0, 48.0, -123.0) == 0

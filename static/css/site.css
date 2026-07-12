@@ -519,3 +519,10 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 }
 .legend-date-btns { display: flex; gap: 6px; }
 .legend-date-btns .btn { padding: 4px 10px; font-size: .75rem; }
+
+/* correlated reports panel */
+.related-panel { margin-top: 16px; padding: 16px 18px; }
+.related-panel h3 { margin: 0 0 4px; }
+.rel-sub { font-size: .8rem; margin: 0 0 10px; }
+.rel-item { margin: 0 0 10px; line-height: 1.4; }
+.rel-item .muted { font-size: .82rem; }

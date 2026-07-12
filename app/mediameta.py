@@ -7,6 +7,7 @@ Everything is best-effort — missing/corrupt metadata yields {}.
 """
 import io
 import json
+import re
 import subprocess
 
 from PIL import ExifTags, Image
@@ -86,8 +87,21 @@ def extract_image_meta(data: bytes) -> dict:
     return out
 
 
+_ISO6709 = re.compile(r"^([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)")
+
+
+def _parse_iso6709(value: str) -> tuple[float, float] | None:
+    """Phones embed video GPS as ISO 6709 ('+48.4284-123.3656+030.000/')."""
+    m = _ISO6709.match(value or "")
+    if not m:
+        return None
+    return float(m.group(1)), float(m.group(2))
+
+
 def extract_video_meta(url: str) -> dict:
-    """ffprobe the R2 original (streams via range requests, no full download)."""
+    """ffprobe the R2 original (streams via range requests, no full download).
+    Vendor tags vary: Apple uses com.apple.quicktime.*, Android com.android.*,
+    GoPro a bare `firmware` tag + 'GoPro' handler names — all handled."""
     try:
         proc = subprocess.run(
             ["ffprobe", "-v", "quiet", "-print_format", "json",
@@ -109,9 +123,20 @@ def extract_video_meta(url: str) -> dict:
     for src_key, dst in (("creation_time", "captured_at"), ("encoder", "encoder"),
                          ("com.apple.quicktime.model", "model"),
                          ("com.apple.quicktime.make", "make"),
-                         ("com.apple.quicktime.software", "software")):
-        if tags.get(src_key):
+                         ("com.apple.quicktime.software", "software"),
+                         ("com.android.manufacturer", "make"),
+                         ("com.android.model", "model"),
+                         ("firmware", "software")):
+        if tags.get(src_key) and dst not in out:
             out[dst] = tags[src_key]
+    if tags.get("com.android.version") and "software" not in out:
+        out["software"] = f"Android {tags['com.android.version']}"
+    for loc_key in ("location", "com.apple.quicktime.location.ISO6709"):
+        if tags.get(loc_key):
+            gps = _parse_iso6709(tags[loc_key])
+            if gps:
+                out["gps_lat"], out["gps_lon"] = gps
+                break
     for stream in data.get("streams", []):
         if stream.get("codec_type") == "video" and "codec" not in out:
             out["codec"] = stream.get("codec_name")
@@ -124,6 +149,9 @@ def extract_video_meta(url: str) -> dict:
                     out["fps"] = round(int(num) / int(den), 2)
             except ValueError:
                 pass
+            handler = (stream.get("tags", {}) or {}).get("handler_name", "")
+            if "gopro" in handler.lower() and "make" not in out:
+                out["make"] = "GoPro"
     return out
 
 

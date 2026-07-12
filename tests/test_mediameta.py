@@ -68,3 +68,43 @@ def test_public_rows_gps_gate():
     assert with_gps["GPS (from file)"] == "48.123, -123.654"  # rounded ~100m
     assert "GPS (from file)" not in without
     assert with_gps["Resolution"] == "100×50"
+
+
+def test_extract_video_meta_gopro_and_android(monkeypatch):
+    probe = {
+        "format": {"duration": "12.0",
+                   "tags": {"firmware": "HD9.01.01.60.00",
+                            "location": "+48.4284-123.3656+030.000/"}},
+        "streams": [{"codec_type": "video", "codec_name": "h264",
+                     "width": 1920, "height": 1080, "avg_frame_rate": "30/1",
+                     "tags": {"handler_name": "GoPro AVC"}}],
+    }
+
+    class FakeProc:
+        returncode = 0
+        stdout = json.dumps(probe).encode()
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeProc())
+    meta = mediameta.extract_video_meta("https://media.test/g.mp4")
+    assert meta["make"] == "GoPro"
+    assert meta["software"] == "HD9.01.01.60.00"
+    assert meta["gps_lat"] == 48.4284 and meta["gps_lon"] == -123.3656
+
+
+def test_extract_video_meta_android_version(monkeypatch):
+    probe = {
+        "format": {"tags": {"com.android.version": "15",
+                            "com.android.manufacturer": "Google",
+                            "com.android.model": "Pixel 9 Pro"}},
+        "streams": [{"codec_type": "video", "codec_name": "hevc",
+                     "width": 3840, "height": 2160, "avg_frame_rate": "30/1"}],
+    }
+
+    class FakeProc:
+        returncode = 0
+        stdout = json.dumps(probe).encode()
+
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeProc())
+    meta = mediameta.extract_video_meta("https://media.test/a.mp4")
+    assert meta["software"] == "Android 15"
+    assert meta["make"] == "Google" and meta["model"] == "Pixel 9 Pro"

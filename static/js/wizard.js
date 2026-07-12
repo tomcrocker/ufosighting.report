@@ -27,11 +27,14 @@
       defaultDate: initial,
       maxDate: "today",
       time_24hr: false,
+      disableMobile: true,
       onChange: function (sel, str, fp) {
         if (!sel.length) return;
         const d = sel[0];
         dEl.value = fp.formatDate(d, "Y-m-d");
         tEl.value = fp.formatDate(d, "H:i");
+        // bubbles to the form's revalidation listener
+        dEl.dispatchEvent(new Event("change", { bubbles: true }));
       },
     });
   }
@@ -212,23 +215,57 @@
 
   const errBanner = document.getElementById("wizard-error");
 
-  function markInvalid(field) {
-    // native bubbles vanish fast — keep a persistent banner + red outline
-    // until the field is corrected
-    if (errBanner) errBanner.hidden = false;
-    const target = field.classList.contains("flatpickr-input")
-      ? field.previousElementSibling || field : field;
-    (target.type === "checkbox" ? target.closest(".check") || target : target)
-      .classList.add("field-invalid");
-    field.addEventListener("input", clearInvalid, { once: true });
-    field.addEventListener("change", clearInvalid, { once: true });
+  function highlightTarget(field) {
+    if (field.type === "checkbox") return field.closest(".check") || field;
+    return field;
   }
 
-  function clearInvalid(e) {
-    const f = e.target;
-    (f.type === "checkbox" ? f.closest(".check") || f : f).classList.remove("field-invalid");
-    if (errBanner && !form.querySelector(".field-invalid")) errBanner.hidden = true;
+  function fieldValid(field) {
+    // the date picker's visible input is a flatpickr altInput with no
+    // constraints of its own — its truth lives in the hidden sighted_date
+    if (field.id === "sighted_at_picker" || field.classList.contains("flatpickr-input")) {
+      return !!document.getElementById("sighted_date").value;
+    }
+    return field.checkValidity();
   }
+
+  function markInvalid(field) {
+    // native bubbles vanish fast — keep a persistent banner + red outline
+    // until the field is actually valid (continuous revalidation below)
+    if (errBanner) errBanner.hidden = false;
+    highlightTarget(field).classList.add("field-invalid");
+    field.dataset.invalid = "1";
+  }
+
+  function revalidate() {
+    // clear highlights only once a field is genuinely valid — and the
+    // banner only once every flagged field is
+    form.querySelectorAll("[data-invalid]").forEach((field) => {
+      if (fieldValid(field)) {
+        highlightTarget(field).classList.remove("field-invalid");
+        delete field.dataset.invalid;
+      }
+    });
+    if (errBanner && !form.querySelector("[data-invalid]")) errBanner.hidden = true;
+    syncReqMarkers();
+  }
+
+  function syncReqMarkers() {
+    // red * turns green once its field is satisfied — live feedback
+    form.querySelectorAll("input[required], textarea[required]").forEach((field) => {
+      if (field.type === "hidden") return;
+      const label = field.closest("label") || field.closest(".step");
+      const marker = label && label.querySelector(".req");
+      if (marker) marker.classList.toggle("req-done", fieldValid(field));
+    });
+    // step-1 heading marker follows the location field
+    const loc = document.getElementById("location_text");
+    const h1req = loc && loc.closest(".step") && loc.closest(".step").querySelector("h1 .req");
+    if (h1req) h1req.classList.toggle("req-done", loc.checkValidity());
+  }
+
+  form.addEventListener("input", revalidate);
+  form.addEventListener("change", revalidate);
 
   function requiredOk(index) {
     // flatpickr with altInput turns #sighted_at_picker into a hidden input;
@@ -253,9 +290,7 @@
         const alt = step.querySelector(".flatpickr-input.form-control, input.form-control")
           || document.getElementById("sighted_at_picker");
         if (alt && alt.setCustomValidity) {
-          if (errBanner) errBanner.hidden = false;
-          alt.classList.add("field-invalid");
-          alt.addEventListener("change", clearInvalid, { once: true });
+          markInvalid(alt);
           alt.setCustomValidity("Pick a date and time");
           alt.reportValidity();
           setTimeout(() => alt.setCustomValidity(""), 0);

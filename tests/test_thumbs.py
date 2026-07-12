@@ -115,3 +115,14 @@ def test_worker_stores_exif_and_autofills_device(db_conn, monkeypatch):
     assert m["display_key"] is None  # plain JPEG needs no derivative
     row = db_conn.execute("SELECT capture_device FROM sightings WHERE id=?", (sid,)).fetchone()
     assert row["capture_device"] == "Apple iPhone 16 Pro"
+
+
+def test_apply_exif_prefs_filters_categories():
+    from app import thumbs
+    meta = {"make": "Apple", "model": "iPhone", "captured_at": "x",
+            "gps_lat": 1.0, "gps_lon": 2.0, "compass_deg": 90.0,
+            "width": 10, "iso": 100}
+    out = thumbs.apply_exif_prefs(meta, {"device": True, "time": False, "location": False})
+    assert "make" in out and "iso" in out and "width" in out
+    assert "captured_at" not in out
+    assert "gps_lat" not in out and "compass_deg" not in out

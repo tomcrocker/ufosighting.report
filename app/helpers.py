@@ -26,6 +26,20 @@ MOVEMENTS = [
 SENSOR_OPTIONS = ["infrared", "night vision", "radar", "sonar", "other"]
 BACKGROUND_OPTIONS = ["active duty military", "veteran", "pilot", "scientist", "law enforcement"]
 FEATURE_ANSWERS = ["yes", "no", "unsure"]
+
+# The "five observables" (Elizondo/AATIP), shortened for the wizard
+OBSERVABLES = [
+    ("obs_accel", "Sudden, extreme acceleration?",
+     "Instant maneuvers or direction reversals beyond any known aircraft."),
+    ("obs_no_signature", "Extreme speed with no signatures?",
+     "Hypersonic-looking motion but no sonic boom, contrail, or engine noise."),
+    ("obs_low_observability", "Hard to observe clearly?",
+     "Blurry or glowing edges, hard to focus on — by eye or camera."),
+    ("obs_transmedium", "Moved between air, water, or space?",
+     "Crossed between mediums without slowing or changing behavior."),
+    ("obs_positive_lift", "Flight without visible means of lift?",
+     "Hovered or flew with no wings, rotors, or exhaust."),
+]
 MIN_STORY_CHARS = 150
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_-]{3,20}$")
@@ -98,6 +112,10 @@ def format_post_body(
     feature_bits = [f"{label}: {value}" for label, value in features if value]
     if feature_bits:
         facts.append("**Features:** " + " · ".join(feature_bits))
+    obs_bits = [f"{q.rstrip('?').lower()}: {clean[key]}"
+                for key, q, _h in OBSERVABLES if clean.get(key)]
+    if obs_bits:
+        facts.append("**Five observables:** " + " · ".join(obs_bits))
     if clean.get("witnesses"):
         facts.append(f"**Witnesses:** {clean['witnesses']}")
     if clean.get("rule_out"):

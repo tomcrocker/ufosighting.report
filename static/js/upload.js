@@ -110,12 +110,55 @@
       }
       media.push(item);
       progress.remove();
+      showMetaPreview(row, item);
     } catch (err) {
       row.innerHTML = "<span class='err'>" + file.name + " — " + err.message + "</span>";
     } finally {
       inflight--;
       syncState();
     }
+  }
+
+  // After upload: show what technical metadata the file carries and let the
+  // reporter choose what gets published (device / time / location).
+  async function showMetaPreview(row, item) {
+    try {
+      const resp = await fetch("/api/media-meta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: item.key, kind: item.kind }),
+      });
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (!data.rows.length) return;
+      item.exif = { device: true, time: true, location: true };
+      const box = document.createElement("div");
+      box.className = "meta-preview";
+      const rows = data.rows.map((r) => "<tr><td>" + r[0] + "</td><td>" + r[1] + "</td></tr>").join("");
+      const cats = [
+        ["device", "Device & camera settings", data.has.device],
+        ["time", "Date & time taken", data.has.time],
+        ["location", "Location (GPS)", data.has.location],
+      ].filter((c) => c[2]);
+      box.innerHTML =
+        "<details open><summary>Metadata found in this file — choose what to publish</summary>" +
+        "<table class='facts'>" + rows + "</table>" +
+        "<div class='meta-choices'>" + cats.map(([k, label]) =>
+          "<label class='check'><input type='checkbox' data-cat='" + k + "' checked> Publish " + label + "</label>"
+        ).join("") + "</div>" +
+        (data.has.location
+          ? "<p class='muted meta-note'>Uncheck Location and we scrub GPS from the published file and page.</p>"
+          : "") +
+        "</details>";
+      box.querySelectorAll("input[data-cat]").forEach((cb) => {
+        cb.addEventListener("change", () => {
+          item.exif[cb.dataset.cat] = cb.checked;
+          syncState();
+        });
+      });
+      row.after(box);
+      syncState(); // persist item.exif into media_json
+    } catch (e) { /* preview is best-effort */ }
   }
 
   dropzone.onclick = () => filepick.click();

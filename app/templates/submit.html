@@ -28,6 +28,9 @@
       <input type="hidden" name="has_rotors" value="{{ values.has_rotors or '' }}">
       <input type="hidden" name="has_plume" value="{{ values.has_plume or '' }}">
       <input type="hidden" name="makes_noise" value="{{ values.makes_noise or '' }}">
+      {% for key, q, hint in opts.observables %}
+      <input type="hidden" name="{{ key }}" value="{{ values[key] or '' }}">
+      {% endfor %}
 
       <section class="step" data-step="1">
         <h1>Where did this sighting occur? <span class="req">*</span></h1>
@@ -133,6 +136,18 @@
         {% for key, label in [('has_wings', 'Has wings?'), ('has_rotors', 'Has rotors?'),
                               ('has_plume', 'Has an exhaust plume?'), ('makes_noise', 'Makes noise?')] %}
         <div class="feature-row"><span>{{ label }}</span>
+          <div class="chips" data-target="{{ key }}">
+            <button type="button" class="chip" data-value="yes">Yes</button>
+            <button type="button" class="chip" data-value="no">No</button>
+            <button type="button" class="chip" data-value="unsure">Not sure</button>
+          </div>
+        </div>
+        {% endfor %}
+        <h2 class="obs-heading">The five observables</h2>
+        <p class="muted">Hallmarks investigators look for — answer what you can.</p>
+        {% for key, q, hint in opts.observables %}
+        <div class="feature-row obs-row"><span>{{ q }}
+            <small class="muted">{{ hint }}</small></span>
           <div class="chips" data-target="{{ key }}">
             <button type="button" class="chip" data-value="yes">Yes</button>
             <button type="button" class="chip" data-value="no">No</button>

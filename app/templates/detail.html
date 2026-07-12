@@ -29,9 +29,14 @@
     <div class="originals">
       {% for m in media %}
       <div class="original-row">
+        {% if m.download_original %}
         <a href="{{ m.url }}" download>&#11015;&#65039; Download original {{ loop.index }}</a>
         <span class="muted">{{ m.ext | upper }}{% if m.size_mb %} &middot; {{ m.size_mb }} MB{% endif %}
           &middot; untouched as uploaded</span>
+        {% else %}
+        <a href="{{ m.display_url or m.url }}" download>&#11015;&#65039; Download image {{ loop.index }}</a>
+        <span class="muted">location metadata removed at the reporter's request</span>
+        {% endif %}
         {% if m.meta_rows %}
         <details class="tech-details">
           <summary>Technical details</summary>
@@ -94,6 +99,15 @@
         {% if s.has_rotors %}rotors: {{ s.has_rotors }}<br>{% endif %}
         {% if s.has_plume %}exhaust plume: {{ s.has_plume }}<br>{% endif %}
         {% if s.makes_noise %}noise: {{ s.makes_noise }}{% endif %}
+      </td></tr>
+      {% endif %}
+      {% if s.obs_accel or s.obs_no_signature or s.obs_low_observability or s.obs_transmedium or s.obs_positive_lift %}
+      <tr><td>Five observables</td><td>
+        {% if s.obs_accel %}sudden acceleration: {{ s.obs_accel }}<br>{% endif %}
+        {% if s.obs_no_signature %}no signatures at speed: {{ s.obs_no_signature }}<br>{% endif %}
+        {% if s.obs_low_observability %}low observability: {{ s.obs_low_observability }}<br>{% endif %}
+        {% if s.obs_transmedium %}trans-medium travel: {{ s.obs_transmedium }}<br>{% endif %}
+        {% if s.obs_positive_lift %}lift without propulsion: {{ s.obs_positive_lift }}{% endif %}
       </td></tr>
       {% endif %}
       {% if s.witnesses %}<tr><td>Witnesses</td><td>{{ s.witnesses }}</td></tr>{% endif %}

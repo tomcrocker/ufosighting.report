@@ -165,12 +165,18 @@ _MIGRATION_COLUMNS = [
     ("verify_sent_at", "TEXT"),
     ("rule_out", "TEXT"),
     ("capture_device", "TEXT"),
+    ("obs_accel", "TEXT"),
+    ("obs_no_signature", "TEXT"),
+    ("obs_low_observability", "TEXT"),
+    ("obs_transmedium", "TEXT"),
+    ("obs_positive_lift", "TEXT"),
 ]
 
 
 _MEDIA_MIGRATION_COLUMNS = [
     ("exif_json", "TEXT"),
     ("display_key", "TEXT"),
+    ("exif_prefs", "TEXT"),
 ]
 
 

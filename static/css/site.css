@@ -453,3 +453,21 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .tech-details { margin-top: 8px; }
 .tech-details summary { cursor: pointer; color: var(--accent2); font-size: .85rem; }
 .tech-details table { margin-top: 8px; font-size: .85rem; }
+
+/* required marker flips green once the field is valid */
+.req.req-done { color: var(--accent); }
+
+/* Post-upload metadata preview + consent choices */
+.meta-preview {
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 10px 12px; font-size: .85rem;
+}
+.meta-preview summary { cursor: pointer; color: var(--accent2); }
+.meta-preview table { margin: 8px 0; }
+.meta-choices { display: grid; gap: 6px; margin-top: 8px; }
+.meta-note { margin: 6px 0 0; font-size: .8rem; }
+
+/* five observables block on the features step */
+.obs-heading { margin-top: 28px; }
+.obs-row span { display: grid; }
+.obs-row small { font-size: .78rem; }

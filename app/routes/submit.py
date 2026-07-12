@@ -7,7 +7,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from app import db, geocode, helpers, r2, ratelimit, reddit, turnstile, verify
+from app import db, geocode, helpers, mediameta, r2, ratelimit, reddit, turnstile, verify
 from app.countries import COUNTRY_NAMES
 from app.config import get_settings
 from app.web import client_ip, new_csrf, templates
@@ -78,6 +78,40 @@ def geocode_endpoint(q: str = "", request: Request = None, conn=Depends(db.get_d
     if len(_geocode_cache) < 5000:
         _geocode_cache[cache_key] = results
     return {"results": results}
+
+
+class MediaMetaRequest(BaseModel):
+    key: str
+    kind: str
+
+
+@router.post("/api/media-meta")
+def media_meta(req: MediaMetaRequest, request: Request, conn=Depends(db.get_db)):
+    """Preview the technical metadata found in a just-uploaded file so the
+    reporter can decide what to publish (device / time / location)."""
+    if not KEY_RE.fullmatch(req.key) or req.kind not in ("image", "video"):
+        raise HTTPException(status_code=400, detail="Invalid media reference")
+    s = get_settings()
+    ip = client_ip(request)
+    if not ratelimit.allowed(conn, ip, "presign", s.rate_presign_per_hour):
+        raise HTTPException(status_code=429, detail="Too many requests")
+    url = r2.public_url(req.key)
+    if req.kind == "image":
+        try:
+            resp = httpx.get(url, timeout=30)
+            meta = mediameta.extract_image_meta(resp.content) if resp.status_code == 200 else {}
+        except httpx.HTTPError:
+            meta = {}
+    else:
+        meta = mediameta.extract_video_meta(url)
+    return {
+        "rows": mediameta.public_rows(meta, include_gps=True),
+        "has": {
+            "device": any(meta.get(k) for k in ("make", "model", "lens", "software", "encoder")),
+            "time": bool(meta.get("captured_at")),
+            "location": meta.get("gps_lat") is not None,
+        },
+    }
 
 
 @router.get("/api/reverse")
@@ -181,6 +215,8 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
     )
     for field in ("has_wings", "has_rotors", "has_plume", "makes_noise"):
         clean[field] = _clean_choice(form.get(field), helpers.FEATURE_ANSWERS)
+    for key, _q, _hint in helpers.OBSERVABLES:
+        clean[key] = _clean_choice(form.get(key), helpers.FEATURE_ANSWERS)
 
     # r/UFOs guideline gates: a rule-out statement is always required; the
     # camera confirmations only when media is attached (checked below).
@@ -256,6 +292,7 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
         if not KEY_RE.fullmatch(key) or kind not in ("image", "video"):
             errors.append("An uploaded file reference is invalid — please re-upload.")
             break
+        prefs = item.get("exif") or {}
         clean["media"].append(
             {
                 "key": key,
@@ -263,6 +300,12 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
                 "width": item.get("width"),
                 "height": item.get("height"),
                 "size_bytes": item.get("size_bytes"),
+                # per-file metadata consent — defaults to publish everything
+                "exif_prefs": {
+                    "device": bool(prefs.get("device", True)),
+                    "time": bool(prefs.get("time", True)),
+                    "location": bool(prefs.get("location", True)),
+                },
             }
         )
     if clean["media"]:
@@ -293,6 +336,7 @@ def _render_form(request, values, errors, *, csrf, status_code=200):
             "turnstile_site_key": s.turnstile_site_key,
             "max_files": s.max_files,
             "opts": {
+                "observables": helpers.OBSERVABLES,
                 "shapes": helpers.SHAPES,
                 "num_objects": helpers.NUM_OBJECTS,
                 "distances": helpers.DISTANCES,
@@ -367,8 +411,10 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
               shape, witnesses, num_objects, distance, apparent_size, movement,
               has_wings, has_rotors, has_plume, makes_noise, sensors, witness_background,
               location_text, city, country, lat, lon, location_obscured, rule_out,
-              capture_device, submitter_ip, verify_token, verify_sent_at, status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+              capture_device, obs_accel, obs_no_signature, obs_low_observability,
+              obs_transmedium, obs_positive_lift,
+              submitter_ip, verify_token, verify_sent_at, status)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
                    strftime('%Y-%m-%dT%H:%M:%SZ','now'),'pending_verify')""",
         (
             username, clean["title"], clean["description"], clean["sighted_at"],
@@ -380,15 +426,19 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
             json.dumps(clean["witness_background"]) if clean["witness_background"] else None,
             clean["location_text"], clean["city"], clean["country"],
             clean["lat"], clean["lon"], clean["location_obscured"], clean["rule_out"],
-            clean["capture_device"], ip, token,
+            clean["capture_device"], clean["obs_accel"], clean["obs_no_signature"],
+            clean["obs_low_observability"], clean["obs_transmedium"],
+            clean["obs_positive_lift"], ip, token,
         ),
     )
     sighting_id = cur.lastrowid
     for i, m in enumerate(clean["media"]):
         conn.execute(
-            """INSERT INTO media (sighting_id, r2_key, kind, width, height, size_bytes, sort_order)
-               VALUES (?,?,?,?,?,?,?)""",
-            (sighting_id, m["key"], m["kind"], m["width"], m["height"], m["size_bytes"], i),
+            """INSERT INTO media (sighting_id, r2_key, kind, width, height, size_bytes,
+                                  sort_order, exif_prefs)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (sighting_id, m["key"], m["kind"], m["width"], m["height"], m["size_bytes"],
+             i, json.dumps(m["exif_prefs"])),
         )
     conn.commit()
     ratelimit.record(conn, ip, "submit")

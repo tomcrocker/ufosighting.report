@@ -207,6 +207,8 @@ def detail(
     media_items = []
     for m in media:
         meta = json.loads(m["exif_json"]) if m["exif_json"] else {}
+        prefs = json.loads(m["exif_prefs"]) if m["exif_prefs"] else {}
+        loc_excluded = not prefs.get("location", True)
         media_items.append({
             "url": r2.public_url(m["r2_key"]),
             "thumb_url": r2.public_url(m["thumb_key"]) if m["thumb_key"] else None,
@@ -219,7 +221,10 @@ def detail(
             # GPS from EXIF can expose a home address — only shown when the
             # reporter did NOT ask to obscure the location
             "meta_rows": mediameta.public_rows(
-                meta, include_gps=not row["location_obscured"]),
+                meta, include_gps=not row["location_obscured"] and not loc_excluded),
+            # reporter excluded location: originals with embedded GPS are
+            # withheld; the EXIF-free display derivative is downloadable
+            "download_original": not (loc_excluded and m["kind"] == "image"),
         })
     reddit_url = None
     if row["reddit_post_id"]:

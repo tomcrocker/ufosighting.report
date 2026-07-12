@@ -264,3 +264,51 @@ def test_submitted_page_names_bot_and_gates(client, app_db):
     assert "u/modbot" in r.text                 # SCRIPT_USERNAME in the test env
     assert "not live yet" in r.text
     assert "6 hours" in r.text                  # verify window default
+
+
+def test_observables_stored_and_in_post_body(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, obs_accel="yes", obs_transmedium="unsure",
+                                          obs_positive_lift="no"),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+    row = app_db.execute("SELECT obs_accel, obs_transmedium, obs_positive_lift, obs_no_signature "
+                         "FROM sightings ORDER BY id DESC LIMIT 1").fetchone()
+    assert row["obs_accel"] == "yes" and row["obs_transmedium"] == "unsure"
+    assert row["obs_no_signature"] is None
+    from app import helpers
+    body = helpers.format_post_body(
+        dict(row) | {"tz_name": "UTC", "description": "d", "movement": [],
+                     "sensors": [], "witness_background": [],
+                     "obs_low_observability": None},
+        sighted_local="x", location_line="y", media_urls=[], gallery_url="u")
+    assert "Five observables:" in body and "sudden, extreme acceleration: yes" in body
+
+
+def test_media_meta_endpoint(client, monkeypatch):
+    import httpx as _httpx
+    from tests.test_mediameta import _jpeg_with_exif
+    jpeg = _jpeg_with_exif()
+
+    class FakeResp:
+        status_code = 200
+        content = jpeg
+
+    monkeypatch.setattr("app.routes.submit.httpx.get", lambda url, timeout: FakeResp())
+    r = client.post("/api/media-meta", json={"key": MEDIA_KEY, "kind": "image"})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["has"]["device"] is True and body["has"]["location"] is False
+    assert any("iPhone 16 Pro" in v for _, v in body["rows"])
+
+
+def test_exif_prefs_flow_to_media_row(client, app_db):
+    import json as _json
+    csrf = get_csrf(client)
+    mj = _json.dumps([{"key": MEDIA_KEY, "kind": "image", "size_bytes": 5,
+                       "exif": {"device": True, "time": False, "location": False}}])
+    r = client.post("/submit", data=gform(csrf, media_json=mj), cookies={"csrf": csrf})
+    assert r.status_code == 200
+    row = app_db.execute("SELECT exif_prefs FROM media ORDER BY id DESC LIMIT 1").fetchone()
+    prefs = _json.loads(row["exif_prefs"])
+    assert prefs == {"device": True, "time": False, "location": False}

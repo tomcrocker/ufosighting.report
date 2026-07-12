@@ -380,3 +380,29 @@ def test_sky_context_absent_without_geo(client, app_db):
     sid = seed(app_db, title="No geo no sky", lat=None, lon=None)
     r = client.get(f"/sighting/{sid}/no-geo-no-sky")
     assert "What was in the sky" not in r.text
+
+
+def test_sky_panel_renders_computed_satellites(client, app_db):
+    import json as _json
+    sid = seed(app_db, title="Sat panel check", lat=48.4, lon=-123.3,
+               sighted_at="2026-07-01T06:00:00Z")
+    app_db.execute("UPDATE sightings SET sky_events=? WHERE id=?", (_json.dumps({
+        "checked": True, "catalog_date": "2026-07-01", "visibility_filtered": True,
+        "bright": [], "starlink_visible": 0,
+        "trains": [{"batch": "26042", "count": 17, "az": "NW/SE", "time": "05:58"}],
+    }), sid))
+    app_db.commit()
+    r = client.get(f"/sighting/{sid}/sat-panel-check")
+    assert "Starlink train overhead" in r.text and "17 satellites" in r.text
+
+
+def test_sky_panel_negative_result(client, app_db):
+    import json as _json
+    sid = seed(app_db, title="Sat negative check", lat=48.4, lon=-123.3)
+    app_db.execute("UPDATE sightings SET sky_events=? WHERE id=?", (_json.dumps({
+        "checked": True, "catalog_date": "2026-07-01", "visibility_filtered": True,
+        "bright": [], "starlink_visible": 0, "trains": [],
+    }), sid))
+    app_db.commit()
+    r = client.get(f"/sighting/{sid}/sat-negative-check")
+    assert "No bright satellites were overhead" in r.text

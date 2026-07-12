@@ -170,6 +170,7 @@ _MIGRATION_COLUMNS = [
     ("obs_low_observability", "TEXT"),
     ("obs_transmedium", "TEXT"),
     ("obs_positive_lift", "TEXT"),
+    ("sky_events", "TEXT"),
 ]
 
 

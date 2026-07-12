@@ -149,12 +149,45 @@ def process_pending(conn, limit: int = 3) -> int:
     return done
 
 
+def process_sky_events(conn, limit: int = 2) -> int:
+    """Compute overhead-satellite context for recent geocoded sightings.
+    Runs in the background worker: each computation walks the full Starlink
+    catalog (a few seconds). Results (or a dated 'unchecked' marker) are
+    stored once — no retries, no request-path work."""
+    from app import satellites
+    rows = conn.execute(
+        """SELECT id, lat, lon, sighted_at FROM sightings
+           WHERE sky_events IS NULL AND lat IS NOT NULL
+             AND status IN ('live', 'deleted_by_user', 'removed_on_reddit')
+             AND sighted_at >= strftime('%Y-%m-%dT%H:%M:%SZ','now','-21 days')
+           ORDER BY id DESC LIMIT ?""", (limit,)).fetchall()
+    if not rows:
+        return 0
+    try:
+        satellites.fetch_today()
+    except Exception as exc:
+        print(f"sky: TLE fetch failed (using cache): {exc}")
+    done = 0
+    for r in rows:
+        try:
+            out = satellites.passes_for(r["lat"], r["lon"], r["sighted_at"])
+        except Exception as exc:
+            out = {"checked": False, "reason": f"computation failed: {exc}"[:160]}
+        conn.execute("UPDATE sightings SET sky_events=? WHERE id=?",
+                     (json.dumps(out), r["id"]))
+        conn.commit()
+        done += 1
+    return done
+
+
 def start_worker(stop_event: threading.Event) -> threading.Thread:
     def run():
         conn = db.connect(get_settings().db_path)
         while not stop_event.is_set():
             try:
-                if process_pending(conn) == 0:
+                busy = process_pending(conn)
+                busy += process_sky_events(conn)
+                if busy == 0:
                     stop_event.wait(10)
             except Exception as exc:
                 print(f"thumbs: worker error: {exc}")

@@ -530,3 +530,10 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 /* sky-context panel */
 .sky-panel { margin-top: 16px; padding: 16px 18px; }
 .sky-panel h3 { margin: 0 0 8px; }
+
+/* computed satellite report in the sky panel */
+.sat-report { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; background: var(--bg2); }
+.sat-flag { color: #ffb14a; }
+.sat-clear { color: var(--accent); }
+.sat-line { font-size: .85rem; margin: 2px 0; }
+.sat-note { font-size: .72rem; margin: 6px 0 0; }

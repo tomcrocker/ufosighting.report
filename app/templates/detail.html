@@ -172,6 +172,28 @@
       <p class="rel-sub">Camera was pointing <strong>{{ sky.heading.deg }}&deg;
         ({{ sky.heading.name }})</strong> {{ sky.heading.ref }} north — from the file's own metadata.</p>
       {% endif %}
+      {% if sky.sats and sky.sats.checked %}
+      <div class="sat-report">
+        {% if sky.sats.trains %}
+        {% for t in sky.sats.trains %}
+        <p class="rel-item sat-flag">&#128680; <strong>Starlink train overhead:</strong>
+          {{ t.count }} satellites from one launch ({{ t.az }}, around {{ t.time }} UTC)</p>
+        {% endfor %}
+        {% elif sky.sats.bright %}
+        <p class="rel-item"><strong>Satellites overhead at that time:</strong></p>
+        {% for b in sky.sats.bright %}
+        <p class="rel-item sat-line">{{ b.name }} — {{ b.alt }}&deg; above {{ b.az }} horizon at {{ b.time }} UTC</p>
+        {% endfor %}
+        {% if sky.sats.starlink_visible %}
+        <p class="rel-item sat-line muted">+ {{ sky.sats.starlink_visible }} Starlink satellite{{ '' if sky.sats.starlink_visible == 1 else 's' }} visible</p>
+        {% endif %}
+        {% else %}
+        <p class="rel-item sat-clear">&#10004; No bright satellites were overhead
+          {% if sky.sats.starlink_visible %} ({{ sky.sats.starlink_visible }} faint Starlink in view){% endif %}</p>
+        {% endif %}
+        <p class="muted sat-note">Computed from orbital data ({{ sky.sats.catalog_date }} catalog)</p>
+      </div>
+      {% endif %}
       <p class="rel-item"><a href="{{ sky.adsb }}" target="_blank" rel="noopener">Aircraft that day</a>
         <span class="muted">— ADS-B Exchange historical playback</span></p>
       <p class="rel-item"><a href="{{ sky.skychart }}" target="_blank" rel="noopener">Sky chart for that date</a>

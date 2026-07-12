@@ -315,7 +315,9 @@ def detail(
                            "ref": meta.get("compass_ref", "true")}
                 break
         hhmm = row["sighted_at"][11:16]
+        sats = json.loads(row["sky_events"]) if row["sky_events"] else None
         sky = {
+            "sats": sats,
             # tar1090 playback: ?replay=YYYY-MM-DD-HH:MM rewinds the whole
             # area to that moment (showTrace needs a specific airframe)
             "adsb": (f"https://globe.adsbexchange.com/?lat={lat:.3f}&lon={lon:.3f}"

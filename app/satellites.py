@@ -180,5 +180,5 @@ def passes_for(lat: float, lon: float, when_iso: str) -> dict:
         "visibility_filtered": eph is not None,
         "bright": bright[:6],
         "starlink_visible": starlink_visible,
-        "trains": sorted(trains, key=lambda t: -t["count"]),
+        "trains": sorted(trains, key=lambda t: -t["count"])[:3],
     }

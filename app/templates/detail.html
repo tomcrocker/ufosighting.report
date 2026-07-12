@@ -185,10 +185,10 @@
         <p class="rel-item sat-line">{{ b.name }} — {{ b.alt }}&deg; above {{ b.az }} horizon at {{ b.time }} UTC</p>
         {% endfor %}
         {% if sky.sats.starlink_visible %}
-        <p class="rel-item sat-line muted">+ {{ sky.sats.starlink_visible }} Starlink satellite{{ '' if sky.sats.starlink_visible == 1 else 's' }} visible</p>
+        <p class="rel-item sat-line muted">+ {{ sky.sats.starlink_visible }} Starlink in view (most too faint for the naked eye)</p>
         {% endif %}
         {% else %}
-        <p class="rel-item sat-clear">&#10004; No bright satellites were overhead
+        <p class="rel-item sat-clear">&#10004; No bright satellites were visible overhead
           {% if sky.sats.starlink_visible %} ({{ sky.sats.starlink_visible }} faint Starlink in view){% endif %}</p>
         {% endif %}
         <p class="muted sat-note">Computed from orbital data ({{ sky.sats.catalog_date }} catalog)</p>

@@ -33,8 +33,11 @@ def _ingest_row(conn, row: dict) -> None:
     clamped = extract.validate_and_clamp(extract.extract_fields(text),
                                          post_created_iso=post_created_iso)
     coords = None
-    if clamped.get("location_text"):
-        coords = geocode.forward(conn, clamped["location_text"])
+    for q in geocode.candidates(clamped.get("location_text") or "",
+                                clamped.get("city"), clamped.get("country")):
+        coords = geocode.forward(conn, q)
+        if coords:
+            break
     sighted_at, tz_name = ingest.build_sighted_at(clamped, post_created_iso)
     cur = conn.execute(
         """INSERT INTO sightings

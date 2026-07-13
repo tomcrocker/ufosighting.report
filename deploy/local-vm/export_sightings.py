@@ -218,6 +218,10 @@ def comments_for(conn, pid, author):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=365)
+    ap.add_argument("--from", dest="date_from", default="",
+                    help="YYYY-MM-DD lower bound (overrides --days)")
+    ap.add_argument("--to", dest="date_to", default="",
+                    help="YYYY-MM-DD upper bound (default: now)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
@@ -230,13 +234,17 @@ def main():
             done = {json.loads(l)["id"] for l in f if l.strip()}
     conn = sqlite3.connect(f"file:{ARCHIVE_DB}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
-    cutoff = time.time() - args.days * 86400
+    lo = (time.mktime(time.strptime(args.date_from, "%Y-%m-%d"))
+          if args.date_from else time.time() - args.days * 86400)
+    hi = (time.mktime(time.strptime(args.date_to, "%Y-%m-%d"))
+          if args.date_to else time.time())
     posts = conn.execute(
         """SELECT id, title, author, selftext, created_utc, score, num_comments,
                   url, permalink, is_gallery, media_metadata
            FROM posts WHERE subreddit='UFOs' AND link_flair_text='Sighting'
-             AND created_utc >= ? AND COALESCE(removed,0)=0 AND COALESCE(deleted,0)=0
-           ORDER BY created_utc""", (cutoff,)).fetchall()
+             AND created_utc >= ? AND created_utc < ?
+             AND COALESCE(removed,0)=0 AND COALESCE(deleted,0)=0
+           ORDER BY created_utc""", (lo, hi)).fetchall()
     if args.limit:
         posts = posts[:args.limit]
     todo = [p for p in posts if p["id"] not in done]

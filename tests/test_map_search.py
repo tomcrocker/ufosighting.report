@@ -2,14 +2,24 @@ from tests.test_public import seed
 
 
 def test_pins_returns_live_coords_only(client, app_db):
-    seed(app_db, title="Pinned", lat=48.8, lon=-124.1)
+    sid = seed(app_db, title="Pinned", lat=48.8, lon=-124.1)
     seed(app_db, title="No coords", lat=None, lon=None)
     seed(app_db, title="Hidden pin", lat=10.0, lon=10.0, status="hidden_by_admin")
     pins = client.get("/api/pins").json()["pins"]
-    assert len(pins) == 1
-    assert pins[0]["title"] == "Pinned"
-    assert pins[0]["lat"] == 48.8
-    assert pins[0]["url"].startswith("/sighting/")
+    assert pins == [[sid, 48.8, -124.1, "2026-07-01"]]
+
+
+def test_pin_detail_popup_payload(client, app_db):
+    sid = seed(app_db, title="Pinned", lat=48.8, lon=-124.1)
+    hidden = seed(app_db, title="Hidden pin", lat=10.0, lon=10.0,
+                  status="hidden_by_admin")
+    detail = client.get(f"/api/pins/{sid}")
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["title"] == "Pinned"
+    assert body["url"] == f"/sighting/{sid}/pinned"
+    assert body["date"] == "2026-07-01"
+    assert client.get(f"/api/pins/{hidden}").status_code == 404
 
 
 def test_map_page_renders(client):

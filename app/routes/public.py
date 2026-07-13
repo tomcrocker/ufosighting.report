@@ -369,33 +369,48 @@ def pins(
     date_to: str = Query("", alias="to"),
     conn=Depends(db.get_db),
 ):
-    hit = meili.search_ids(
-        shape=shape or None, date_from=date_from or None, date_to=date_to or None,
-        has_geo=True, page=1, per_page=5000,
-    )
-    if hit is not None:
-        rows = [r for r in (dict(c) for c in hydrate_cards(conn, hit["ids"]))]
-    else:  # SQL fallback
-        rows, _ = query_sightings(
-            conn, shape=shape or None,
-            date_from=date_from or None, date_to=date_to or None,
-            page=1, per_page=5000,
-        )
+    """Compact [id, lat, lon, date] arrays — the map only needs coordinates
+    up front; popup content comes from /api/pins/{id} on click. Straight SQL
+    (no Meili hop, no card hydration, no cap): stays fast past 20K pins."""
+    where = ["lat IS NOT NULL", "lon IS NOT NULL",
+             f"status IN {PUBLIC_STATUSES_SQL}"]
+    args: list = []
+    if shape:
+        where.append("shape = ?")
+        args.append(shape)
+    if date_from:
+        where.append("substr(sighted_at, 1, 10) >= ?")
+        args.append(date_from)
+    if date_to:
+        where.append("substr(sighted_at, 1, 10) <= ?")
+        args.append(date_to)
+    rows = conn.execute(
+        f"SELECT id, lat, lon, substr(sighted_at, 1, 10) AS d "
+        f"FROM sightings WHERE {' AND '.join(where)} ORDER BY id", args)
+    # 4 decimals ≈ 11 m — plenty for a world map, noticeably smaller JSON
+    return {"pins": [[r["id"], round(r["lat"], 4), round(r["lon"], 4), r["d"]]
+                     for r in rows]}
+
+
+@router.get("/api/pins/{sighting_id}")
+def pin_detail(sighting_id: int, conn=Depends(db.get_db)):
+    row = conn.execute(
+        f"""SELECT id, title, sighted_at, shape,
+              (SELECT thumb_key FROM media m WHERE m.sighting_id = s.id
+                 AND m.thumb_key IS NOT NULL
+               ORDER BY sort_order LIMIT 1) AS thumb_key
+            FROM sightings s
+            WHERE id = ? AND lat IS NOT NULL
+              AND status IN {PUBLIC_STATUSES_SQL}""",
+        (sighting_id,)).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="No such pin")
     return {
-        "pins": [
-            {
-                "id": r["id"],
-                "title": r["title"],
-                "lat": r["lat"],
-                "lon": r["lon"],
-                "url": f"/sighting/{r['id']}/{helpers.slugify(r['title'])}",
-                "thumb": r2.public_url(r["thumb_key"]) if r["thumb_key"] else None,
-                "date": r["sighted_at"][:10],
-                "shape": r["shape"],
-            }
-            for r in rows
-            if r["lat"] is not None and r["lon"] is not None
-        ]
+        "title": row["title"],
+        "url": f"/sighting/{row['id']}/{helpers.slugify(row['title'])}",
+        "thumb": r2.public_url(row["thumb_key"]) if row["thumb_key"] else None,
+        "date": row["sighted_at"][:10],
+        "shape": row["shape"],
     }
 
 

@@ -17,7 +17,7 @@ from app.config import get_settings
 # staleness is invisible for this content and needs no purge automation.
 _EDGE_CACHEABLE = re.compile(
     r"^(/|/map|/guide|/investigate|/feed\.xml|/sitemap\.xml|/robots\.txt"
-    r"|/api/pins|/sighting/.+)$")
+    r"|/api/pins(?:/\d+)?|/sighting/.+)$")
 _EDGE_CACHE_HEADER = "public, max-age=300, stale-while-revalidate=3600"
 
 

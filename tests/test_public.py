@@ -66,12 +66,13 @@ def test_archive_keeps_deleted_and_removed_visible(client, app_db):
 
 
 def test_pins_include_archived_and_accept_filters(client, app_db):
-    seed(app_db, title="Deleted pinned", status="deleted_by_user", lat=10.0, lon=10.0,
-         sighted_at="2026-07-01T05:00:00Z", shape="triangle")
+    kept = seed(app_db, title="Deleted pinned", status="deleted_by_user",
+                lat=10.0, lon=10.0,
+                sighted_at="2026-07-01T05:00:00Z", shape="triangle")
     seed(app_db, title="Out of range", status="live", lat=20.0, lon=20.0,
          sighted_at="2026-01-01T05:00:00Z", shape="sphere")
     pins = client.get("/api/pins?from=2026-06-01&shape=triangle").json()["pins"]
-    assert len(pins) == 1 and pins[0]["title"] == "Deleted pinned"
+    assert len(pins) == 1 and pins[0][0] == kept
 
 
 def test_shape_filter(client, app_db):

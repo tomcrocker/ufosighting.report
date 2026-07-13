@@ -67,12 +67,24 @@
     document.getElementById("map-total").textContent = allPins.length;
     const w = regionalWeights(pins);
     const heat = [];
-    pins.forEach((p) => {
-      L.marker([p.lat, p.lon], { icon: markerIcon() })
-        .bindPopup(pinPopup(p), { minWidth: 220 })
-        .addTo(clusterLayer);
+    const markers = pins.map((p) => {
+      const m = L.marker([p.lat, p.lon], { icon: markerIcon() });
+      // popup content is fetched on first open — keeps /api/pins tiny
+      m.bindPopup('<div class="map-popup">Loading…</div>', { minWidth: 220 });
+      m.on("popupopen", (e) => {
+        if (p.detail) { e.popup.setContent(pinPopup(p.detail)); return; }
+        fetch(`/api/pins/${p.id}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            if (!d) return;
+            p.detail = d;
+            e.popup.setContent(pinPopup(d));
+          });
+      });
       heat.push([p.lat, p.lon, inUS(p.lat, p.lon) ? w.us : w.intl]);
+      return m;
     });
+    clusterLayer.addLayers(markers);
     // maxZoom 7 (Blue Book uses 10): intensity scales by 2^(zoom-maxZoom),
     // and with ~10x fewer points than Blue Book the glow needs the boost
     // to match the reference visually at the initial zoom-4 view.
@@ -123,7 +135,8 @@
     fetch("/api/pins")
       .then((r) => r.json())
       .then((data) => {
-        allPins = data.pins;
+        // compact wire format: [id, lat, lon, "YYYY-MM-DD"]
+        allPins = data.pins.map((a) => ({ id: a[0], lat: a[1], lon: a[2], date: a[3] }));
         applyInitial();
       });
   }
@@ -148,6 +161,7 @@
 
     const clusterLayer = L.markerClusterGroup({
       maxClusterRadius: 50,
+      chunkedLoading: true, // thousands of DOM icons without freezing the tab
       iconCreateFunction(cluster) {
         const n = cluster.getChildCount();
         const size = n > 20 ? ["large", 44] : n > 10 ? ["medium", 40] : ["small", 36];

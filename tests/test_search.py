@@ -113,16 +113,16 @@ def test_gallery_uses_meili_order(client, app_db, monkeypatch):
 
 
 @respx.mock
-def test_pins_pass_has_geo(client, app_db, monkeypatch):
+def test_pins_bypass_meili(client, app_db, monkeypatch):
+    # pins are straight SQL — no search hop even when Meili is configured
     _enable(monkeypatch)
     sid = seed(app_db, lat=10.0, lon=20.0)
     route = respx.post(f"{MEILI}/indexes/sightings/search").mock(
-        return_value=httpx.Response(200, json={"hits": [{"id": sid}],
-                                               "estimatedTotalHits": 1}))
+        return_value=httpx.Response(200, json={"hits": [],
+                                               "estimatedTotalHits": 0}))
     pins = client.get("/api/pins").json()["pins"]
-    assert len(pins) == 1
-    body = json.loads(route.calls[0].request.content)
-    assert "has_geo = true" in body["filter"]
+    assert len(pins) == 1 and pins[0][0] == sid
+    assert route.call_count == 0
 
 
 @respx.mock

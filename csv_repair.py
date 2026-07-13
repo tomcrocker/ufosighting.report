@@ -72,9 +72,26 @@ def is_time_fallback(sighted_at: str, submitted: str) -> bool:
     return abs((sa - sub).total_seconds()) <= FALLBACK_SLOP_S
 
 
+_JUNK_LOCS = {"unknown", "unkown", "n/a", "na", "none", "various", "multiple"}
+
+
+def usable_location(loc: str) -> bool:
+    """Sheet Location cells sometimes hold filler, not places: 'down' pinned
+    County Down, 'orange' (the orb's color) pinned Orange CA, 'unkown'
+    matched a village in Mozambique. Single all-lowercase words are English
+    filler until proven otherwise — real curated places are capitalized or
+    multi-part ('Munich', 'Lake Powell, Utah')."""
+    loc = (loc or "").strip()
+    if loc.lower() in _JUNK_LOCS:
+        return False
+    if " " not in loc and "," not in loc and loc == loc.lower():
+        return False
+    return len(loc) >= 3
+
+
 def repair_row(conn, row, sheet: dict) -> list[str]:
     """Returns the list of fixes applied ("geo", "time")."""
-    need_geo = row["lat"] is None and sheet["location"]
+    need_geo = row["lat"] is None and usable_location(sheet["location"])
     need_time = (sheet["date"]
                  and is_time_fallback(row["sighted_at"], sheet["submitted"])
                  and date_corroborated(sheet["date"], row["title"]))

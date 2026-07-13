@@ -49,3 +49,12 @@ def test_fetch_original_walks_nested_op_comments(monkeypatch):
     post, ops = bam.fetch_original("tok", "abc123", "witness1")
     assert post["selftext"] == "body here"
     assert ops == ["Location: Yakima, WA. 10pm July 11"]
+
+
+def test_usable_location_rejects_filler():
+    from csv_repair import usable_location
+    for loc in ["down", "orange", "reading", "unkown", "Unknown", "n/a", ""]:
+        assert not usable_location(loc), loc
+    for loc in ["Munich", "Lake Powell, Utah", "Łódź, Poland", "Yuma, AZ",
+                "south London", "Virginia"]:
+        assert usable_location(loc), loc

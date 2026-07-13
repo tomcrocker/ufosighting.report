@@ -1,0 +1,9 @@
+[Unit]
+Description=ufosighting.report weekly sky backfill (late-reported sightings)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/ufosighting
+ExecStart=/home/ubuntu/ufosighting/.venv/bin/python backfill_sky.py

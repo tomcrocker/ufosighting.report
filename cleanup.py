@@ -57,6 +57,17 @@ def cleanup_rate_events(conn, older_than_hours: int = 24) -> int:
     return cur.rowcount
 
 
+def fetch_tles() -> int:
+    """Daily orbital-catalog snapshot — keeps our TLE archive gap-free even
+    on days with no new geocoded sightings."""
+    from app import satellites
+    try:
+        return len(satellites.fetch_today())
+    except Exception as exc:
+        print(f"cleanup: TLE fetch failed: {exc}")
+        return 0
+
+
 def main() -> None:
     conn = db.connect(get_settings().db_path)
     try:
@@ -66,7 +77,8 @@ def main() -> None:
             f"sessions={cleanup_sessions(conn)} "
             f"drafts={cleanup_drafts(conn)} "
             f"pending={cleanup_pending(conn)} "
-            f"rate_events={cleanup_rate_events(conn)}"
+            f"rate_events={cleanup_rate_events(conn)} "
+            f"tles={fetch_tles()}"
         )
     finally:
         conn.close()

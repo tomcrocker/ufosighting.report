@@ -119,6 +119,8 @@ def main() -> None:
     for r in rows:
         by_day.setdefault(r["sighted_at"][:10], []).append(r)
     print(f"{len(rows)} sightings across {len(by_day)} days", flush=True)
+    if not rows:
+        return
 
     ids = bright_norad_ids()
     client = httpx.Client(follow_redirects=True)

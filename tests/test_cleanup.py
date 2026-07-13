@@ -78,3 +78,17 @@ def test_cleanup_rate_events(db_conn):
     db_conn.commit()
     assert cleanup.cleanup_rate_events(db_conn) == 1
     assert db_conn.execute("SELECT COUNT(*) FROM rate_events").fetchone()[0] == 1
+
+
+def test_cleanup_fetches_tles(monkeypatch):
+    import cleanup
+    monkeypatch.setattr("app.satellites.fetch_today", lambda: ["a.tle", "b.tle"])
+    assert cleanup.fetch_tles() == 2
+
+
+def test_cleanup_tle_failure_nonfatal(monkeypatch):
+    import cleanup
+    def boom():
+        raise RuntimeError("celestrak down")
+    monkeypatch.setattr("app.satellites.fetch_today", boom)
+    assert cleanup.fetch_tles() == 0

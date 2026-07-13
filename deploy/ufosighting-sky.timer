@@ -1,0 +1,9 @@
+[Unit]
+Description=Weekly sky backfill for stragglers
+
+[Timer]
+OnCalendar=Sun 04:30 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

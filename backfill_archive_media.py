@@ -91,6 +91,40 @@ def find_archive_post(tok, title: str, original_id: str) -> dict | None:
     return None
 
 
+def fetch_original(tok, orig_id: str, author: str) -> tuple[dict | None, list[str]]:
+    """The original post's thread stays reachable after deletion/removal:
+    the post object keeps created_utc (fallback-time detection) and the OP's
+    comments usually survive — often the only place 'Time:/Location:' lives,
+    posted after our ingest snapshot."""
+    r = _client.get(f"https://oauth.reddit.com/comments/{orig_id}",
+                    params={"limit": 100, "depth": 2, "sort": "old"},
+                    headers=_headers(tok), timeout=30)
+    time.sleep(SLEEP)
+    if r.status_code != 200:
+        return None, []
+    try:
+        post = r.json()[0]["data"]["children"][0]["data"]
+        top = r.json()[1]["data"]["children"]
+    except (KeyError, IndexError, ValueError):
+        return None, []
+    op: list[str] = []
+
+    def walk(children):
+        for c in children:
+            d = c.get("data") or {}
+            if c.get("kind") != "t1":
+                continue
+            body = (d.get("body") or "").strip()
+            if d.get("author") == author and body and body not in ("[deleted]", "[removed]"):
+                op.append(body)
+            replies = d.get("replies")
+            if isinstance(replies, dict):
+                walk(replies.get("data", {}).get("children", []))
+
+    walk(top)
+    return post, op[:5]
+
+
 def repair_from_text(conn, row, text: str) -> bool:
     """The bot's comment preserves the ORIGINAL post body — often the only
     surviving copy of the 'Time:/Location:' lines for fast-deleted posts.
@@ -152,6 +186,114 @@ def attach_media(conn, sighting_id: int, archive_post: dict) -> int:
     return len(items)
 
 
+def repair_media_row(conn, row, tok) -> list[str]:
+    """Media-having rows: fill missing geo/description/sighting-time from the
+    original thread (late OP comments!) with the archive comment as body
+    fallback. Returns the fixes applied."""
+    from datetime import datetime as _dt
+
+    from app import extract, geocode, search as _search
+    post, op_comments = fetch_original(tok, row["reddit_post_id"],
+                                       row["reddit_username"])
+    body = ((post or {}).get("selftext") or "").strip()
+    if body in ("[deleted]", "[removed]"):
+        body = ""
+    if not body and row["lat"] is None:
+        hit = find_archive_post(tok, row["title"], row["reddit_post_id"])
+        if hit:
+            body = hit[1]
+    if not body and not op_comments:
+        return []
+
+    created_iso = None
+    if post and post.get("created_utc"):
+        created_iso = _dt.fromtimestamp(
+            post["created_utc"], timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    anchor = created_iso or row["sighted_at"]
+    clamped = extract.validate_and_clamp(
+        extract.extract_fields(extract.combine_post_text(
+            {"title": row["title"], "selftext": body}, op_comments)),
+        post_created_iso=anchor)
+
+    fixes = []
+    if row["lat"] is None:
+        coords = None
+        for q in geocode.candidates(clamped.get("location_text") or "",
+                                    clamped.get("city"), clamped.get("country")):
+            coords = geocode.forward(conn, q)
+            if coords:
+                break
+        if coords or clamped.get("location_text"):
+            conn.execute(
+                """UPDATE sightings SET location_text=COALESCE(NULLIF(?,''), location_text),
+                     city=COALESCE(?, city), country=COALESCE(?, country),
+                     lat=?, lon=? WHERE id=?""",
+                (clamped.get("location_text") or "",
+                 (coords or {}).get("city") or clamped.get("city"),
+                 (coords or {}).get("country") or clamped.get("country"),
+                 (coords or {}).get("lat"), (coords or {}).get("lon"), row["id"]))
+            if coords:
+                fixes.append("geo")
+    # fallback signature: sighted_at == the post's submission time
+    is_fallback = created_iso is not None and abs(
+        (_dt.strptime(row["sighted_at"], "%Y-%m-%dT%H:%M:%SZ")
+         - _dt.strptime(created_iso, "%Y-%m-%dT%H:%M:%SZ")).total_seconds()) <= 120
+    if is_fallback and clamped.get("date"):
+        sighted_at, tz_name = ingest.build_sighted_at(clamped, created_iso)
+        if sighted_at != row["sighted_at"]:
+            conn.execute("UPDATE sightings SET sighted_at=?, tz_name=? WHERE id=?",
+                         (sighted_at, tz_name, row["id"]))
+            fixes.append("time")
+    if not (row["description"] or "").strip() and body:
+        conn.execute("UPDATE sightings SET description=? WHERE id=?",
+                     (body[:8000], row["id"]))
+        fixes.append("desc")
+    if fixes:
+        if "geo" in fixes or "time" in fixes:
+            conn.execute("UPDATE sightings SET sky_events=NULL WHERE id=?",
+                         (row["id"],))
+        conn.commit()
+        _search.index_sightings(conn, [row["id"]])
+    return fixes
+
+
+def main_media_rows() -> None:
+    conn = db.connect(get_settings().db_path)
+    state = "data/archive_media_tried_media.json"
+    tried = set(json.load(open(state))) if os.path.exists(state) else set()
+    rows = conn.execute(
+        """SELECT id, title, reddit_post_id, reddit_username, description,
+                  lat, sighted_at
+           FROM sightings s
+           WHERE source='reddit' AND reddit_post_id IS NOT NULL
+             AND status IN ('live','deleted_by_user','removed_on_reddit')
+             AND EXISTS (SELECT 1 FROM media m WHERE m.sighting_id = s.id)
+             AND (s.lat IS NULL OR TRIM(COALESCE(s.description,'')) = '')
+           ORDER BY sighted_at DESC""").fetchall()
+    todo = [r for r in rows if r["id"] not in tried]
+    print(f"{len(rows)} media rows with gaps, {len(todo)} to try", flush=True)
+    tok = reddit.read_token()
+    repaired = 0
+    for n, r in enumerate(todo, 1):
+        try:
+            fixes = repair_media_row(conn, r, tok)
+            if fixes:
+                repaired += 1
+                print(f"REPAIRED sighting {r['id']} ({r['reddit_post_id']}): "
+                      f"{'+'.join(fixes)}", flush=True)
+        except reddit.RedditError as exc:
+            print(f"token refresh needed: {exc}", flush=True)
+            tok = reddit.read_token()
+        except Exception as exc:
+            print(f"sighting {r['id']} failed: {exc}", flush=True)
+        tried.add(r["id"])
+        if n % 5 == 0:
+            json.dump(sorted(tried), open(state, "w"))
+            print(f"progress: {n}/{len(todo)} tried, {repaired} repaired", flush=True)
+    json.dump(sorted(tried), open(state, "w"))
+    print(f"done: repaired {repaired} of {len(todo)} media rows", flush=True)
+
+
 def main() -> None:
     conn = db.connect(get_settings().db_path)
     tried = set()
@@ -204,4 +346,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "media":
+        main_media_rows()
+    else:
+        main()

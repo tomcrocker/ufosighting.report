@@ -1,14 +1,24 @@
+import re
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException as FastAPIHTTPException
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app import db
 from app.config import get_settings
+
+# Anonymous, identical-for-everyone surfaces safe to serve from the CDN edge.
+# Wizard/verify/admin flows and the rest of /api stay uncached. 5-minute
+# staleness is invisible for this content and needs no purge automation.
+_EDGE_CACHEABLE = re.compile(
+    r"^(/|/map|/guide|/investigate|/feed\.xml|/sitemap\.xml|/robots\.txt"
+    r"|/api/pins|/sighting/.+)$")
+_EDGE_CACHE_HEADER = "public, max-age=300, stale-while-revalidate=3600"
 
 
 def create_app(start_thumb_worker: bool = True) -> FastAPI:
@@ -29,6 +39,7 @@ def create_app(start_thumb_worker: bool = True) -> FastAPI:
             worker.join(timeout=15)
 
     app = FastAPI(title="ufosighting.report", lifespan=lifespan)
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
     static_dir = Path(__file__).resolve().parent.parent / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
@@ -58,6 +69,10 @@ def create_app(start_thumb_worker: bool = True) -> FastAPI:
         resp.headers.setdefault("X-Content-Type-Options", "nosniff")
         resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+        if (request.method == "GET" and resp.status_code == 200
+                and "sid" not in request.cookies
+                and _EDGE_CACHEABLE.match(request.url.path)):
+            resp.headers.setdefault("Cache-Control", _EDGE_CACHE_HEADER)
         sid = getattr(request.state, "set_sid", None)
         if sid:  # basic-auth login mints a session (see web.require_admin)
             resp.set_cookie("sid", sid, max_age=get_settings().session_ttl_seconds,

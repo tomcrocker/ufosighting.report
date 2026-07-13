@@ -26,7 +26,8 @@ from app.config import get_settings
 ARCHIVE_SUB = "UFOs_Archive"
 BOT = "SaltyAdminBot"
 STATE = "data/archive_media_tried.json"
-SLEEP = 2  # per API call — shared script app
+SLEEP = 1  # per API call — plenty; headroom is ~800 req/10min
+_client = httpx.Client(timeout=30)
 ORIG_ID_RE = re.compile(r"Original Post ID:\*{0,2}\s*\**([a-z0-9]{5,9})")
 ORIG_TEXT_RE = re.compile(
     r"Original post text:\*{0,2}\s*(.+?)(?:\n+\*\*Original Flair|\Z)", re.S)
@@ -56,7 +57,7 @@ def find_archive_post(tok, title: str, original_id: str) -> dict | None:
         if q in seen_q or len(q) < 8:
             continue
         seen_q.add(q)
-        resp = httpx.get(f"https://oauth.reddit.com/r/{ARCHIVE_SUB}/search",
+        resp = _client.get(f"https://oauth.reddit.com/r/{ARCHIVE_SUB}/search",
                          params={"q": q, "restrict_sr": 1,
                                  "sort": "new", "limit": 5, "type": "link"},
                          headers=_headers(tok), timeout=30)
@@ -71,7 +72,7 @@ def find_archive_post(tok, title: str, original_id: str) -> dict | None:
         if p.get("author") != BOT:
             continue
         # verify identity via the bot's own comment
-        cr = httpx.get(f"https://oauth.reddit.com/comments/{p['id']}",
+        cr = _client.get(f"https://oauth.reddit.com/comments/{p['id']}",
                        params={"limit": 8, "depth": 1},
                        headers=_headers(tok), timeout=30)
         time.sleep(SLEEP)
@@ -194,7 +195,7 @@ def main() -> None:
         except Exception as exc:
             print(f"sighting {r['id']} failed: {exc}", flush=True)
         tried.add(r["id"])
-        if n % 25 == 0:
+        if n % 5 == 0:
             json.dump(sorted(tried), open(STATE, "w"))
             print(f"progress: {n}/{len(todo)} tried, {recovered} recovered", flush=True)
     json.dump(sorted(tried), open(STATE, "w"))

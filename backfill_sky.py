@@ -76,16 +76,20 @@ def fetch_day(client: httpx.Client, day: str, ids: str, span_days: int = 1) -> b
     """Fetch catalogs for a window starting at `day`, saved under the window
     CENTER date. TLE accuracy holds for days, so a weekly window per catalog
     is plenty — and 7x fewer of Space-Track's slow gp_history queries."""
-    start_ts = time.mktime(time.strptime(day, "%Y-%m-%d"))
+    # CENTER the window on `day`: the main loop walks dates newest→oldest,
+    # so a forward-spanning window would never be reused by the ±3d check
+    day_ts = time.mktime(time.strptime(day, "%Y-%m-%d"))
+    start_ts = day_ts - (span_days // 2) * 86400
+    start_day = time.strftime("%Y-%m-%d", time.gmtime(start_ts))
     end_day = time.strftime("%Y-%m-%d", time.gmtime(start_ts + span_days * 86400))
-    center = time.strftime("%Y-%m-%d", time.gmtime(start_ts + (span_days // 2) * 86400))
+    center = day
     jobs = [
         (f"starlink-{center}.tle",
          f"{BASE}/basicspacedata/query/class/gp_history/OBJECT_NAME/~~STARLINK/"
-         f"EPOCH/{day}--{end_day}/format/3le"),
+         f"EPOCH/{start_day}--{end_day}/format/3le"),
         (f"visual-{center}.tle",
          f"{BASE}/basicspacedata/query/class/gp_history/NORAD_CAT_ID/{ids}/"
-         f"EPOCH/{day}--{end_day}/format/3le"),
+         f"EPOCH/{start_day}--{end_day}/format/3le"),
     ]
     for fname, url in jobs:
         path = os.path.join(satellites.TLE_DIR, fname)

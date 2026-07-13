@@ -28,6 +28,8 @@ BOT = "SaltyAdminBot"
 STATE = "data/archive_media_tried.json"
 SLEEP = 2  # per API call — shared script app
 ORIG_ID_RE = re.compile(r"Original Post ID:\*{0,2}\s*\**([a-z0-9]{5,9})")
+ORIG_TEXT_RE = re.compile(
+    r"Original post text:\*{0,2}\s*(.+?)(?:\n+\*\*Original Flair|\Z)", re.S)
 
 
 def _headers(tok):
@@ -83,8 +85,55 @@ def find_archive_post(tok, title: str, original_id: str) -> dict | None:
             body = (c.get("data", {}) or {}).get("body") or ""
             m = ORIG_ID_RE.search(body)
             if m and m.group(1) == original_id:
-                return p
+                tm = ORIG_TEXT_RE.search(body)
+                return p, (tm.group(1).strip() if tm else "")
     return None
+
+
+def repair_from_text(conn, row, text: str) -> bool:
+    """The bot's comment preserves the ORIGINAL post body — often the only
+    surviving copy of the 'Time:/Location:' lines for fast-deleted posts.
+    Re-runs extraction + geocoding; only fills gaps, never overwrites."""
+    from datetime import datetime as _dt
+
+    from app import extract, geocode, helpers
+    if len(text) < 30 or text.lower() in ("[deleted]", "[removed]"):
+        return False
+    clamped = extract.validate_and_clamp(
+        extract.extract_fields(extract.combine_post_text(
+            {"title": row["title"], "selftext": text}, [])),
+        post_created_iso=row["created_at"])
+    coords = None
+    for q in geocode.candidates(clamped.get("location_text") or "",
+                                clamped.get("city"), clamped.get("country")):
+        coords = geocode.forward(conn, q)
+        if coords:
+            break
+    changed = False
+    if row["lat"] is None and (coords or clamped.get("location_text")):
+        conn.execute(
+            """UPDATE sightings SET location_text=COALESCE(NULLIF(?,''), location_text),
+                 city=COALESCE(?, city), country=COALESCE(?, country),
+                 lat=?, lon=? WHERE id=?""",
+            (clamped.get("location_text") or "",
+             (coords or {}).get("city") or clamped.get("city"),
+             (coords or {}).get("country") or clamped.get("country"),
+             (coords or {}).get("lat"), (coords or {}).get("lon"), row["id"]))
+        changed = True
+    if clamped.get("date") and not row["description"]:
+        sighted_at, tz_name = __import__("ingest").build_sighted_at(
+            clamped, row["created_at"])
+        conn.execute("UPDATE sightings SET sighted_at=?, tz_name=? WHERE id=?",
+                     (sighted_at, tz_name, row["id"]))
+        changed = True
+    if not (row["description"] or "").strip():
+        conn.execute("UPDATE sightings SET description=? WHERE id=?",
+                     (text[:8000], row["id"]))
+        changed = True
+    conn.commit()
+    if changed:
+        search.index_sightings(conn, [row["id"]])
+    return changed
 
 
 def attach_media(conn, sighting_id: int, archive_post: dict) -> int:
@@ -108,12 +157,16 @@ def main() -> None:
     if os.path.exists(STATE):
         tried = set(json.load(open(STATE)))
     rows = conn.execute(
-        """SELECT id, title, reddit_post_id FROM sightings s
+        """SELECT id, title, reddit_post_id, description, lat, created_at
+           FROM sightings s
            WHERE source='reddit' AND reddit_post_id IS NOT NULL
              AND status IN ('live','deleted_by_user','removed_on_reddit')
-             AND NOT EXISTS (SELECT 1 FROM media m WHERE m.sighting_id = s.id)
-             AND NOT EXISTS (SELECT 1 FROM yt_jobs y WHERE y.sighting_id = s.id
-                             AND y.status != 'failed')
+             AND (
+               (NOT EXISTS (SELECT 1 FROM media m WHERE m.sighting_id = s.id)
+                AND NOT EXISTS (SELECT 1 FROM yt_jobs y WHERE y.sighting_id = s.id
+                                AND y.status != 'failed'))
+               OR (s.lat IS NULL AND length(TRIM(COALESCE(s.description,''))) < 30)
+             )
            ORDER BY sighted_at DESC""").fetchall()
     todo = [r for r in rows if r["id"] not in tried]
     print(f"{len(rows)} media-less sightings, {len(todo)} to try", flush=True)
@@ -123,12 +176,18 @@ def main() -> None:
         try:
             hit = find_archive_post(tok, r["title"], r["reddit_post_id"])
             if hit:
-                added = attach_media(conn, r["id"], hit)
-                if added:
+                post, orig_text = hit
+                has_media = conn.execute(
+                    "SELECT 1 FROM media WHERE sighting_id=? LIMIT 1",
+                    (r["id"],)).fetchone()
+                added = 0 if has_media else attach_media(conn, r["id"], post)
+                repaired = repair_from_text(conn, r, orig_text)
+                if added or repaired:
                     recovered += 1
                     files += added
                     print(f"RECOVERED sighting {r['id']} ({r['reddit_post_id']}) "
-                          f"from archive {hit['id']}: {added} file(s)", flush=True)
+                          f"from archive {post['id']}: {added} file(s)"
+                          f"{', text/geo repaired' if repaired else ''}", flush=True)
         except reddit.RedditError as exc:
             print(f"token refresh needed: {exc}", flush=True)
             tok = reddit.read_token()

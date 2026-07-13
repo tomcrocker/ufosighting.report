@@ -34,16 +34,37 @@ def _headers(tok):
     return {"Authorization": f"bearer {tok}", "User-Agent": get_settings().user_agent}
 
 
+def _word_cut(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    return cut.rsplit(" ", 1)[0] if " " in cut else cut
+
+
 def find_archive_post(tok, title: str, original_id: str) -> dict | None:
-    q = title[:100].replace('"', " ").strip()
-    resp = httpx.get(f"https://oauth.reddit.com/r/{ARCHIVE_SUB}/search",
-                     params={"q": f'title:"{q}"', "restrict_sr": 1,
-                             "sort": "new", "limit": 5, "type": "link"},
-                     headers=_headers(tok), timeout=30)
-    time.sleep(SLEEP)
-    if resp.status_code != 200:
-        return None
-    for child in resp.json().get("data", {}).get("children", []):
+    clean = title.replace('"', " ").strip()
+    # Reddit's phrase search is finicky about length and mid-word cuts —
+    # try a couple of shapes before giving up
+    queries = [f'title:"{_word_cut(clean, 60)}"',
+               f'title:"{_word_cut(clean, 35)}"',
+               " ".join(clean.split()[:6])]
+    candidates = []
+    seen_q = set()
+    for q in queries:
+        if q in seen_q or len(q) < 8:
+            continue
+        seen_q.add(q)
+        resp = httpx.get(f"https://oauth.reddit.com/r/{ARCHIVE_SUB}/search",
+                         params={"q": q, "restrict_sr": 1,
+                                 "sort": "new", "limit": 5, "type": "link"},
+                         headers=_headers(tok), timeout=30)
+        time.sleep(SLEEP)
+        if resp.status_code != 200:
+            continue
+        candidates = resp.json().get("data", {}).get("children", [])
+        if candidates:
+            break
+    for child in candidates:
         p = child["data"]
         if p.get("author") != BOT:
             continue

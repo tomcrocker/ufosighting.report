@@ -116,6 +116,9 @@ def system_status(request: Request, conn=Depends(db.get_db), user=Depends(requir
         ("Public sightings", conn.execute(
             "SELECT COUNT(*) FROM sightings WHERE status IN "
             "('live','deleted_by_user','removed_on_reddit')").fetchone()[0]),
+        ("Sky-checked sightings", conn.execute(
+            "SELECT COUNT(*) FROM sightings WHERE sky_events LIKE "
+            "'%\"checked\": true%'").fetchone()[0]),
     ]
     return templates.TemplateResponse(
         request, "status.html",

@@ -338,6 +338,7 @@ def detail(
         {"user": user, "s": s, "media": media_items, "reddit_url": reddit_url, "admin": admin,
          "comments": comment_rows,
          "canonical": f"{base}/sighting/{s['id']}/{s['slug']}",
+         "page_desc": helpers.page_description(s),
          "related": related, "related_map": related_map, "sky": sky,
          "csrf_token": auth.csrf_for(user.id) if user else ""},
     )

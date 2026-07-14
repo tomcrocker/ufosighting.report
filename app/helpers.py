@@ -74,6 +74,26 @@ def humanize_duration(seconds: int | None) -> str:
     return f"{hours_str} hour{'s' if hours != 1 else ''}"
 
 
+def page_description(s) -> str:
+    """Meta/JSON-LD description with a synthesized fallback — media-only
+    posts have no body text, and an empty description field is both a GSC
+    warning and a wasted SERP snippet."""
+    desc = (s["description"] or "").strip()
+    if desc:
+        return desc[:300]
+    shape = (s["shape"] or "").strip()
+    loc = ", ".join(x for x in (s["city"], s["country"]) if x) \
+        or (s["location_text"] or "").strip()
+    out = "Eyewitness UFO report"
+    if shape:
+        out += f" of a {shape}-shaped object"
+    if loc:
+        out += f" over {loc}"
+    out += f" on {s['sighted_at'][:10]}."
+    out += " Archived with original-quality media for analysis."
+    return out
+
+
 _WINDS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
           "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
 

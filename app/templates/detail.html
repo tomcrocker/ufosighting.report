@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ s.title }} — UFO sighting{% if s.city or s.country %}, {{ s.city or s.country }}{% endif %} ({{ s.sighted_at[:10] }}){% endblock %}
-{% block meta_description %}{{ s.description[:155] }}{% endblock %}
+{% block meta_description %}{{ page_desc[:155] }}{% endblock %}
 {% block og_type %}article{% endblock %}
 {% block og %}
 <meta property="og:title" content="{{ s.title }}">
-<meta property="og:description" content="{{ s.description[:200] }}">
+<meta property="og:description" content="{{ page_desc[:200] }}">
 <meta property="og:image" content="{{ (media and (media[0].thumb_url or media[0].display_url)) or base_url + '/static/og-default.png' }}">
 {% endblock %}
 {% block head %}
@@ -20,7 +20,7 @@
                 "url": {{ base_url | tojson }}},
   "mainEntityOfPage": {{ canonical | tojson }},
   {% if media %}"image": {{ ((media[0].thumb_url or media[0].display_url or media[0].url)) | tojson }},{% endif %}
-  "description": {{ s.description[:300] | tojson }},
+  "description": {{ page_desc[:300] | tojson }},
   {% if s.lat is not none %}"contentLocation": {"@type": "Place",
     {% if s.city or s.country %}"name": {{ ((s.city or '') + (', ' if s.city and s.country else '') + (s.country or '')) | tojson }},{% endif %}
     "geo": {"@type": "GeoCoordinates", "latitude": {{ s.lat }}, "longitude": {{ s.lon }}}},{% endif %}
@@ -33,7 +33,7 @@
   "@context": "https://schema.org",
   "@type": "VideoObject",
   "name": {{ s.title | tojson }},
-  "description": {{ s.description[:300] | tojson }},
+  "description": {{ page_desc[:300] | tojson }},
   "contentUrl": {{ media[0].url | tojson }},
   {% if media[0].thumb_url %}"thumbnailUrl": {{ media[0].thumb_url | tojson }},{% endif %}
   "uploadDate": {{ s.created_at | tojson }}

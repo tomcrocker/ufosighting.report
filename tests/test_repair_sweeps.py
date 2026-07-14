@@ -58,3 +58,18 @@ def test_usable_location_rejects_filler():
     for loc in ["Munich", "Lake Powell, Utah", "Łódź, Poland", "Yuma, AZ",
                 "south London", "Virginia"]:
         assert usable_location(loc), loc
+
+
+def test_page_description_fallback():
+    from app.helpers import page_description
+    full = {"description": "I saw a thing.", "shape": "", "city": "",
+            "country": "", "location_text": "", "sighted_at": "2026-07-01T05:00:00Z"}
+    assert page_description(full) == "I saw a thing."
+    empty = {"description": "  ", "shape": "orb", "city": "Leeds",
+             "country": "United Kingdom", "location_text": "",
+             "sighted_at": "2024-11-02T21:00:00Z"}
+    out = page_description(empty)
+    assert "orb-shaped object over Leeds, United Kingdom on 2024-11-02" in out
+    bare = {"description": None, "shape": None, "city": None, "country": None,
+            "location_text": "", "sighted_at": "2024-11-02T21:00:00Z"}
+    assert page_description(bare).startswith("Eyewitness UFO report on 2024-11-02")

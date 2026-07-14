@@ -505,3 +505,13 @@ def _xml(s: str) -> str:
 def robots():
     base = get_settings().base_url
     return PlainTextResponse(f"User-agent: *\nAllow: /\nSitemap: {base}/sitemap.xml\n")
+
+
+@router.get("/{key_name}.txt")
+def indexnow_key_file(key_name: str):
+    """IndexNow verification file: /<key>.txt must return the key. Registered
+    after /robots.txt so that literal route still wins; any other *.txt 404s."""
+    key = get_settings().indexnow_key
+    if key and key_name == key:
+        return PlainTextResponse(key)
+    raise HTTPException(status_code=404)

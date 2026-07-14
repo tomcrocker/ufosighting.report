@@ -48,6 +48,7 @@ class Settings:
     meili_url: str
     meili_key: str
     meili_index: str
+    indexnow_key: str
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -102,4 +103,5 @@ def get_settings() -> Settings:
         meili_url=_env("MEILI_URL", ""),
         meili_key=_env("MEILI_KEY", ""),
         meili_index=_env("MEILI_INDEX", "sightings"),
+        indexnow_key=_env("INDEXNOW_KEY", ""),
     )

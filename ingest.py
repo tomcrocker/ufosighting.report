@@ -253,17 +253,36 @@ def ingest_post(conn, post: dict, token=None, op_comments: list[str] | None = No
     return True
 
 
+def _ping_indexnow(conn, pids: list[str]) -> None:
+    """Notify IndexNow of newly-ingested sighting URLs. Only the daily ingest
+    calls this (not backfills) — a few posts per run, never a flood."""
+    if not pids:
+        return
+    from app import helpers, indexnow
+    s = get_settings()
+    rows = conn.execute(
+        f"SELECT id, title FROM sightings WHERE reddit_post_id IN "
+        f"({','.join('?' * len(pids))})", pids).fetchall()
+    urls = [f"{s.base_url}/sighting/{r['id']}/{helpers.slugify(r['title'])}"
+            for r in rows]
+    try:
+        indexnow.submit_urls(urls)
+    except Exception as exc:
+        print(f"ingest: indexnow submit failed: {exc}")
+
+
 def ingest_once(conn, *, limit=100, after=None) -> dict:
     s = get_settings()
     token = reddit.read_token()
     posts, _after = reddit.list_flair_posts(token, subreddit=s.ingest_subreddit,
                                             flair="Sighting", limit=limit, after=after)
-    added = 0
+    added_pids = []
     for p in posts:
         if ingest_post(conn, p, token=token):
-            added += 1
+            added_pids.append(p["id"])
             time.sleep(PER_POST_SLEEP_SECONDS)
-    return {"seen": len(posts), "added": added}
+    _ping_indexnow(conn, added_pids)
+    return {"seen": len(posts), "added": len(added_pids)}
 
 
 def main(backfill: bool = False) -> None:

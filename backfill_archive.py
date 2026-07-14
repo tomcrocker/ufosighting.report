@@ -62,7 +62,10 @@ def _ingest_row(conn, row: dict) -> None:
     if row.get("yt_url") and not row.get("media"):
         conn.execute("INSERT OR IGNORE INTO yt_jobs (sighting_id, url) VALUES (?,?)",
                      (sid, row["yt_url"]))
+    from app.comments import is_skipped_author
     for c in (row.get("top_comments") or [])[:10]:
+        if is_skipped_author(c.get("author")):
+            continue
         conn.execute(
             "INSERT OR REPLACE INTO comments (reddit_comment_id, sighting_id, author,"
             " body, score, created_utc, permalink) VALUES (?,?,?,?,?,?,?)",

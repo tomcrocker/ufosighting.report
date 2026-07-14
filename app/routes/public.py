@@ -294,9 +294,14 @@ def detail(
         # canonical URL, correct for both bot posts (SUBREDDIT) and ingested
         # posts (INGEST_SUBREDDIT)
         reddit_url = f"https://www.reddit.com/comments/{row['reddit_post_id']}/"
+    # filter bot accounts at display time too, so comments stored before the
+    # skip-list existed (backfill manifests) never surface
+    from app.comments import SKIP_AUTHORS
+    bot_ph = ",".join("?" * len(SKIP_AUTHORS))
     comment_rows = conn.execute(
-        "SELECT author, body, score, permalink FROM comments "
-        "WHERE sighting_id=? ORDER BY score DESC", (sighting_id,)
+        f"SELECT author, body, score, permalink FROM comments "
+        f"WHERE sighting_id=? AND LOWER(TRIM(author)) NOT IN ({bot_ph}) "
+        f"ORDER BY score DESC", (sighting_id, *sorted(SKIP_AUTHORS))
     ).fetchall()
     related = related_sightings(conn, row)
     related_map = None

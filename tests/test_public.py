@@ -225,6 +225,24 @@ def test_detail_no_comments_section_when_empty(client, app_db):
     assert "Top comments on Reddit" not in client.get(f"/sighting/{sid}").text
 
 
+def test_detail_hides_bot_comments(client, app_db):
+    # bot comments already stored (from a pre-skip-list backfill) must not render
+    sid = seed(app_db, reddit_post_id="1cmt02")
+    for cid, author, body, score in [
+        ("c1", "alice", "real observation", 42),
+        ("c2", "CollapseBot", "This thread has been collapsed", 999),
+        ("c3", "ufomodbot", "Removed: rule 3", 500),
+    ]:
+        app_db.execute("INSERT INTO comments (reddit_comment_id, sighting_id, author, "
+                       "body, score, permalink) VALUES (?,?,?,?,?,'')",
+                       (cid, sid, author, body, score))
+    app_db.commit()
+    r = client.get(f"/sighting/{sid}")
+    assert "u/alice" in r.text and "real observation" in r.text
+    assert "CollapseBot" not in r.text and "collapsed" not in r.text
+    assert "ufomodbot" not in r.text
+
+
 def test_guide_page(client):
     r = client.get("/guide")
     assert r.status_code == 200

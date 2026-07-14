@@ -6,8 +6,15 @@ import httpx
 from app.config import get_settings
 
 TOP_N = 10
-SKIP_AUTHORS = {"AutoModerator"}
+# Automated accounts whose comments are noise on a sighting page. Stored
+# lowercased; match with is_skipped_author (Reddit usernames are
+# case-insensitive, so compare case-insensitively).
+SKIP_AUTHORS = {"automoderator", "collapsebot", "ufomodbot"}
 SKIP_BODIES = {"", "[deleted]", "[removed]"}
+
+
+def is_skipped_author(author: str | None) -> bool:
+    return (author or "").strip().lower() in SKIP_AUTHORS
 
 
 def fetch_top_comments(token: str, post_id: str, *, limit: int = 50) -> list[dict]:
@@ -25,12 +32,14 @@ def fetch_top_comments(token: str, post_id: str, *, limit: int = 50) -> list[dic
         if len(listing) < 2:
             return []
         out = []
-        skip = SKIP_AUTHORS | {s.script_username}
+        script_user = (s.script_username or "").strip().lower()
         for child in listing[1]["data"]["children"]:
             if child.get("kind") != "t1":
                 continue
             d = child.get("data", {})
-            if d.get("author") in skip or (d.get("body") or "").strip() in SKIP_BODIES:
+            author = d.get("author")
+            if (is_skipped_author(author) or (author or "").strip().lower() == script_user
+                    or (d.get("body") or "").strip() in SKIP_BODIES):
                 continue
             out.append({"id": d.get("id"), "author": d.get("author"),
                         "body": d.get("body"), "score": int(d.get("score") or 0),

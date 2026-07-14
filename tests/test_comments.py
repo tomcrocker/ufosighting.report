@@ -19,17 +19,28 @@ def _c(cid, author, body, score, **over):
     return {"kind": "t1", "data": d}
 
 
+def test_is_skipped_author():
+    for name in ("CollapseBot", "collapsebot", "COLLAPSEBOT", " ufomodbot ",
+                 "AutoModerator", "automoderator"):
+        assert comments.is_skipped_author(name), name
+    for name in ("real_user", "", None, "collapse", "ufomod"):
+        assert not comments.is_skipped_author(name), name
+
+
 @respx.mock
 def test_fetch_skips_bot_automod_and_deleted():
     kids = [_c(f"c{i}", f"user{i}", f"body {i}", 100 - i) for i in range(12)]
     kids.insert(0, _c("cb", "modbot", "details comment", 999))  # the bot (conftest SCRIPT_USERNAME)
     kids.insert(0, _c("ca", "AutoModerator", "sticky", 998))
+    kids.insert(0, _c("cc", "CollapseBot", "collapsed reply", 996))  # r/UFOs bot
+    kids.insert(0, _c("cu", "ufomodbot", "mod note", 995))           # r/UFOs bot
     kids.insert(0, _c("cd", "ghost", "[deleted]", 997))
     kids.append({"kind": "more", "data": {"children": ["x"]}})
     respx.get("https://oauth.reddit.com/comments/p1").mock(return_value=_listing(kids))
     out = comments.fetch_top_comments("tok", "p1")
     assert len(out) == 12  # filtering at fetch; capping happens in refresh
-    assert all(c["author"] not in ("AutoModerator", "modbot") for c in out)
+    authors = {c["author"] for c in out}
+    assert not authors & {"AutoModerator", "modbot", "CollapseBot", "ufomodbot"}
     assert all(c["body"] not in ("[deleted]", "[removed]") for c in out)
 
 

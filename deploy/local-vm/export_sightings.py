@@ -208,10 +208,13 @@ def comments_for(conn, pid, author):
                   AND body NOT IN ('[deleted]','[removed]') {where}
                 ORDER BY score DESC LIMIT 10""", (pid, *args)).fetchall()
     op = [r["body"] for r in rows("AND author = ?", (author,))] if author else []
+    # keep in sync with app/comments.py SKIP_AUTHORS (bot accounts)
     top = [{"id": r["id"], "author": r["author"], "body": r["body"],
             "score": r["score"] or 0, "created_utc": r["created_utc"] or 0,
             "permalink": f"/r/UFOs/comments/{pid}/_/{r['id']}/"}
-           for r in rows("AND author NOT IN ('AutoModerator','[deleted]')", ())]
+           for r in rows(
+               "AND LOWER(author) NOT IN "
+               "('automoderator','collapsebot','ufomodbot','[deleted]')", ())]
     return op, top
 
 

@@ -80,8 +80,26 @@
           target.value = wasOn ? "" : chip.dataset.value;
           if (!wasOn) chip.classList.add("on");
         }
+        group.classList.remove("field-invalid");
       });
     });
+  });
+
+  // --- "other…" chips reveal a free-text input (shape_other / movement_other)
+  document.querySelectorAll(".chips").forEach((group) => {
+    const otherChip = group.querySelector('.chip[data-value="other"]');
+    if (!otherChip) return;
+    const base = group.dataset.target.replace(/_json$/, "");
+    const input = form.elements[base + "_other"];
+    if (!input) return;
+    const sync = () => {
+      const on = otherChip.classList.contains("on");
+      input.hidden = !on;
+      if (!on) input.value = "";
+      else input.focus();
+    };
+    group.addEventListener("click", () => setTimeout(sync, 0));
+    if (otherChip.classList.contains("on")) input.hidden = false;
   });
 
   // --- map pin + geocode autocomplete ---
@@ -279,6 +297,26 @@
         markInvalid(field);
         if (!firstBad) firstBad = field;
       }
+    }
+    // chip groups write to hidden inputs, which native validation skips —
+    // data-required="1" groups are checked by value instead
+    let badGroup = null;
+    for (const group of step.querySelectorAll('.chips[data-required="1"]')) {
+      const target = form.elements[group.dataset.target];
+      const val = (target.value || "").trim();
+      let empty = group.dataset.multi === "1" ? (val === "" || val === "[]") : val === "";
+      // "other" selected but not described counts as unanswered
+      const otherOn = group.querySelector('.chip[data-value="other"].on');
+      if (!empty && otherOn) {
+        const other = form.elements[group.dataset.target.replace(/_json$/, "") + "_other"];
+        if (other && !other.value.trim()) empty = true;
+      }
+      group.classList.toggle("field-invalid", empty);
+      if (empty && !badGroup) badGroup = group;
+    }
+    if (badGroup && !firstBad) {
+      badGroup.scrollIntoView({ block: "center", behavior: "smooth" });
+      return false;
     }
     if (firstBad) {
       firstBad.reportValidity();

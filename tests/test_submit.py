@@ -21,11 +21,14 @@ def form(csrf):
         "shape": "sphere", "num_objects": "1", "distance": "above the trees",
         "apparent_size": "dime", "movement_json": json.dumps(["hovering"]),
         "sensors_json": "[]", "background_json": "[]",
-        "has_wings": "", "has_rotors": "", "has_plume": "", "makes_noise": "",
+        "has_wings": "no", "has_rotors": "no", "has_plume": "no", "makes_noise": "no",
+        "obs_accel": "unsure", "obs_no_signature": "unsure",
+        "obs_low_observability": "unsure", "obs_transmedium": "unsure",
+        "obs_positive_lift": "unsure",
         "media_json": json.dumps([{"key": MEDIA_KEY, "kind": "image", "width": 100,
                                    "height": 80, "size_bytes": 1234}]),
         "rule_out": "Checked FlightRadar24 and Stellarium — nothing matches; silent and too fast.",
-        "confirm_eyewitness": "1", "confirm_no_fixed_cam": "1",
+        "confirm_eyewitness": "1", "confirm_own_capture": "1", "confirm_no_fixed_cam": "1",
         "confirm_not_screen": "1", "confirm_in_focus": "1",
     }
 
@@ -275,7 +278,8 @@ def test_observables_stored_and_in_post_body(client, app_db):
     row = app_db.execute("SELECT obs_accel, obs_transmedium, obs_positive_lift, obs_no_signature "
                          "FROM sightings ORDER BY id DESC LIMIT 1").fetchone()
     assert row["obs_accel"] == "yes" and row["obs_transmedium"] == "unsure"
-    assert row["obs_no_signature"] is None
+    # observables are mandatory now — the base form answers 'unsure'
+    assert row["obs_no_signature"] == "unsure"
     from app import helpers
     body = helpers.format_post_body(
         dict(row) | {"tz_name": "UTC", "description": "d", "movement": [],
@@ -312,3 +316,57 @@ def test_exif_prefs_flow_to_media_row(client, app_db):
     row = app_db.execute("SELECT exif_prefs FROM media ORDER BY id DESC LIMIT 1").fetchone()
     prefs = _json.loads(row["exif_prefs"])
     assert prefs == {"device": True, "time": False, "location": False}
+
+
+# --- mandatory object fields + "other" free-text options ---
+
+def test_missing_shape_and_movement_rejected(client, app_db):
+    csrf = get_csrf(client)
+    f = form(csrf); f["shape"] = ""; f["movement_json"] = "[]"
+    r = client.post("/submit", data=f)
+    assert r.status_code == 422
+    assert "shape" in r.text and "movement" in r.text
+    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 0
+
+
+def test_missing_features_and_observables_rejected(client, app_db):
+    csrf = get_csrf(client)
+    f = form(csrf); f["has_wings"] = ""; f["obs_accel"] = ""
+    r = client.post("/submit", data=f)
+    assert r.status_code == 422
+    assert "Not sure" in r.text
+    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 0
+
+
+@respx.mock
+def test_custom_shape_and_movement_stored(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "bot-tok")
+    respx.post("https://oauth.reddit.com/api/compose").mock(
+        return_value=httpx.Response(200, json={"json": {"errors": []}}))
+    csrf = get_csrf(client)
+    f = form(csrf)
+    f["shape"] = "other"; f["shape_other"] = "  Glowing <Jellyfish>!! "
+    f["movement_json"] = json.dumps(["hovering", "other"])
+    f["movement_other"] = "slow pulsing drift"
+    r = client.post("/submit", data=f, follow_redirects=False)
+    assert r.status_code == 200
+    row = app_db.execute("SELECT shape, movement FROM sightings WHERE id=1").fetchone()
+    assert row["shape"] == "glowing jellyfish"
+    assert json.loads(row["movement"]) == ["hovering", "slow pulsing drift"]
+
+
+def test_custom_shape_empty_text_rejected(client, app_db):
+    csrf = get_csrf(client)
+    f = form(csrf); f["shape"] = "other"; f["shape_other"] = "  <<>> "
+    r = client.post("/submit", data=f)
+    assert r.status_code == 422
+    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 0
+
+
+def test_media_requires_own_capture_confirm(client, app_db):
+    csrf = get_csrf(client)
+    f = form(csrf); f["confirm_own_capture"] = ""
+    r = client.post("/submit", data=f)
+    assert r.status_code == 422
+    assert "your own eyes" in r.text
+    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 0

@@ -131,6 +131,13 @@ def reverse_endpoint(lat: float, lon: float, request: Request = None,
     return {"label": out["label"], "city": out["city"], "country": out["country"]}
 
 
+def _custom_option(value: str | None) -> str | None:
+    """Free-text 'other' shape/movement: printable words only, capped."""
+    cleaned = re.sub(r"[^A-Za-z0-9 ,'()\-]", "", (value or "")).strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)[:40].strip().lower()
+    return cleaned or None
+
+
 def _clean_choice(value: str | None, options: list[str]) -> str | None:
     value = (value or "").strip()
     return value if value in options else None
@@ -204,19 +211,49 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
         except ValueError:
             errors.append("Enter a valid witness count.")
 
-    clean["shape"] = _clean_choice(form.get("shape"), helpers.SHAPES)
+    # "other" chip → free-text shape/movement, sanitized and length-capped
+    if form.get("shape") == "other":
+        clean["shape"] = _custom_option(form.get("shape_other"))
+        if not clean["shape"]:
+            errors.append("Describe the custom shape (or pick one from the list).")
+    else:
+        clean["shape"] = _clean_choice(form.get("shape"), helpers.SHAPES)
+        if not clean["shape"]:
+            errors.append("Select the object's shape.")
     clean["num_objects"] = _clean_choice(form.get("num_objects"), helpers.NUM_OBJECTS)
+    if not clean["num_objects"]:
+        errors.append("Select how many objects you saw.")
     clean["distance"] = _clean_choice(form.get("distance"), helpers.DISTANCES)
     clean["apparent_size"] = _clean_choice(form.get("apparent_size"), helpers.SIZES)
     clean["movement"] = _clean_multi(form.get("movement_json"), helpers.MOVEMENTS)
+    try:
+        raw_movement = json.loads(form.get("movement_json") or "[]")
+    except ValueError:
+        raw_movement = []
+    if isinstance(raw_movement, list) and "other" in raw_movement:
+        custom = _custom_option(form.get("movement_other"))
+        if custom:
+            clean["movement"].append(custom)
+        else:
+            errors.append("Describe the custom movement (or unselect 'other').")
+    if not clean["movement"]:
+        errors.append("Select at least one movement pattern.")
     clean["sensors"] = _clean_multi(form.get("sensors_json"), helpers.SENSOR_OPTIONS)
     clean["witness_background"] = _clean_multi(
         form.get("background_json"), helpers.BACKGROUND_OPTIONS
     )
+    missing_features = missing_obs = False
     for field in ("has_wings", "has_rotors", "has_plume", "makes_noise"):
         clean[field] = _clean_choice(form.get(field), helpers.FEATURE_ANSWERS)
+        missing_features = missing_features or clean[field] is None
     for key, _q, _hint in helpers.OBSERVABLES:
         clean[key] = _clean_choice(form.get(key), helpers.FEATURE_ANSWERS)
+        missing_obs = missing_obs or clean[key] is None
+    if missing_features:
+        errors.append("Answer the wings/rotors/plume/noise questions — "
+                      "'Not sure' is a valid answer.")
+    if missing_obs:
+        errors.append("Answer the five observables — 'Not sure' is a valid answer.")
 
     # r/UFOs guideline gates: a rule-out statement is always required; the
     # camera confirmations only when media is attached (checked below).
@@ -310,10 +347,14 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
         )
     if clean["media"]:
         confirms = (
+            ("confirm_own_capture",
+             "Confirm you took this photo/video yourself and saw it with "
+             "your own eyes."),
             ("confirm_no_fixed_cam",
              "Confirm this isn't trail-camera or doorbell-camera footage."),
             ("confirm_not_screen",
-             "Confirm this isn't a video of a TV or other display."),
+             "Confirm this isn't a recording of another screen or a repost "
+             "(TV, TikTok, screenshots)."),
             ("confirm_in_focus",
              "Confirm the imagery is in focus most of the time."),
         )

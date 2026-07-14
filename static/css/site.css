@@ -543,3 +543,6 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .about-archive { margin-top: 28px; padding: 20px 24px; max-width: 860px; }
 .about-archive h2 { margin-top: 0; font-size: 1.15rem; }
 .about-archive p { color: var(--muted); font-size: .95rem; }
+.chips.field-invalid { outline: 1.5px solid var(--danger); outline-offset: 4px; border-radius: 8px; }
+.other-input { margin: 6px 0 12px; max-width: 340px; }
+.chip-other { border-style: dashed; }

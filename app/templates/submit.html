@@ -110,14 +110,19 @@
 
       <section class="step" data-step="4">
         <h1>Tell us about the object(s)</h1>
-        <div class="madlib"><span>I saw</span>
-          <div class="chips" data-target="num_objects">
+        <p class="muted">Fields marked <span class="req">*</span> are required.</p>
+        <div class="madlib"><span>I saw <span class="req">*</span></span>
+          <div class="chips" data-target="num_objects" data-required="1">
             {% for o in opts.num_objects %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
           </div><span>object(s)</span></div>
-        <div class="madlib"><span>They were</span>
-          <div class="chips" data-target="shape">
+        <div class="madlib"><span>They were <span class="req">*</span></span>
+          <div class="chips" data-target="shape" data-required="1">
             {% for o in opts.shapes %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
+            <button type="button" class="chip chip-other" data-value="other">other&hellip;</button>
           </div><span>shaped</span></div>
+        <input class="other-input" name="shape_other" maxlength="40" autocomplete="off"
+               placeholder="describe the shape in a few words" hidden
+               value="{{ values.shape_other or '' }}">
         <div class="madlib"><span>At their closest, they were</span>
           <div class="chips" data-target="distance">
             {% for o in opts.distances %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
@@ -126,18 +131,23 @@
           <div class="chips" data-target="apparent_size">
             {% for o in opts.sizes %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
           </div><span>in size</span></div>
-        <div class="madlib"><span>They had</span>
-          <div class="chips" data-target="movement_json" data-multi="1">
+        <div class="madlib"><span>They had <span class="req">*</span></span>
+          <div class="chips" data-target="movement_json" data-multi="1" data-required="1">
             {% for o in opts.movements %}<button type="button" class="chip" data-value="{{ o }}">{{ o }}</button>{% endfor %}
+            <button type="button" class="chip chip-other" data-value="other">other&hellip;</button>
           </div><span>movement</span></div>
+        <input class="other-input" name="movement_other" maxlength="40" autocomplete="off"
+               placeholder="describe the movement in a few words" hidden
+               value="{{ values.movement_other or '' }}">
       </section>
 
       <section class="step" data-step="5">
-        <h1>Describe if the object…</h1>
+        <h1>Describe if the object… <span class="req">*</span></h1>
+        <p class="muted">All questions need an answer — “Not sure” counts.</p>
         {% for key, label in [('has_wings', 'Has wings?'), ('has_rotors', 'Has rotors?'),
                               ('has_plume', 'Has an exhaust plume?'), ('makes_noise', 'Makes noise?')] %}
         <div class="feature-row"><span>{{ label }}</span>
-          <div class="chips" data-target="{{ key }}">
+          <div class="chips" data-target="{{ key }}" data-required="1">
             <button type="button" class="chip" data-value="yes">Yes</button>
             <button type="button" class="chip" data-value="no">No</button>
             <button type="button" class="chip" data-value="unsure">Not sure</button>
@@ -145,11 +155,11 @@
         </div>
         {% endfor %}
         <h2 class="obs-heading">The five observables</h2>
-        <p class="muted">Hallmarks investigators look for — answer what you can.</p>
+        <p class="muted">Hallmarks investigators look for.</p>
         {% for key, q, hint in opts.observables %}
         <div class="feature-row obs-row"><span>{{ q }}
             <small class="muted">{{ hint }}</small></span>
-          <div class="chips" data-target="{{ key }}">
+          <div class="chips" data-target="{{ key }}" data-required="1">
             <button type="button" class="chip" data-value="yes">Yes</button>
             <button type="button" class="chip" data-value="no">No</button>
             <button type="button" class="chip" data-value="unsure">Not sure</button>
@@ -171,21 +181,27 @@
                    placeholder="e.g. iPhone 16 Pro, Pixel 9, Sony A7 III + 200mm"
                    value="{{ values.capture_device or '' }}">
           </label>
-          <p class="muted">A few confirmations about your media (r/UFOs guidelines):</p>
+          <p class="muted">A few confirmations about your media (r/UFOs guidelines) — all required:</p>
           <label class="check">
-            <input type="checkbox" name="confirm_no_fixed_cam" value="1"
+            <input type="checkbox" name="confirm_own_capture" value="1" required
+                   {% if values.confirm_own_capture %}checked{% endif %}>
+            I took this photo/video and saw it with my own eyes <span class="req">*</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" name="confirm_no_fixed_cam" value="1" required
                    {% if values.confirm_no_fixed_cam %}checked{% endif %}>
-            This is not trail-camera or doorbell-camera footage
+            This is not trail-camera or doorbell-camera footage <span class="req">*</span>
           </label>
           <label class="check">
-            <input type="checkbox" name="confirm_not_screen" value="1"
+            <input type="checkbox" name="confirm_not_screen" value="1" required
                    {% if values.confirm_not_screen %}checked{% endif %}>
-            This is not a phone video of a TV or other display
+            This is not a recording of a TV or other screen, a TikTok/social-media
+            repost, or a screenshot of an image <span class="req">*</span>
           </label>
           <label class="check">
-            <input type="checkbox" name="confirm_in_focus" value="1"
+            <input type="checkbox" name="confirm_in_focus" value="1" required
                    {% if values.confirm_in_focus %}checked{% endif %}>
-            The imagery is in focus most of the time
+            The imagery is in focus most of the time <span class="req">*</span>
           </label>
         </div>
       </section>

@@ -5,7 +5,15 @@
 {% block og %}
 <meta property="og:title" content="{{ s.title }}">
 <meta property="og:description" content="{{ page_desc[:200] }}">
-<meta property="og:image" content="{{ (media and (media[0].thumb_url or media[0].display_url)) or base_url + '/static/og-default.png' }}">
+{# display derivative (2048px) beats the 640px thumb when it exists #}
+<meta property="og:image" content="{{ (media and (media[0].display_url or media[0].thumb_url)) or base_url + '/static/og-default.png' }}">
+<meta property="og:image:alt" content="{{ s.title }}">
+{% if media and media[0].kind == 'video' %}
+{# Discord/Telegram/Facebook play og:video mp4s inline in the unfurl #}
+<meta property="og:video" content="{{ media[0].url }}">
+<meta property="og:video:secure_url" content="{{ media[0].url }}">
+<meta property="og:video:type" content="video/mp4">
+{% endif %}
 {% endblock %}
 {% block head %}
 <script type="application/ld+json">

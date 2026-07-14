@@ -96,12 +96,16 @@ def strip_video_metadata(url: str) -> bytes:
     return proc.stdout
 
 
-def process_pending(conn, limit: int = 3) -> int:
+def process_pending(conn, limit: int = 3, oldest_first: bool = False) -> int:
+    # Newest-first by default: a fresh submission must never wait behind a
+    # backfill backlog. Bulk burners pass oldest_first=True so a second
+    # process drains from the other end without contention.
+    order = "m.id" if oldest_first else "m.id DESC"
     rows = conn.execute(
-        """SELECT m.id, m.r2_key, m.kind, m.exif_prefs, s.source FROM media m
+        f"""SELECT m.id, m.r2_key, m.kind, m.exif_prefs, s.source FROM media m
            JOIN sightings s ON s.id = m.sighting_id
            WHERE m.thumb_key IS NULL AND m.thumb_attempts < 2
-           ORDER BY m.id LIMIT ?""",
+           ORDER BY {order} LIMIT ?""",
         (limit,),
     ).fetchall()
     done = 0

@@ -60,4 +60,28 @@
   {% if page < pages %}<a class="btn" href="/?{{ qs }}{% if qs %}&amp;{% endif %}page={{ page + 1 }}">Older &rarr;</a>{% endif %}
 </div>
 {% endif %}
+{% if page == 1 and not q %}
+<section class="panel about-archive">
+  <h2>What this archive is</h2>
+  <p>ufosighting.report keeps UFO sightings on the record. Every post flaired
+  as a sighting on r/UFOs is archived here within minutes — including the
+  original-quality photos and videos, which are preserved even after the
+  Reddit post is deleted or removed. Roughly one in three sighting posts
+  eventually disappears from Reddit; the record here survives.</p>
+  <p>Each sighting report is enriched for analysis. The report text is parsed
+  for the time, place, object shape, movement, and duration of the sighting,
+  and the location is placed on the <a href="/map">interactive map</a>.
+  Camera metadata (device, capture time, GPS when the reporter consents) is
+  extracted from the original files. And every geolocated sighting is
+  cross-checked against the actual sky: satellite passes computed from
+  historical orbital data, Starlink train detection, ISS visibility, and
+  rocket launches whose twilight plumes are routinely reported as UFOs.</p>
+  <p>You can <a href="/submit">report a UFO sighting</a> directly — the
+  wizard walks through the questions investigators actually need answered,
+  including the "five observables". Or start with the
+  <a href="/guide">reporting guide</a> and the
+  <a href="/investigate">guide to common misidentifications</a> (Starlink,
+  Venus, sky lanterns, drones) before deciding what you saw.</p>
+</section>
+{% endif %}
 {% endblock %}

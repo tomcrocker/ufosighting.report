@@ -406,7 +406,7 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .top-comments .comment { border-top: 1px solid #232c47; padding: 10px 0 4px; }
 .comment-meta { display: flex; gap: 12px; align-items: baseline; font-size: 0.85rem; margin-bottom: 4px; }
 .comment-meta .score { color: var(--accent); font-weight: 600; }
-.comment-meta .muted { opacity: 0.65; }
+.comment-meta .muted { color: var(--muted); }
 
 /* --- /investigate: commonly misidentified objects (adapted from ufos.wiki) --- */
 .inv-resources { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 18px; }
@@ -537,3 +537,9 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .sat-clear { color: var(--accent); }
 .sat-line { font-size: .85rem; margin: 2px 0; }
 .sat-note { font-size: .72rem; margin: 6px 0 0; }
+
+/* a11y: in-text links are underlined, not color-only */
+.md-body a, .rel-item a, .src-note a, .sat-note a { text-decoration: underline; }
+.about-archive { margin-top: 28px; padding: 20px 24px; max-width: 860px; }
+.about-archive h2 { margin-top: 0; font-size: 1.15rem; }
+.about-archive p { color: var(--muted); font-size: .95rem; }

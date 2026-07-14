@@ -158,13 +158,14 @@ def test_detail_404_unknown(client):
 def test_reddit_source_shows_badge(client, app_db):
     seed(app_db, title="Ingested sighting", source="reddit", reddit_post_id="zz1")
     r = client.get("/")
-    assert "from r/UFOs" in r.text
+    assert 'class="src-badge"' in r.text
 
 
 def test_site_source_no_badge(client, app_db):
+    # the badge itself, not the phrase — meta description mentions r/UFOs
     seed(app_db, title="Site sighting", source="site")
     r = client.get("/")
-    assert "from r/UFOs" not in r.text
+    assert 'class="src-badge"' not in r.text
 
 
 def test_detail_reddit_note(client, app_db):

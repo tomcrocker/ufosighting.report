@@ -2,8 +2,14 @@
   --bg: #0b0e14; --bg2: #121724; --panel: #171d2e; --line: #232b42;
   --text: #dbe2f4; --muted: #8b96b5; --accent: #6ee7a0; --accent2: #7aa2ff;
   --danger: #ff7a7a; --radius: 10px;
+  /* dark-only site: makes native controls (date pickers, scrollbars) render
+     for dark — without this, iOS renders empty date inputs dark-on-dark so
+     the placeholder is invisible until tapped */
+  color-scheme: dark;
 }
 * { box-sizing: border-box; }
+/* never let a stray wide element force horizontal scroll on mobile */
+html, body { overflow-x: hidden; }
 body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -546,3 +552,54 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .chips.field-invalid { outline: 1.5px solid var(--danger); outline-offset: 4px; border-radius: 8px; }
 .other-input { margin: 6px 0 12px; max-width: 340px; }
 .chip-other { border-style: dashed; }
+
+/* ===================== legend collapse (map) ===================== */
+.legend-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; padding: 0; background: none; border: none; cursor: pointer;
+  color: var(--text); font: inherit; font-family: ui-monospace, monospace;
+  font-weight: 600; font-size: 0.72rem;
+}
+.legend-bar .legend-title { margin-bottom: 0; }
+.legend-chevron { transition: transform .2s ease; font-size: .8em; }
+.legend-chevron::before { content: "\25BE"; }
+.map-legend.collapsed .legend-chevron { transform: rotate(-90deg); }
+.map-legend.collapsed .legend-body { display: none; }
+.legend-body { margin-top: 8px; }
+.legend-date-field { display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
+  font-size: .72rem; color: var(--muted); }
+.legend-date-field input[type=date] { flex: 1; min-width: 0; }
+
+/* ============ mobile (≤640px) — most traffic is phones ============ */
+@media (max-width: 640px) {
+  main { padding: 16px 14px 40px; }
+
+  /* header: real tap area on nav links */
+  .site-header { padding: 10px 14px; }
+  .site-header nav { gap: 14px; }
+  .site-header nav a:not(.btn) { padding: 3px 0; }
+
+  /* homepage filters: no control may exceed the row */
+  .filters { gap: 8px; }
+  .filters select, .filters input[type=date] {
+    flex: 1 1 calc(50% - 4px); min-width: 0; max-width: 100%;
+  }
+  .filters > .btn { flex: 1 1 100%; }
+
+  /* submit wizard: drop the desktop right gutter that left a dead gap */
+  .wizard-main { padding-right: 0; }
+  .step h1 { font-size: 1.4rem; }
+  .step h2 { font-size: 1.08rem; }
+  .madlib { font-size: 1rem; }
+  .obs-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+
+  /* detail: portrait video/image shouldn't swallow the whole screen */
+  .viewer video { height: 60vh; }
+  .viewer img { max-height: 60vh; }
+
+  /* map header: the back button was position:absolute OVER the centered
+     count badge and clipped it ("9822 of 9822 si…") — put both in flow */
+  .fullmap-header { justify-content: space-between; padding: 10px 12px; gap: 8px; }
+  .map-count-badge { font-size: 0.66rem; padding: 6px 9px; }
+  .map-back-btn { position: static; font-size: 0.66rem; padding: 6px 9px; }
+}

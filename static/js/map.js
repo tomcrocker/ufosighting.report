@@ -175,6 +175,22 @@
 
     loadBases(map);
     loadPins(map, clusterLayer);
+    initLegendCollapse();
+  }
+
+  // Collapsible legend/filters panel — the full panel eats a lot of a phone
+  // screen, so it starts collapsed on narrow viewports (tap to expand).
+  function initLegendCollapse() {
+    const legend = document.getElementById("map-legend");
+    const btn = document.getElementById("legend-collapse");
+    if (!legend || !btn) return;
+    const set = (collapsed) => {
+      legend.classList.toggle("collapsed", collapsed);
+      btn.setAttribute("aria-expanded", String(!collapsed));
+    };
+    set(window.innerWidth <= 640);
+    btn.addEventListener("click", () =>
+      set(!legend.classList.contains("collapsed")));
   }
 
   if (document.readyState === "loading") {

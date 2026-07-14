@@ -603,3 +603,39 @@ span.flatpickr-weekday { color: var(--muted) !important; }
   .map-count-badge { font-size: 0.66rem; padding: 6px 9px; }
   .map-back-btn { position: static; font-size: 0.66rem; padding: 6px 9px; }
 }
+
+/* --- /guide step-by-step wizard walkthrough --- */
+.walkthrough { display: grid; gap: 14px; margin: 18px 0 8px; }
+.wstep {
+  display: flex; gap: 16px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px;
+}
+.wstep-num {
+  flex: none; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--bg2); border: 1px solid var(--accent); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-family: ui-monospace, monospace; font-weight: 600;
+}
+.wstep-body { flex: 1; min-width: 0; }
+.wstep-body h3 { margin: 3px 0 6px; font-size: 1.05rem; }
+.wstep-eyebrow { font-size: .68rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.wstep-body > p { margin: 0 0 10px; color: var(--muted); font-size: .92rem; line-height: 1.55; }
+.wstep-body ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.wstep-body li { color: var(--muted); font-size: .9rem; line-height: 1.5; }
+.wstep-body li strong { color: var(--text); }
+.tag-req { display: inline-block; font-size: .66rem; font-weight: 700; color: var(--danger);
+  border: 1px solid var(--danger); border-radius: 5px; padding: 0 5px; margin-left: 6px; vertical-align: middle; }
+.tag-opt { display: inline-block; font-size: .66rem; color: var(--muted);
+  border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; margin-left: 6px; vertical-align: middle; }
+.dm-card {
+  background: var(--bg2); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 18px; margin: 14px 0; max-width: 460px;
+}
+.dm-head { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 8px; }
+.dm-head .dm-bot { color: var(--accent); }
+.dm-subject { font-weight: 600; margin: 0 0 8px; }
+.dm-card p { margin: 0 0 8px; color: var(--muted); font-size: .9rem; }
+.dm-link { color: var(--accent2); word-break: break-all; font-family: ui-monospace, monospace; font-size: .82rem; }
+@media (max-width: 640px) {
+  .wstep { padding: 14px 16px; gap: 12px; }
+}

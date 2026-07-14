@@ -639,3 +639,13 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 @media (max-width: 640px) {
   .wstep { padding: 14px 16px; gap: 12px; }
 }
+
+/* screenshots inside the guide walkthrough */
+.wstep-shot {
+  margin-top: 14px; display: block; width: 100%; height: auto;
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.guide-shot {
+  display: block; width: 100%; height: auto; max-width: 720px;
+  border: 1px solid var(--line); border-radius: 8px; margin: 14px 0;
+}

@@ -68,6 +68,21 @@ def fetch_tles() -> int:
         return 0
 
 
+def fetch_launches() -> int:
+    """Daily launch-cache top-up: last week (late NET slips) through next
+    two days, merged into data/launches.json."""
+    from datetime import datetime, timedelta, timezone
+
+    from app import launches
+    now = datetime.now(timezone.utc)
+    try:
+        return launches.fetch_range((now - timedelta(days=7)).isoformat(),
+                                    (now + timedelta(days=2)).isoformat())
+    except Exception as exc:
+        print(f"cleanup: launch fetch failed: {exc}")
+        return 0
+
+
 def main() -> None:
     conn = db.connect(get_settings().db_path)
     try:
@@ -78,7 +93,8 @@ def main() -> None:
             f"drafts={cleanup_drafts(conn)} "
             f"pending={cleanup_pending(conn)} "
             f"rate_events={cleanup_rate_events(conn)} "
-            f"tles={fetch_tles()}"
+            f"tles={fetch_tles()} "
+            f"launches={fetch_launches()}"
         )
     finally:
         conn.close()

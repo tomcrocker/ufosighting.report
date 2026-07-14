@@ -174,6 +174,17 @@
       {% endif %}
       {% if sky.sats and sky.sats.checked %}
       <div class="sat-report">
+        {% for l in sky.sats.launches or [] %}
+        <p class="rel-item sat-flag">&#128640; <strong>Rocket launch {{ l.minutes_after|abs }} min
+          {% if l.minutes_after >= 0 %}before{% else %}after{% endif %} this sighting:</strong>
+          {{ l.provider }} {{ l.name }} from {{ l.pad }}, ~{{ l.distance_km }} km away —
+          twilight launches produce glowing plumes widely reported as UFOs</p>
+        {% endfor %}
+        {% if sky.sats.iss %}
+        <p class="rel-item sat-flag">&#128752; <strong>The ISS was overhead:</strong>
+          {{ sky.sats.iss.alt }}&deg; above the {{ sky.sats.iss.az }} horizon at
+          {{ sky.sats.iss.time }} UTC — the brightest object in the night sky after the Moon</p>
+        {% endif %}
         {% if sky.sats.trains %}
         {% for t in sky.sats.trains %}
         <p class="rel-item sat-flag">&#128680; <strong>Starlink train overhead:</strong>

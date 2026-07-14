@@ -45,11 +45,11 @@ def test_passes_for_detects_overhead_sat(tmp_path, monkeypatch):
     out = satellites.passes_for(sub.latitude.degrees, sub.longitude.degrees, when)
     assert out["checked"] is True
     assert out["visibility_filtered"] is False
-    names = [b["name"] for b in out["bright"]]
-    assert "ISS (ZARYA)" in names
-    top = out["bright"][0]
-    assert top["alt"] > 80  # directly underneath
-    assert top["az"]  # compass name present
+    # the ISS is pulled out of the generic bright list into its own callout
+    assert out["iss"] is not None and out["iss"]["name"] == "ISS (ZARYA)"
+    assert out["iss"]["alt"] > 80  # directly underneath
+    assert out["iss"]["az"]  # compass name present
+    assert all(b["name"] != "ISS (ZARYA)" for b in out["bright"])
 
 
 def test_fetch_today_caches(tmp_path, monkeypatch):

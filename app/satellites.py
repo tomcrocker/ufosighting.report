@@ -174,11 +174,28 @@ def passes_for(lat: float, lon: float, when_iso: str) -> dict:
             trains.append({"batch": batch, "count": len(members),
                            "az": "/".join(sorted(azs)[:3]),
                            "time": min(m["time"] for m in members)})
+    iss, bright = extract_iss(bright)
+    try:
+        from app import launches as _launches
+        rockets = _launches.matches(lat, lon, when_iso)
+    except Exception:
+        rockets = []
     return {
         "checked": True,
         "catalog_date": catalog,
         "visibility_filtered": eph is not None,
+        "iss": iss,
+        "launches": rockets,
         "bright": bright[:6],
         "starlink_visible": starlink_visible,
         "trains": sorted(trains, key=lambda t: -t["count"])[:3],
     }
+
+
+def extract_iss(bright: list[dict]) -> tuple[dict | None, list[dict]]:
+    """The ISS deserves its own callout, not a slot in the generic list —
+    it's the brightest thing up there and a top misidentification source."""
+    for i, e in enumerate(bright):
+        if "ISS" in e["name"].upper() or "ZARYA" in e["name"].upper():
+            return e, bright[:i] + bright[i + 1:]
+    return None, bright

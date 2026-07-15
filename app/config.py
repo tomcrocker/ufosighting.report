@@ -49,6 +49,8 @@ class Settings:
     meili_key: str
     meili_index: str
     indexnow_key: str
+    anonymous_onion: str
+    anonymous_enabled: bool
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -104,4 +106,11 @@ def get_settings() -> Settings:
         meili_key=_env("MEILI_KEY", ""),
         meili_index=_env("MEILI_INDEX", "sightings"),
         indexnow_key=_env("INDEXNOW_KEY", ""),
+        anonymous_onion=_env(
+            "ANONYMOUS_ONION",
+            "4hqzw2mhq33gihjrwm6nldl2rhlqsgzurypttqwmtdoegw6cfvqd3lid.onion"),
+        # off until the GlobaLeaks wizard is done — publishing the onion before
+        # then lets the first visitor claim admin of the fresh instance
+        anonymous_enabled=_env("ANONYMOUS_ENABLED", "").strip().lower()
+        in ("1", "true", "yes", "on"),
     )

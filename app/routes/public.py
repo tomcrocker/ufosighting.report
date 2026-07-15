@@ -430,6 +430,20 @@ def guide(request: Request, user=Depends(current_user)):
          "canonical": f"{s.base_url}/guide"})
 
 
+@router.get("/anonymous")
+def anonymous(request: Request, user=Depends(current_user)):
+    """How to submit UFO footage anonymously (Tor onion / GlobaLeaks). The
+    onion is only shown, indexed, and sitemapped once ANONYMOUS_ENABLED is
+    set — before the GlobaLeaks wizard is done, publishing it would let the
+    first visitor claim admin of the fresh instance."""
+    s = get_settings()
+    return templates.TemplateResponse(
+        request, "anonymous.html",
+        {"user": user, "onion": s.anonymous_onion,
+         "enabled": s.anonymous_enabled,
+         "canonical": f"{s.base_url}/anonymous"})
+
+
 @router.get("/search")
 def search_redirect(request: Request):
     """Search lives on the gallery now — permanent redirect keeps old links."""
@@ -440,9 +454,12 @@ def search_redirect(request: Request):
 
 @router.get("/sitemap.xml")
 def sitemap(conn=Depends(db.get_db)):
-    base = get_settings().base_url
+    s = get_settings()
+    base = s.base_url
     urls = [(f"{base}/", None), (f"{base}/map", None),
             (f"{base}/investigate", None), (f"{base}/guide", None)]
+    if s.anonymous_enabled:
+        urls.append((f"{base}/anonymous", None))
     for r in conn.execute(
         f"SELECT id, title, created_at FROM sightings "
         f"WHERE status IN {PUBLIC_STATUSES_SQL} ORDER BY id"

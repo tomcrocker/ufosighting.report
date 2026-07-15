@@ -426,3 +426,31 @@ def test_sky_panel_negative_result(client, app_db):
     app_db.commit()
     r = client.get(f"/sighting/{sid}/sat-negative-check")
     assert "No bright satellites were visible overhead" in r.text
+
+
+def test_anonymous_page_gated_off_by_default(client):
+    r = client.get("/anonymous")
+    assert r.status_code == 200
+    assert "Share footage anonymously" in r.text
+    assert "being finalized" in r.text          # onion withheld
+    assert "4hqzw2" not in r.text                # real onion not shown
+    assert "noindex" in r.text                   # not indexable while off
+
+
+def test_anonymous_page_shows_onion_when_enabled(client, monkeypatch):
+    from app.config import get_settings
+    monkeypatch.setenv("ANONYMOUS_ENABLED", "true")
+    monkeypatch.setenv("ANONYMOUS_ONION", "testonionaddr7xyz.onion")
+    get_settings.cache_clear()
+    r = client.get("/anonymous")
+    assert "testonionaddr7xyz.onion" in r.text
+    assert "noindex" not in r.text
+    assert "r/UFOs" in r.text and "moderation team" in r.text
+
+
+def test_anonymous_in_sitemap_only_when_enabled(client, monkeypatch):
+    from app.config import get_settings
+    assert "/anonymous" not in client.get("/sitemap.xml").text
+    monkeypatch.setenv("ANONYMOUS_ENABLED", "1")
+    get_settings.cache_clear()
+    assert "/anonymous" in client.get("/sitemap.xml").text

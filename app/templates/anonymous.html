@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Share UFO footage anonymously | ufosighting.report{% endblock %}
+{% block meta_description %}Submit UFO footage without revealing who you are. A separate Tor-based anonymous channel, reviewed by the r/UFOs moderators and shared with the community if it holds up.{% endblock %}
+{% block robots %}{% if not enabled %}<meta name="robots" content="noindex,nofollow">{% endif %}{% endblock %}
+{% block content %}
+<div class="guide">
+  <section class="guide-hero">
+    <h1>Share footage anonymously</h1>
+    <p class="muted">For a photo or video you want on the record but can't put your name
+      to. No account, no Reddit username, and no point in the process where you identify
+      yourself. Reviewed by the r/UFOs mod team, and shared with the community if it holds up.</p>
+    {% if enabled %}
+    <div class="onion-box">
+      <span class="onion-label">Submission address &middot; opens in Tor Browser only</span>
+      <code class="onion-addr">http://{{ onion }}</code>
+    </div>
+    {% else %}
+    <p class="onion-pending">This channel is being finalized. Check back shortly.</p>
+    {% endif %}
+  </section>
+
+  <section class="guide-section">
+    <h2>When to use this</h2>
+    <p>The normal <a href="/submit">report form</a> credits you by your Reddit username.
+      Use this page instead when you have footage you want preserved but can't attach your
+      name to, for whatever reason. It runs on a completely separate system that shares
+      nothing with the main site.</p>
+  </section>
+
+  <section class="guide-section">
+    <h2>How it works</h2>
+    <div class="guide-cols">
+      <div class="guide-card">
+        <h3>&#128272;&nbsp; Reached only over Tor</h3>
+        <p>The drop box runs as a Tor onion service. Opened in Tor Browser, the connection
+          never reveals your IP address, so the server cannot learn where you are. There is
+          no login and nothing that ties a submission back to you.</p>
+      </div>
+      <div class="guide-card">
+        <h3>&#128214;&nbsp; Audited, open software</h3>
+        <p>It runs <a href="https://www.globaleaks.org/" target="_blank" rel="noopener">GlobaLeaks</a>,
+          the same audited whistleblowing platform used by newsrooms and anti-corruption
+          groups. We did not roll our own. Every file is encrypted the moment it arrives.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="guide-section">
+    <h2>How to submit</h2>
+    <div class="walkthrough">
+      <div class="wstep"><div class="wstep-num">1</div><div class="wstep-body">
+        <span class="wstep-eyebrow">Step 1</span>
+        <h3>Install Tor Browser</h3>
+        <p>Download it from <a href="https://www.torproject.org/download/" target="_blank" rel="noopener">torproject.org</a>.
+          For the strongest protection, open its settings and set the security level to
+          <strong>Safest</strong>.</p>
+      </div></div>
+      <div class="wstep"><div class="wstep-num">2</div><div class="wstep-body">
+        <span class="wstep-eyebrow">Step 2</span>
+        <h3>Open the drop box</h3>
+        {% if enabled %}
+        <p>Paste this address into Tor Browser:</p>
+        <code class="onion-addr">http://{{ onion }}</code>
+        {% else %}
+        <p>The address will appear here once the channel is live.</p>
+        {% endif %}
+        <p class="muted" style="margin-top:8px">A normal browser cannot reach it, and that
+          is the point.</p>
+      </div></div>
+      <div class="wstep"><div class="wstep-num">3</div><div class="wstep-body">
+        <span class="wstep-eyebrow">Step 3</span>
+        <h3>Sanitize your footage first</h3>
+        <p>Read the safety notes below and check your files before uploading. This is the
+          step that actually protects you, and it is the one part we cannot do for you.</p>
+      </div></div>
+      <div class="wstep"><div class="wstep-num">4</div><div class="wstep-body">
+        <span class="wstep-eyebrow">Step 4</span>
+        <h3>Upload and submit</h3>
+        <p>Attach your photos or video and add a short description. You do not need to fill
+          in anything that could identify you, and anything sensitive is optional.</p>
+      </div></div>
+      <div class="wstep"><div class="wstep-num">5</div><div class="wstep-body">
+        <span class="wstep-eyebrow">Step 5</span>
+        <h3>Save your receipt code</h3>
+        <p>You will get a 16 digit receipt. Keep it somewhere safe. It is the only way to
+          check back for questions from the mods or to add more later, and it is tied to
+          nothing but itself.</p>
+      </div></div>
+    </div>
+  </section>
+
+  <section class="guide-section">
+    <h2>Protect yourself</h2>
+    <div class="guide-cols">
+      <div class="guide-card guide-card-accent">
+        <h3>&#128737;&#65039;&nbsp; What we handle</h3>
+        <p>Every file is stripped of its metadata automatically. GPS coordinates, device
+          details, and timestamps are removed before anything is stored or shared.</p>
+      </div>
+      <div class="guide-card guide-card-accent">
+        <h3>&#128064;&nbsp; What only you can do</h3>
+        <p>We cannot change what is visible or audible <em>inside</em> the footage. That
+          part is on you, before you upload.</p>
+      </div>
+    </div>
+    <ul class="guide-list">
+      <li>Check for <strong>reflections</strong> that show you, your phone, or your surroundings.</li>
+      <li>Listen for <strong>audio</strong> with voices, names, or sounds that place you.</li>
+      <li>Watch for <strong>screens, monitors, or documents</strong> caught in the frame.</li>
+      <li>Look for <strong>recognizable landmarks</strong> near where you live or work, and
+        for timestamps burned into the picture.</li>
+      <li>Every camera leaves an invisible <strong>sensor fingerprint</strong> in its files
+        that can, in theory, be matched to the physical device. If that worries you, upload
+        a re-encoded copy rather than the original straight off the camera.</li>
+      <li>Do not type your real name, email, or any contact detail into the form.</li>
+    </ul>
+    <p class="muted">An honest limit: this protects you against being identified through the
+      network and the file itself. It cannot protect you against footage that shows something
+      identifying, and no system can. If your situation is genuinely high-risk, use a
+      purpose-built tool like <a href="https://securedrop.org/" target="_blank" rel="noopener">SecureDrop</a>
+      and seek advice first.</p>
+  </section>
+
+  <section class="guide-section">
+    <h2>What happens to your submission</h2>
+    <ol class="guide-steps">
+      <li><strong>A human reviews it.</strong> Every anonymous submission goes to the
+        <a href="https://www.reddit.com/r/UFOs/">r/UFOs</a> moderation team. Nothing is
+        published automatically.</li>
+      <li><strong>If it holds up, it is shared.</strong> When a submission looks credible
+        and adds something, the mods post it for the community, clearly marked as an
+        anonymous, unverified report, with your identity never attached.</li>
+      <li><strong>If it does not, it is not.</strong> Clear hoaxes, reposts, and anything
+        unsafe to publish are not shared. Anonymous footage cannot be verified the way a
+        named report can, so it is always labeled as such and weighed with appropriate
+        skepticism.</li>
+      <li><strong>You stay in the loop.</strong> Use your receipt code to check back. The
+        mods can ask follow-up questions through the platform and you can answer, without
+        either side ever knowing who the other is.</li>
+    </ol>
+  </section>
+
+  <section class="guide-hero">
+    {% if enabled %}
+    <p class="muted">Ready? Open this in Tor Browser:</p>
+    <code class="onion-addr">http://{{ onion }}</code>
+    {% else %}
+    <p class="onion-pending">This channel is being finalized. Check back shortly.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

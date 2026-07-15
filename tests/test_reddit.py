@@ -134,6 +134,19 @@ def test_list_flair_posts_parses():
 
 
 @respx.mock
+def test_list_new_flair_posts_filters_by_flair():
+    # /new returns all flairs; we keep only the matching ones (case-insensitive)
+    respx.get("https://oauth.reddit.com/r/UFOs_sandbox/new").mock(
+        return_value=httpx.Response(200, json={"data": {"children": [
+            {"data": {"id": "s1", "link_flair_text": "Sighting"}},
+            {"data": {"id": "v1", "link_flair_text": "Video"}},
+            {"data": {"id": "s2", "link_flair_text": "sighting"}},
+            {"data": {"id": "n1", "link_flair_text": None}}]}}))
+    posts = reddit.list_new_flair_posts("tok", subreddit="UFOs_sandbox", flair="Sighting")
+    assert [p["id"] for p in posts] == ["s1", "s2"]
+
+
+@respx.mock
 def test_read_token_falls_back_to_bot_when_unset():
     # READ_USERNAME is empty in the test env → read_token == script_token
     route = respx.post("https://www.reddit.com/api/v1/access_token").mock(

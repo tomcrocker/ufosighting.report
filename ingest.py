@@ -274,8 +274,9 @@ def _ping_indexnow(conn, pids: list[str]) -> None:
 def ingest_once(conn, *, limit=100, after=None) -> dict:
     s = get_settings()
     token = reddit.read_token()
-    posts, _after = reddit.list_flair_posts(token, subreddit=s.ingest_subreddit,
-                                            flair="Sighting", limit=limit, after=after)
+    # /new (real-time), not /search (whose index lags and drops fresh posts)
+    posts = reddit.list_new_flair_posts(token, subreddit=s.ingest_subreddit,
+                                        flair="Sighting", limit=limit)
     added_pids = []
     for p in posts:
         if ingest_post(conn, p, token=token):

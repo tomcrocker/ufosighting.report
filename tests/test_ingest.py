@@ -83,9 +83,9 @@ def test_ingest_once_uses_ingest_subreddit(db_conn, monkeypatch):
 
     def fake_list(tok, **k):
         seen.update(k)
-        return ([_post("a")], None)
+        return [_post("a")]
 
-    monkeypatch.setattr(ingest.reddit, "list_flair_posts", fake_list)
+    monkeypatch.setattr(ingest.reddit, "list_new_flair_posts", fake_list)
     _stub_pipeline(monkeypatch)
     monkeypatch.setattr(ingest.time, "sleep", lambda s: None)
     ingest.ingest_once(db_conn)

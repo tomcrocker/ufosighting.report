@@ -225,6 +225,25 @@ def list_flair_posts(access_token, *, subreddit, flair, limit=100, after=None):
     return [c["data"] for c in data.get("children", [])], data.get("after")
 
 
+def list_new_flair_posts(access_token, *, subreddit, flair, limit=100):
+    """Newest posts of a flair, taken from the real-time /new listing and
+    filtered client-side. Reddit's /search index lags minutes to hours behind
+    for fresh posts (and sometimes never indexes them), so the live ingest
+    must not trust search. /new is authoritative and immediate."""
+    resp = httpx.get(
+        f"https://oauth.reddit.com/r/{subreddit}/new",
+        params={"limit": limit},
+        headers=_headers(access_token),
+        timeout=30,
+    )
+    if resp.status_code != 200:
+        raise RedditError(f"new listing failed: HTTP {resp.status_code}")
+    want = flair.strip().lower()
+    posts = [c["data"] for c in resp.json().get("data", {}).get("children", [])]
+    return [p for p in posts
+            if (p.get("link_flair_text") or "").strip().lower() == want]
+
+
 def fetch_post(access_token, post_id):
     resp = httpx.get(
         INFO_URL,

@@ -98,14 +98,17 @@ def _mercy(lat):
 
 def render_png(anom, presence, out_path):
     inten = np.clip((anom - LO) / (HI - LO), 0, 1) ** 0.85
-    present = np.clip(presence / 4.0, 0, 1)
+    # sensitivity: /2 (was /4) lets mid-data countries (CA/AU/DE/BR) render, and
+    # weighting alpha toward inten (0.15 + 0.85) keeps hotspots vivid while the
+    # empirical-Bayes prior holds 1-2-report noise near baseline (low inten -> faint)
+    present = np.clip(presence / 2.0, 0, 1)
     rgba = np.zeros((NLAT, NLON, 4), np.uint8)
     for i in range(NLAT):
         for j in range(NLON):
             if present[i, j] <= 0.02:
                 continue
             r, g, b = _cmap(inten[i, j])
-            a = present[i, j] * (0.30 + 0.70 * inten[i, j])
+            a = present[i, j] * (0.15 + 0.85 * inten[i, j])
             rgba[i, j] = (r, g, b, int(min(a, 1.0) * 255))
     eq = rgba[::-1]  # row 0 -> north (LAT1)
     eq_img = Image.fromarray(eq, "RGBA").resize(

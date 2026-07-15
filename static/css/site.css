@@ -393,12 +393,18 @@ span.flatpickr-weekday { color: var(--muted) !important; }
   font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .13em;
   color: var(--reddit-ink);
 }
-.hero-cta { margin: 14px 0 0; }
+/* scoped to beat `.intro p { margin: 0 }` (higher specificity) — otherwise the
+   button sits flush against the paragraph above with no gap */
+.intro .hero-cta { margin: 22px 0 0; }
+/* secondary emphasis — the green "Report a sighting" stays the primary CTA, so
+   this stays a quiet tinted outline (same language as .reddit-badge) */
 .btn.reddit {
   display: inline-flex; align-items: center; gap: 8px;
-  background: var(--reddit); border-color: var(--reddit); color: #fff; font-weight: 600;
+  background: rgba(255, 69, 0, .10); border-color: rgba(255, 69, 0, .42);
+  color: var(--reddit-ink); font-weight: 600;
 }
-.btn.reddit:hover { filter: brightness(1.08); text-decoration: none; }
+.btn.reddit .snoo { width: 18px; height: 18px; }
+.btn.reddit:hover { background: rgba(255, 69, 0, .18); text-decoration: none; }
 .community-reddit { display: inline-flex !important; align-items: center; gap: 7px; }
 
 /* --- homepage intro --- */

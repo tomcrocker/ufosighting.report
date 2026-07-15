@@ -1,26 +1,38 @@
 import build_anomaly as ba
 
 
-def test_compute_grid_flags_excess_over_population():
-    # two areas with equal population; area A reports 10x more sightings than B,
-    # so A must score as the anomaly even though population is identical.
-    city_pts = [(34.0, -112.0, 100_000), (40.0, -80.0, 100_000)]
-    sights = [(34.0, -112.0)] * 20 + [(40.0, -80.0)] * 2
-    anom, presence = ba.compute_grid(sights, city_pts)
-    ia, ja = ba._cell(34.0, -112.0)
-    ib, jb = ba._cell(40.0, -80.0)
-    assert anom[ia, ja] > 1.2                       # clear excess over expected
-    assert anom[ia, ja] / anom[ib, jb] > 1.4        # A far more anomalous than B
-    assert presence[ia, ja] > presence[ib, jb]
+def _patch(center_reports, other_reports, pop=50_000, step=0.75):
+    """A grid of equally-populated towns; the centre town reports
+    center_reports, every other town reports other_reports."""
+    cities, sights = [], []
+    clat, clon = 40.0, -100.0
+    for di in range(-3, 4):
+        for dj in range(-3, 4):
+            la, lo = clat + di * step, clon + dj * step
+            cities.append((la, lo, pop))
+            n = center_reports if (di == 0 and dj == 0) else other_reports
+            sights += [(la, lo)] * n
+    return cities, sights, (clat, clon)
 
 
-def test_compute_grid_ratio_is_one_when_reports_track_population():
-    # equal population AND equal reports -> neither is anomalous (~1.0 each)
-    city_pts = [(34.0, -112.0, 100_000), (40.0, -80.0, 100_000)]
-    sights = [(34.0, -112.0)] * 10 + [(40.0, -80.0)] * 10
-    anom, _ = ba.compute_grid(sights, city_pts)
-    ia, ja = ba._cell(34.0, -112.0)
-    assert 0.7 < anom[ia, ja] < 1.4
+def test_flags_local_excess_vs_region():
+    # centre reports 10x its neighbours at equal population -> anomalous vs region
+    cities, sights, (clat, clon) = _patch(center_reports=30, other_reports=3)
+    anom, pres = ba.compute_grid(sights, cities)
+    ic, jc = ba._cell(clat, clon)
+    ie, je = ba._cell(clat + 2 * 0.75, clon + 2 * 0.75)   # an ordinary town
+    assert anom[ic, jc] > anom[ie, je]
+    assert anom[ic, jc] > 1.3            # clearly above the regional baseline
+    assert anom[ie, je] < 1.2            # ordinary town ~ baseline
+    assert pres[ic, jc] > pres[ie, je]
+
+
+def test_uniform_reporting_is_not_anomalous():
+    # every town reports the same at equal population -> nobody is a hotspot
+    cities, sights, (clat, clon) = _patch(center_reports=5, other_reports=5)
+    anom, _ = ba.compute_grid(sights, cities)
+    ic, jc = ba._cell(clat, clon)
+    assert 0.7 < anom[ic, jc] < 1.3
 
 
 def test_compute_grid_empty_is_safe():

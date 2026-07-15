@@ -149,9 +149,9 @@
   // overlay rather than a heat layer: leaflet.heat sums overlapping points,
   // which would re-introduce the population-density effect we removed. The PNG
   // is Web-Mercator projected (build_anomaly.py) so it aligns with the basemap.
-  var ANOMALY_BOUNDS = [[24, -125], [50, -66]];   // must match build_anomaly.py
+  var ANOMALY_BOUNDS = [[-56, -180], [72, 180]];   // must match build_anomaly.py
   function loadAnomaly() {
-    anomalyLayer = L.imageOverlay("/static/img/anomaly-us.png", ANOMALY_BOUNDS,
+    anomalyLayer = L.imageOverlay("/static/img/anomaly-world.png", ANOMALY_BOUNDS,
       { opacity: 0.95, interactive: false });
   }
 

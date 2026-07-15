@@ -151,7 +151,11 @@
   // is Web-Mercator projected (build_anomaly.py) so it aligns with the basemap.
   var ANOMALY_BOUNDS = [[-56, -180], [72, 180]];   // must match build_anomaly.py
   function loadAnomaly() {
-    anomalyLayer = L.imageOverlay("/static/img/anomaly-world.png", ANOMALY_BOUNDS,
+    // URL carries ?v=static_v (from the #map data attribute) so a regenerated
+    // surface busts the nginx/Cloudflare 7-day static cache on redeploy
+    var src = document.getElementById("map").dataset.anomalySrc
+      || "/static/img/anomaly-world.png";
+    anomalyLayer = L.imageOverlay(src, ANOMALY_BOUNDS,
       { opacity: 0.95, interactive: false });
   }
 

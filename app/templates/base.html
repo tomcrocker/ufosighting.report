@@ -20,6 +20,16 @@
   <link rel="alternate" type="application/rss+xml" title="Latest UFO sightings" href="/feed.xml">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/css/site.css?v={{ static_v }}">
+  {% block analytics %}{% if ga_id %}
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_id }}"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', '{{ ga_id }}');
+  </script>
+  {% endif %}{% endblock %}
   {% block head %}{% endblock %}
 </head>
 <body>

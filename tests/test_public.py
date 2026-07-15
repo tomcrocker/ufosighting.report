@@ -454,3 +454,17 @@ def test_anonymous_in_sitemap_only_when_enabled(client, monkeypatch):
     monkeypatch.setenv("ANONYMOUS_ENABLED", "1")
     get_settings.cache_clear()
     assert "/anonymous" in client.get("/sitemap.xml").text
+
+
+def test_ga_absent_by_default(client):
+    assert "googletagmanager.com" not in client.get("/").text
+
+
+def test_ga_renders_when_configured_but_not_on_anonymous(client, monkeypatch):
+    from app.web import templates
+    monkeypatch.setitem(templates.env.globals, "ga_id", "G-TESTID123")
+    home = client.get("/")
+    assert "googletagmanager.com/gtag/js?id=G-TESTID123" in home.text
+    # the anonymous-submission page suppresses analytics for source privacy
+    anon = client.get("/anonymous")
+    assert "googletagmanager.com" not in anon.text

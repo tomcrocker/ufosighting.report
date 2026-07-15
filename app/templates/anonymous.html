@@ -2,6 +2,9 @@
 {% block title %}Share UFO footage anonymously | ufosighting.report{% endblock %}
 {% block meta_description %}Submit UFO footage without revealing who you are. A separate Tor-based anonymous channel, reviewed by the r/UFOs moderators and shared with the community if it holds up.{% endblock %}
 {% block robots %}{% if not enabled %}<meta name="robots" content="noindex,nofollow">{% endif %}{% endblock %}
+{# no analytics on the anonymous-submission page — a source researching how to
+   submit shouldn't be tracked by Google #}
+{% block analytics %}{% endblock %}
 {% block content %}
 <div class="guide">
   <section class="guide-hero">

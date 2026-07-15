@@ -51,6 +51,7 @@ class Settings:
     indexnow_key: str
     anonymous_onion: str
     anonymous_enabled: bool
+    ga_measurement_id: str
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -113,4 +114,5 @@ def get_settings() -> Settings:
         # then lets the first visitor claim admin of the fresh instance
         anonymous_enabled=_env("ANONYMOUS_ENABLED", "").strip().lower()
         in ("1", "true", "yes", "on"),
+        ga_measurement_id=_env("GA_MEASUREMENT_ID", "").strip(),
     )

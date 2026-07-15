@@ -183,6 +183,9 @@ form.form textarea { min-height: 140px; resize: vertical; }
 /* Map legend */
 .map-legend {
   position: fixed; bottom: 24px; left: 16px; z-index: 1000;
+  /* cap the width so the anomaly explainer wraps instead of stretching the
+     whole panel edge-to-edge */
+  max-width: min(340px, calc(100vw - 32px));
   background: var(--bg2); border: 1px solid var(--line); border-radius: 8px;
   padding: 12px; font-family: ui-monospace, monospace; font-size: 0.72rem;
 }

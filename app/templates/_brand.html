@@ -1,0 +1,4 @@
+{# Reddit Snoo mark — inline SVG so it stays crisp at any size, needs no
+   hosted asset, and matches the dark theme. Used to signal the r/UFOs
+   community tie in the header, hero, and footer. #}
+{% macro snoo(cls="") %}<svg class="snoo {{ cls }}" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="12" fill="#ff4500"/><line x1="12.4" y1="9" x2="15.6" y2="5.4" stroke="#fff" stroke-width="1.15" stroke-linecap="round"/><circle cx="16.1" cy="5" r="1.55" fill="#fff"/><ellipse cx="12" cy="14.1" rx="7.1" ry="4.9" fill="#fff"/><circle cx="5.4" cy="12.8" r="1.95" fill="#fff"/><circle cx="18.6" cy="12.8" r="1.95" fill="#fff"/><circle cx="9.5" cy="13.5" r="1.2" fill="#ff4500"/><circle cx="14.5" cy="13.5" r="1.2" fill="#ff4500"/><path d="M8.7 16.1c.9 1.15 5.7 1.15 6.6 0" stroke="#ff4500" stroke-width="1.05" fill="none" stroke-linecap="round"/></svg>{% endmacro %}

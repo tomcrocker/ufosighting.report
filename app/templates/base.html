@@ -1,4 +1,4 @@
-<!doctype html>
+{% from "_brand.html" import snoo %}<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -34,21 +34,25 @@
 </head>
 <body>
 <header class="site-header">
-  <a class="brand" href="/">
-    <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <polygon class="beam" points="12,15 20,15 24,30 8,30" fill="url(#beamgrad)"/>
-      <defs><linearGradient id="beamgrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#6ee7a0" stop-opacity=".55"/>
-        <stop offset="100%" stop-color="#6ee7a0" stop-opacity="0"/>
-      </linearGradient></defs>
-      <ellipse cx="16" cy="10" rx="6" ry="4.5" fill="#233350" stroke="#7aa2ff" stroke-width="1.4"/>
-      <ellipse cx="16" cy="13" rx="12" ry="4" fill="#171d2e" stroke="#6ee7a0" stroke-width="1.6"/>
-      <circle cx="9" cy="14" r="1.1" fill="#6ee7a0"/>
-      <circle cx="16" cy="15" r="1.1" fill="#7aa2ff"/>
-      <circle cx="23" cy="14" r="1.1" fill="#6ee7a0"/>
-    </svg>
-    <span class="brand-word">ufosighting<span>.report</span></span>
-  </a>
+  <div class="brand-group">
+    <a class="brand" href="/">
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <polygon class="beam" points="12,15 20,15 24,30 8,30" fill="url(#beamgrad)"/>
+        <defs><linearGradient id="beamgrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#6ee7a0" stop-opacity=".55"/>
+          <stop offset="100%" stop-color="#6ee7a0" stop-opacity="0"/>
+        </linearGradient></defs>
+        <ellipse cx="16" cy="10" rx="6" ry="4.5" fill="#233350" stroke="#7aa2ff" stroke-width="1.4"/>
+        <ellipse cx="16" cy="13" rx="12" ry="4" fill="#171d2e" stroke="#6ee7a0" stroke-width="1.6"/>
+        <circle cx="9" cy="14" r="1.1" fill="#6ee7a0"/>
+        <circle cx="16" cy="15" r="1.1" fill="#7aa2ff"/>
+        <circle cx="23" cy="14" r="1.1" fill="#6ee7a0"/>
+      </svg>
+      <span class="brand-word">ufosighting<span>.report</span></span>
+    </a>
+    <a class="reddit-badge" href="https://www.reddit.com/r/UFOs/" target="_blank"
+       rel="noopener" title="The r/UFOs community on Reddit">{{ snoo() }}<span>r/UFOs</span></a>
+  </div>
   <nav>
     <a href="/" {% if request.url.path == '/' %}class="active"{% endif %}>Gallery</a>
     <a href="/map" {% if request.url.path == '/map' %}class="active"{% endif %}>Map</a>
@@ -93,7 +97,7 @@
       </div>
       <div>
         <h4>Community</h4>
-        <a href="https://www.reddit.com/r/UFOs/">r/UFOs on Reddit</a>
+        <a class="community-reddit" href="https://www.reddit.com/r/UFOs/">{{ snoo("snoo-sm") }}r/UFOs on Reddit</a>
         <a href="https://ufos.wiki/">ufos.wiki</a>
       </div>
     </div>

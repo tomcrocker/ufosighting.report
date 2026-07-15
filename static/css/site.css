@@ -2,6 +2,10 @@
   --bg: #0b0e14; --bg2: #121724; --panel: #171d2e; --line: #232b42;
   --text: #dbe2f4; --muted: #8b96b5; --accent: #6ee7a0; --accent2: #7aa2ff;
   --danger: #ff7a7a; --radius: 10px;
+  /* Reddit orange — scoped strictly to r/UFOs community elements (badge,
+     hero eyebrow, join button) so the tie reads instantly without fighting
+     the green/blue theme. --reddit-ink is the lifted tone for text on dark. */
+  --reddit: #ff4500; --reddit-ink: #ff6a33;
   /* dark-only site: makes native controls (date pickers, scrollbars) render
      for dark — without this, iOS renders empty date inputs dark-on-dark so
      the placeholder is invisible until tapped */
@@ -371,6 +375,31 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .brand-word { letter-spacing: .01em; }
 .site-header nav a.active { color: var(--accent); }
 .site-header nav a.active:hover { text-decoration: none; }
+
+/* --- r/UFOs community branding --- */
+.snoo { width: 22px; height: 22px; flex: none; display: inline-block; vertical-align: middle; }
+.snoo.snoo-sm { width: 16px; height: 16px; }
+.brand-group { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.reddit-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .8rem; font-weight: 700; letter-spacing: .01em; color: var(--reddit-ink);
+  background: rgba(255, 69, 0, .10); border: 1px solid rgba(255, 69, 0, .42);
+  border-radius: 999px; padding: 3px 11px 3px 4px; line-height: 1;
+}
+.reddit-badge .snoo { width: 18px; height: 18px; }
+.reddit-badge:hover { background: rgba(255, 69, 0, .18); text-decoration: none; }
+.community-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px;
+  font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .13em;
+  color: var(--reddit-ink);
+}
+.hero-cta { margin: 14px 0 0; }
+.btn.reddit {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--reddit); border-color: var(--reddit); color: #fff; font-weight: 600;
+}
+.btn.reddit:hover { filter: brightness(1.08); text-decoration: none; }
+.community-reddit { display: inline-flex !important; align-items: center; gap: 7px; }
 
 /* --- homepage intro --- */
 .intro { margin: 2px 0 18px; max-width: 720px; }

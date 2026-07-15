@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
+{% from "_brand.html" import snoo %}
 <section class="intro">
+  <p class="community-eyebrow">{{ snoo() }} The r/UFOs community sighting archive</p>
   <h1>UFO sightings, on the record</h1>
   <p class="hero-stats"><strong>{{ "{:,}".format(grand_total) }}</strong> sightings archived
     {% if latest_at %}&middot; latest added {{ latest_at[:10] }}{% endif %}
@@ -9,6 +11,8 @@
      every sighting reported through this site or posted to the subreddit, preserved with
      its media, location, and time. Browse the gallery, explore the
      <a href="/map">map</a>, or <a href="/submit">report what you saw</a>.</p>
+  <p class="hero-cta"><a class="btn reddit" href="https://www.reddit.com/r/UFOs/"
+     target="_blank" rel="noopener">Join the r/UFOs community on Reddit &rarr;</a></p>
 </section>
 <form class="filters" method="get" action="/">
   <div class="home-search">

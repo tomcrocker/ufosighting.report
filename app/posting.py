@@ -144,6 +144,7 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
     # AND plain self posts). Rescue via mod-approve: the bot first, then the
     # personal mod account (the bot may lack the "posts" mod permission or
     # have lost app access). Best-effort, non-fatal.
+    info = None
     try:
         info = reddit.fetch_post(token, post_id)
         if info and info.get("removed_by_category") == "reddit":
@@ -154,10 +155,13 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
             print(f"self-approved spam-filtered post {post_id}")
     except Exception as exc:  # rescue is best-effort — never break the posting
         print(f"self-approve check on {post_id} failed (non-fatal): {exc}")
+    # created_utc rides along in the same fetch_post response; the post was just
+    # created, so it's authoritative for reddit_posted_at.
+    posted_at = helpers.iso_from_epoch(info.get("created_utc")) if info else None
     conn.execute(
-        "UPDATE sightings SET reddit_post_id=?, status='live', username_verified=?, "
-        "verify_token=NULL WHERE id=?",
-        (post_id, 1 if verified else row["username_verified"], sighting_id),
+        "UPDATE sightings SET reddit_post_id=?, reddit_posted_at=?, status='live', "
+        "username_verified=?, verify_token=NULL WHERE id=?",
+        (post_id, posted_at, 1 if verified else row["username_verified"], sighting_id),
     )
     conn.commit()
     search.index_sightings(conn, [sighting_id])

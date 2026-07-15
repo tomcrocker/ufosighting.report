@@ -32,6 +32,23 @@ def test_to_utc_and_back():
     assert helpers.from_utc("2026-07-02T05:15:00Z", "America/Vancouver") == "2026-07-01 22:15"
 
 
+def test_iso_from_epoch():
+    # 2026-07-15 18:24:00 UTC
+    assert helpers.iso_from_epoch(1784139840) == "2026-07-15T18:24:00Z"
+    assert helpers.iso_from_epoch("1784139840") == "2026-07-15T18:24:00Z"
+    assert helpers.iso_from_epoch(0) is None
+    assert helpers.iso_from_epoch(None) is None
+    assert helpers.iso_from_epoch("not-a-number") is None
+
+
+def test_post_date():
+    assert helpers.post_date("2026-07-15T18:24:00Z") == "15 Jul 2026"
+    assert helpers.post_date("2026-07-05T00:00:00Z") == "5 Jul 2026"  # no leading zero
+    assert helpers.post_date(None) == ""
+    assert helpers.post_date("") == ""
+    assert helpers.post_date("garbage") == ""
+
+
 def _full_clean():
     return {
         "tz_name": "America/Vancouver",

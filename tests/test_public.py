@@ -137,6 +137,20 @@ def test_detail_shows_structured_fields(client, app_db):
         assert text in r.text
 
 
+def test_detail_shows_reddit_posted_date(client, app_db):
+    sid = seed(app_db, source="reddit", reddit_post_id="1abcde",
+               reddit_posted_at="2026-07-15T18:24:00Z")
+    r = client.get(f"/sighting/{sid}/bright-orb-over-the-lake")
+    assert "Posted to Reddit" in r.text
+    assert "15 Jul 2026" in r.text
+
+
+def test_detail_hides_reddit_posted_date_when_absent(client, app_db):
+    sid = seed(app_db)  # no reddit_posted_at
+    r = client.get(f"/sighting/{sid}/bright-orb-over-the-lake")
+    assert "Posted to Reddit" not in r.text
+
+
 def test_detail_slug_optional(client, app_db):
     sid = seed(app_db)
     assert client.get(f"/sighting/{sid}").status_code == 200

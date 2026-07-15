@@ -171,6 +171,7 @@ _MIGRATION_COLUMNS = [
     ("obs_transmedium", "TEXT"),
     ("obs_positive_lift", "TEXT"),
     ("sky_events", "TEXT"),
+    ("reddit_posted_at", "TEXT"),
 ]
 
 

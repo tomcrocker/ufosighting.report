@@ -105,6 +105,7 @@ class PostInfo:
     removed_by_category: str | None
     score: int
     num_comments: int
+    created_utc: int | None = None  # default keeps positional callers working
 
 
 def fetch_posts_info(post_ids: list[str]) -> dict[str, PostInfo]:
@@ -128,6 +129,7 @@ def fetch_posts_info(post_ids: list[str]) -> dict[str, PostInfo]:
                 removed_by_category=d.get("removed_by_category"),
                 score=int(d.get("score", 0)),
                 num_comments=int(d.get("num_comments", 0)),
+                created_utc=int(d["created_utc"]) if d.get("created_utc") else None,
             )
     return out
 

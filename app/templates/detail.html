@@ -141,6 +141,7 @@
     <table class="facts">
       <tr><td>Reported by</td><td><a href="https://www.reddit.com/user/{{ s.reddit_username }}">u/{{ s.reddit_username }}</a></td></tr>
       <tr><td>When</td><td>{{ s.sighted_local }} ({{ s.tz_name }})</td></tr>
+      {% if s.reddit_posted_at %}<tr><td>Posted to Reddit</td><td>{{ s.reddit_posted_at | post_date }}</td></tr>{% endif %}
       <tr><td>Where</td><td>{{ s.location_text }}{% if s.country and s.country not in s.location_text %}, {{ s.country }}{% endif %}
         {% if s.location_obscured %}<span class="muted"> (location obscured for privacy)</span>{% endif %}</td></tr>
       {% if s.num_objects %}<tr><td>Objects</td><td>{{ s.num_objects }}</td></tr>{% endif %}

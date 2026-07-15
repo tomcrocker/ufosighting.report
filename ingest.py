@@ -219,16 +219,19 @@ def ingest_post(conn, post: dict, token=None, op_comments: list[str] | None = No
     # Only date/time/location are trustworthy from free-text posts — richer
     # structured fields (shape, object count, duration) are reserved for the
     # site's own submission wizard where the witness states them directly.
+    posted_at = post_created_iso if post.get("created_utc") else None
     cur = conn.execute(
         """INSERT INTO sightings
              (source, reddit_username, title, description, sighted_at, tz_name,
               location_text, city, country,
-              lat, lon, reddit_post_id, reddit_score, reddit_num_comments, status)
-           VALUES ('reddit',?,?,?,?,?,?,?,?,?,?,?,?,?, 'live')""",
+              lat, lon, reddit_post_id, reddit_score, reddit_num_comments,
+              reddit_posted_at, status)
+           VALUES ('reddit',?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'live')""",
         (post.get("author") or "unknown", title, description, sighted_at, tz_name,
          clamped.get("location_text") or "", city, country,
          (coords or {}).get("lat"), (coords or {}).get("lon"), pid,
-         int(post.get("score") or 0), int(post.get("num_comments") or 0)),
+         int(post.get("score") or 0), int(post.get("num_comments") or 0),
+         posted_at),
     )
     sid = cur.lastrowid
     try:

@@ -221,6 +221,24 @@ def test_live_native_post_not_approved(db_conn, monkeypatch):
     assert not approved
 
 
+def test_native_post_captures_reddit_posted_at(db_conn, monkeypatch):
+    sid = _seed_ready(db_conn)
+    _mk_media(db_conn, sid, ("uploads/a.jpg", "image", None))
+    calls = {}
+    _native_stubs(monkeypatch, calls)
+    monkeypatch.setattr(posting.reddit_media, "submit_image", lambda tok, **k: None)
+    monkeypatch.setattr(posting.reddit_media, "wait_for_post_id", lambda tok, **k: "img55")
+    # fetch_post (also used by the spam rescue) carries created_utc
+    monkeypatch.setattr(posting.reddit, "fetch_post",
+                        lambda tok, pid: {"removed_by_category": None,
+                                          "created_utc": 1784139840})
+    monkeypatch.setattr(posting.reddit, "approve", lambda tok, **k: None)
+    posting.post_sighting(db_conn, sid, verified=True)
+    row = db_conn.execute("SELECT reddit_posted_at FROM sightings WHERE id=?",
+                          (sid,)).fetchone()
+    assert row["reddit_posted_at"] == "2026-07-15T18:24:00Z"
+
+
 def test_details_comment_gets_pinned(db_conn, monkeypatch):
     sid = _seed_ready(db_conn)
     _mk_media(db_conn, sid, ("uploads/a.jpg", "image", None))

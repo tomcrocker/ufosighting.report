@@ -120,6 +120,33 @@ def from_utc(utc_str: str, tz_name: str) -> str:
     return dt.astimezone(ZoneInfo(tz_name)).strftime("%Y-%m-%d %H:%M")
 
 
+def iso_from_epoch(epoch) -> str | None:
+    """Reddit created_utc (unix seconds) -> our stored ISO-UTC string, or None
+    for missing/zero/invalid input. Shared by ingest, the posting flow, and the
+    backfill so reddit_posted_at has one canonical shape."""
+    if not epoch:
+        return None
+    try:
+        return datetime.fromtimestamp(int(epoch), timezone.utc).strftime(ISO)
+    except (ValueError, OSError, OverflowError):
+        return None
+
+
+def post_date(iso: str | None) -> str:
+    """Readable date (e.g. '15 Jul 2026') for a stored ISO-UTC timestamp such
+    as a Reddit post time. Returns '' for missing/malformed input so the caller
+    can drop the row instead of rendering an empty cell. Day-first with a named
+    month keeps it unambiguous for the mixed international r/UFOs audience; the
+    f-string avoids the non-portable %-d strftime code."""
+    if not iso:
+        return ""
+    try:
+        dt = datetime.strptime(iso, ISO)
+    except (ValueError, TypeError):
+        return ""
+    return f"{dt.day} {dt:%b %Y}"
+
+
 def format_post_body(
     clean: dict, *, sighted_local: str, location_line: str,
     media_urls: list[str], gallery_url: str, attribution: str = "",

@@ -10,6 +10,7 @@ from app.config import get_settings
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "templates"))
 templates.env.globals["media_url"] = r2.public_url
 templates.env.filters["duration_h"] = helpers.humanize_duration
+templates.env.filters["post_date"] = helpers.post_date
 templates.env.filters["reddit_md"] = mdrender.reddit_md
 templates.env.globals["slugify"] = helpers.slugify
 

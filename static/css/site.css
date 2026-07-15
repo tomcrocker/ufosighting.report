@@ -133,6 +133,29 @@ form.form textarea { min-height: 140px; resize: vertical; }
   color: var(--muted);
 }
 .map-back-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* map view toggle: raw sightings vs per-capita anomaly surface */
+.map-count-badge { position: absolute; left: 16px; }
+.map-modes {
+  display: inline-flex; background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 8px; overflow: hidden;
+}
+.map-mode-btn {
+  background: transparent; color: var(--muted); border: 0; margin: 0;
+  padding: 7px 14px; font: inherit; font-size: 0.82rem; cursor: pointer; white-space: nowrap;
+}
+.map-mode-btn.active { background: var(--accent); color: #05240f; font-weight: 600; }
+.map-mode-btn:not(.active):hover { color: var(--text); }
+.anomaly-only { display: none; }
+.map-legend.anomaly-mode .anomaly-only { display: block; }
+.map-legend.anomaly-mode .sightings-only { display: none; }
+.anomaly-scale {
+  height: 10px; border-radius: 5px; margin: 2px 0 3px;
+  background: linear-gradient(90deg, rgba(74,222,128,.55), rgba(190,230,90,.6),
+    rgba(250,204,21,.7), rgba(251,146,60,.8), rgba(255,70,45,.9));
+}
+.anomaly-scale-labels { display: flex; justify-content: space-between; font-size: .66rem; color: var(--muted); }
+.anomaly-note { font-size: .72rem; color: var(--muted); line-height: 1.5; margin: 6px 0 2px; }
+@media (max-width: 640px) { .map-count-badge { display: none; } }
 
 /* Glow markers + clusters */
 .glow-marker {

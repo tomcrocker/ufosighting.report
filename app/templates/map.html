@@ -17,6 +17,10 @@
   <div id="map"></div>
   <div class="fullmap-header">
     <div class="map-count-badge"><strong id="map-count">…</strong> of <strong id="map-total">…</strong> sightings</div>
+    <div class="map-modes" role="group" aria-label="Map view">
+      <button type="button" class="map-mode-btn active" data-mode="sightings">Sightings</button>
+      <button type="button" class="map-mode-btn" data-mode="anomaly">Per-capita anomaly</button>
+    </div>
     <a class="map-back-btn" href="/">&lsaquo; Back to Gallery</a>
   </div>
   <div class="map-legend" id="map-legend">
@@ -26,11 +30,17 @@
       <span class="legend-chevron" aria-hidden="true"></span>
     </button>
     <div class="legend-body" id="legend-body">
-      <div class="legend-item"><span class="legend-dot sighting"></span> UFO Sighting</div>
+      <div class="legend-item sightings-only"><span class="legend-dot sighting"></span> UFO Sighting</div>
+      <div class="anomaly-only">
+        <div class="anomaly-scale" aria-hidden="true"></div>
+        <div class="anomaly-scale-labels"><span>as expected</span><span>excess reports</span></div>
+        <p class="anomaly-note">Brighter = more sightings than the <strong>local population</strong>
+           explains — hotspots independent of where people live. US, all-time.</p>
+      </div>
       <div class="legend-item"><span class="legend-dot base"></span> Military Base</div>
       <div class="legend-item"><span class="legend-dot special"></span> Key Location</div>
       <label class="legend-toggle"><input type="checkbox" id="bases-toggle" checked> Show Military Bases</label>
-      <div class="legend-dates">
+      <div class="legend-dates sightings-only">
         <div class="legend-title">Date range</div>
         <label class="legend-date-field">From <input type="date" id="date-from" aria-label="From date"></label>
         <label class="legend-date-field">To <input type="date" id="date-to" aria-label="To date"></label>

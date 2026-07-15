@@ -56,6 +56,8 @@
 
   let allPins = [];
   let heatLayer = null;
+  let anomalyLayer = null;
+  let sightingsRender = null;
 
   function renderPins(map, clusterLayer, from, to) {
     // client-side date filter — every pin already carries its date
@@ -132,6 +134,7 @@
 
   function loadPins(map, clusterLayer) {
     const applyInitial = initDateFilter(map, clusterLayer);
+    sightingsRender = applyInitial;   // re-run when switching back from anomaly view
     fetch("/api/pins")
       .then((r) => r.json())
       .then((data) => {
@@ -139,6 +142,50 @@
         allPins = data.pins.map((a) => ({ id: a[0], lat: a[1], lon: a[2], date: a[3] }));
         applyInitial();
       });
+  }
+
+  // Per-capita anomaly surface — a precomputed relative-risk FIELD (sighting
+  // density / local-population density), NOT raw counts. Drawn as an image
+  // overlay rather than a heat layer: leaflet.heat sums overlapping points,
+  // which would re-introduce the population-density effect we removed. The PNG
+  // is Web-Mercator projected (build_anomaly.py) so it aligns with the basemap.
+  var ANOMALY_BOUNDS = [[24, -125], [50, -66]];   // must match build_anomaly.py
+  function loadAnomaly() {
+    anomalyLayer = L.imageOverlay("/static/img/anomaly-us.png", ANOMALY_BOUNDS,
+      { opacity: 0.95, interactive: false });
+  }
+
+  function initModes(map, clusterLayer) {
+    const btns = document.querySelectorAll(".map-mode-btn");
+    const legend = document.getElementById("map-legend");
+    const badge = document.querySelector(".map-count-badge");
+    const basesToggle = document.getElementById("bases-toggle");
+    // 210 bright base markers bury the subtle surface, so default them off in
+    // anomaly view (the user can re-check to inspect the base-proximity story)
+    const setBases = (on) => {
+      if (basesToggle && basesToggle.checked !== on) {
+        basesToggle.checked = on;
+        basesToggle.dispatchEvent(new Event("change"));
+      }
+    };
+    btns.forEach((b) => b.addEventListener("click", () => {
+      if (b.classList.contains("active")) return;
+      btns.forEach((x) => x.classList.toggle("active", x === b));
+      const anom = b.dataset.mode === "anomaly";
+      legend.classList.toggle("anomaly-mode", anom);
+      if (badge) badge.style.visibility = anom ? "hidden" : "visible";
+      if (anom) {
+        if (heatLayer) map.removeLayer(heatLayer);
+        map.removeLayer(clusterLayer);
+        setBases(false);
+        if (anomalyLayer) anomalyLayer.addTo(map);
+      } else {
+        if (anomalyLayer) map.removeLayer(anomalyLayer);
+        clusterLayer.addTo(map);
+        setBases(true);
+        if (sightingsRender) sightingsRender();
+      }
+    }));
   }
 
   function init() {
@@ -175,6 +222,8 @@
 
     loadBases(map);
     loadPins(map, clusterLayer);
+    loadAnomaly();
+    initModes(map, clusterLayer);
     initLegendCollapse();
   }
 

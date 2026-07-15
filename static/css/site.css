@@ -664,3 +664,6 @@ span.flatpickr-weekday { color: var(--muted) !important; }
   color: var(--muted); font-size: .9rem;
 }
 .submit-anon-note { border-left: 2px solid var(--accent2); padding-left: 10px; margin: 8px 0 0; font-size: .9rem; }
+.onion-row { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; max-width: 100%; }
+.onion-copy { flex: none; padding: 9px 14px; font-size: .85rem; }
+.onion-copy.copied { border-color: var(--accent); color: var(--accent); }

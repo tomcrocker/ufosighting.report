@@ -12,7 +12,7 @@
     {% if enabled %}
     <div class="onion-box">
       <span class="onion-label">Submission address &middot; opens in Tor Browser only</span>
-      <code class="onion-addr">http://{{ onion }}</code>
+      <span class="onion-row"><code class="onion-addr">http://{{ onion }}</code><button type="button" class="onion-copy btn" data-copy="http://{{ onion }}" hidden>Copy</button></span>
     </div>
     {% else %}
     <p class="onion-pending">This channel is being finalized. Check back shortly.</p>
@@ -60,7 +60,7 @@
         <h3>Open the drop box</h3>
         {% if enabled %}
         <p>Paste this address into Tor Browser:</p>
-        <code class="onion-addr">http://{{ onion }}</code>
+        <span class="onion-row"><code class="onion-addr">http://{{ onion }}</code><button type="button" class="onion-copy btn" data-copy="http://{{ onion }}" hidden>Copy</button></span>
         {% else %}
         <p>The address will appear here once the channel is live.</p>
         {% endif %}
@@ -143,10 +143,33 @@
   <section class="guide-hero">
     {% if enabled %}
     <p class="muted">Ready? Open this in Tor Browser:</p>
-    <code class="onion-addr">http://{{ onion }}</code>
+    <span class="onion-row"><code class="onion-addr">http://{{ onion }}</code><button type="button" class="onion-copy btn" data-copy="http://{{ onion }}" hidden>Copy</button></span>
     {% else %}
     <p class="onion-pending">This channel is being finalized. Check back shortly.</p>
     {% endif %}
   </section>
 </div>
+{% if enabled %}
+<script>
+// Copy-to-clipboard for the onion address. Hidden until JS runs, so Tor
+// Browser users at the Safest level (no JS) just see selectable text.
+document.querySelectorAll(".onion-copy").forEach(function (btn) {
+  btn.hidden = false;
+  btn.addEventListener("click", function () {
+    var done = function (msg) {
+      var orig = "Copy";
+      btn.textContent = msg;
+      btn.classList.add("copied");
+      setTimeout(function () { btn.textContent = orig; btn.classList.remove("copied"); }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(btn.dataset.copy).then(function () { done("Copied"); },
+                                                           function () { done("Select and copy"); });
+    } else {
+      done("Select and copy");
+    }
+  });
+});
+</script>
+{% endif %}
 {% endblock %}

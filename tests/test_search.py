@@ -67,8 +67,32 @@ def test_apply_settings_payload(monkeypatch):
     search.apply_settings()
     body = json.loads(patch.calls[0].request.content)
     assert "sighted_ts" in body["sortableAttributes"]
+    assert "post_order" in body["sortableAttributes"]
     assert "has_geo" in body["filterableAttributes"]
     assert "uap" in body["synonyms"]["ufo"]
+
+
+def test_build_doc_post_order_from_reddit_id():
+    base = {"id": 1, "title": "t", "description": "d", "location_text": "",
+            "city": None, "country": None, "reddit_username": "u", "shape": None,
+            "source": "reddit", "status": "live",
+            "sighted_at": "2026-07-01T05:00:00Z", "reddit_score": 0,
+            "lat": None, "lon": None, "reddit_post_id": "1uxdhr0"}
+    assert search.build_doc(base, None)["post_order"] == int("1uxdhr0", 36)
+    # a later reddit id sorts higher (post recency)
+    later = dict(base, reddit_post_id="1uxdhr1")
+    assert search.build_doc(later, None)["post_order"] > search.build_doc(base, None)["post_order"]
+    # no reddit id (unposted site submission) -> 0
+    assert search.build_doc(dict(base, reddit_post_id=None), None)["post_order"] == 0
+
+
+@respx.mock
+def test_search_ids_new_sorts_by_post_order(monkeypatch):
+    _enable(monkeypatch)
+    route = respx.post(f"{MEILI}/indexes/sightings/search").mock(
+        return_value=httpx.Response(200, json={"hits": [], "estimatedTotalHits": 0}))
+    search.search_ids(sort="new")
+    assert json.loads(route.calls[0].request.content)["sort"] == ["post_order:desc"]
 
 
 @respx.mock

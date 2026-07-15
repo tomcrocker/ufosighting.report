@@ -117,11 +117,11 @@ def test_featured_sorts_first(client, app_db):
 
 def test_pagination(client, app_db):
     for i in range(30):
-        seed(app_db, title=f"Report number {i:02d}", sighted_at=f"2026-07-01T05:{i:02d}:00Z")
+        seed(app_db, title=f"Report number {i:02d}", created_at=f"2026-07-01T05:{i:02d}:00Z")
     page1 = client.get("/").text
     page2 = client.get("/?page=2").text
-    assert "Report number 29" in page1   # newest first
-    assert "Report number 00" in page2   # oldest lands on page 2
+    assert "Report number 29" in page1   # latest posted first
+    assert "Report number 00" in page2   # earliest lands on page 2
 
 
 def test_detail_shows_structured_fields(client, app_db):
@@ -174,11 +174,15 @@ def test_detail_reddit_note(client, app_db):
     assert "auto-extracted" in r.text.lower()
 
 
-def test_sort_default_newest_first(client, app_db):
-    seed(app_db, title="Older entry", sighted_at="2026-06-01T05:00:00Z")
-    seed(app_db, title="Newer entry", sighted_at="2026-07-05T05:00:00Z")
+def test_sort_default_latest_first(client, app_db):
+    # "Latest" = most recently posted/added (created_at), NOT sighting date:
+    # the later-posted row wins even though its sighting is older
+    seed(app_db, title="Posted earlier", created_at="2026-07-01T00:00:00Z",
+         sighted_at="2026-07-05T05:00:00Z")
+    seed(app_db, title="Posted later", created_at="2026-07-10T00:00:00Z",
+         sighted_at="2026-06-01T05:00:00Z")
     text = client.get("/").text
-    assert text.index("Newer entry") < text.index("Older entry")
+    assert text.index("Posted later") < text.index("Posted earlier")
 
 
 def test_sort_oldest_first(client, app_db):

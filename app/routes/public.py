@@ -51,8 +51,8 @@ def query_sightings(conn, *, shape=None, country=None, date_from=None, date_to=N
         order = "s.featured DESC, s.reddit_score DESC, s.sighted_at DESC"
     elif sort == "old":
         order = "s.featured DESC, s.sighted_at ASC"
-    else:
-        order = "s.featured DESC, s.sighted_at DESC"
+    else:  # "new"/"latest": most recently added first (Meili path uses post_order)
+        order = "s.featured DESC, s.created_at DESC"
     clause = " AND ".join(where)
     total = conn.execute(f"SELECT COUNT(*) FROM sightings s WHERE {clause}", args).fetchone()[0]
     rows = conn.execute(

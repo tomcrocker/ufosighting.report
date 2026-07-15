@@ -18,7 +18,7 @@
   </div>
   <select name="sort" onchange="this.form.submit()">
     {% if q %}<option value="relevance" {% if sort == 'relevance' %}selected{% endif %}>Best match</option>{% endif %}
-    <option value="new" {% if sort == 'new' %}selected{% endif %}>Newest</option>
+    <option value="new" {% if sort == 'new' %}selected{% endif %}>Latest</option>
     <option value="old" {% if sort == 'old' %}selected{% endif %}>Oldest</option>
     <option value="top" {% if sort == 'top' %}selected{% endif %}>Top</option>
   </select>

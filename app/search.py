@@ -23,7 +23,7 @@ SETTINGS = {
                              "country", "reddit_username"],
     "filterableAttributes": ["shape", "country", "source", "status", "media_kind",
                              "sighted_ts", "has_geo"],
-    "sortableAttributes": ["sighted_ts", "reddit_score"],
+    "sortableAttributes": ["sighted_ts", "reddit_score", "post_order"],
     "synonyms": SYNONYMS,
     # /api/pins fetches every geocoded sighting in one query; the Meili
     # default (1000) silently truncates the map once the archive grows.
@@ -46,12 +46,20 @@ def build_doc(row, media_kind) -> dict:
                  .replace(tzinfo=timezone.utc).timestamp())
     except (ValueError, TypeError):
         ts = 0
+    # Reddit thing-ids are assigned in creation order, so int(id, 36) is an
+    # exact "posted later" key for the whole archive (backfilled included) —
+    # this is what "Latest" sorts by, so new posts surface regardless of the
+    # sighting's event date.
+    try:
+        post_order = int(row["reddit_post_id"], 36) if row["reddit_post_id"] else 0
+    except (ValueError, TypeError):
+        post_order = 0
     return {
         "id": row["id"], "title": row["title"], "description": row["description"],
         "location_text": row["location_text"], "city": row["city"],
         "country": row["country"], "reddit_username": row["reddit_username"],
         "shape": row["shape"], "source": row["source"], "status": row["status"],
-        "media_kind": media_kind, "sighted_ts": ts,
+        "media_kind": media_kind, "sighted_ts": ts, "post_order": post_order,
         "reddit_score": row["reddit_score"],
         "has_geo": row["lat"] is not None and row["lon"] is not None,
     }
@@ -147,8 +155,8 @@ def search_ids(*, q="", shape=None, country=None, source=None, date_from=None,
         sort_expr = ["sighted_ts:asc"]
     elif sort == "relevance":
         sort_expr = None  # Meili's ranking — the right default for text queries
-    else:
-        sort_expr = ["sighted_ts:desc"]
+    else:  # "new"/"latest": most recently posted to Reddit first
+        sort_expr = ["post_order:desc"]
 
     body = {
         "q": q or "",

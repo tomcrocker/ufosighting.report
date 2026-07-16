@@ -14,6 +14,15 @@
 * { box-sizing: border-box; }
 /* never let a stray wide element force horizontal scroll on mobile */
 html, body { overflow-x: hidden; }
+/* iOS/Android render the yyyy-mm-dd hint of an empty date input invisibly on
+   the dark theme (looks like a blank box until tapped) — force the date fields
+   to a visible colour so it reads as a date picker */
+input[type=date]::-webkit-datetime-edit,
+input[type=date]::-webkit-datetime-edit-fields-wrapper,
+input[type=date]::-webkit-datetime-edit-text,
+input[type=date]::-webkit-datetime-edit-year-field,
+input[type=date]::-webkit-datetime-edit-month-field,
+input[type=date]::-webkit-datetime-edit-day-field { color: var(--text); }
 body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -348,6 +357,10 @@ table.admin td, table.admin th { padding: 8px; border-bottom: 1px solid var(--li
 
 .detail { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start; }
 @media (max-width: 900px) { .detail { grid-template-columns: 1fr; } }
+/* grid children default to min-width:auto and won't shrink below a long token
+   (e.g. a pasted URL in a comment), forcing horizontal overflow the body clips
+   — let them shrink so long content wraps instead of getting cut off */
+.viewer-col, .detail > aside { min-width: 0; }
 
 /* author display rules (e.g. .btn) must not defeat the hidden attribute */
 [hidden] { display: none !important; }
@@ -460,7 +473,7 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 }
 
 /* Rendered Reddit markdown (reddit_md filter) on detail pages */
-.md-body { overflow-wrap: break-word; }
+.md-body { overflow-wrap: anywhere; }
 .md-body p { margin: 0 0 0.8em; }
 .md-body blockquote { margin: 0.6em 0; padding: 2px 12px; border-left: 3px solid var(--accent2); color: var(--muted, #9aa3b5); }
 .md-body table { border-collapse: collapse; margin: 0.6em 0; }
@@ -639,6 +652,8 @@ span.flatpickr-weekday { color: var(--muted) !important; }
   .site-header { padding: 10px 14px; }
   .site-header nav { gap: 14px; }
   .site-header nav a:not(.btn) { padding: 3px 0; }
+  /* the primary CTA was overtaking the header on its own wrapped row */
+  .site-header nav .btn.primary { padding: 6px 13px; font-size: 0.85rem; }
 
   /* homepage filters: no control may exceed the row */
   .filters { gap: 8px; }

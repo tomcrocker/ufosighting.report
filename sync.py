@@ -26,7 +26,7 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
     rows = conn.execute(
         """SELECT id, reddit_post_id, status, source FROM sightings
            WHERE reddit_post_id IS NOT NULL
-             AND status IN ('live', 'removed_on_reddit', 'deleted_by_user')
+             AND status IN ('live', 'removed_on_reddit', 'deleted_by_user', 'removed_by_mod')
              AND created_at >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', ?)""",
         (f"-{window_hours} hours",),
     ).fetchall()
@@ -66,8 +66,9 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
                 print(f"sync: self-approve of {r['reddit_post_id']} failed: {exc}")
         new_status = reddit.status_from_removed_by_category(info.removed_by_category)
         conn.execute(
-            "UPDATE sightings SET reddit_score=?, reddit_num_comments=?, status=? WHERE id=?",
-            (info.score, info.num_comments, new_status, r["id"]),
+            "UPDATE sightings SET reddit_score=?, reddit_num_comments=?, status=?, "
+            "removed_by_category=? WHERE id=?",
+            (info.score, info.num_comments, new_status, info.removed_by_category, r["id"]),
         )
         touched.append(r["id"])
         if new_status == "live":

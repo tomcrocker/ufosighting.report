@@ -134,11 +134,23 @@ def fetch_posts_info(post_ids: list[str]) -> dict[str, PostInfo]:
     return out
 
 
+# A real moderator (or Reddit's own T&S / legal takedown) pulled the post for
+# cause — hide these. Everything else that shows as "removed" (the sitewide spam
+# filter, AutoModerator holds in the modqueue) is provisional and may still be
+# approved, so it stays visible as `removed_on_reddit`.
+DEFINITIVE_MOD_REMOVALS = frozenset({
+    "moderator", "anti_evil_ops", "community_ops",
+    "content_takedown", "copyright_takedown",
+})
+
+
 def status_from_removed_by_category(rbc: str | None) -> str:
     if rbc is None:
         return "live"
-    if rbc == "deleted":
+    if rbc in ("deleted", "author"):
         return "deleted_by_user"
+    if rbc in DEFINITIVE_MOD_REMOVALS:
+        return "removed_by_mod"
     return "removed_on_reddit"
 
 

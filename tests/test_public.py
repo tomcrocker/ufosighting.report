@@ -65,6 +65,26 @@ def test_archive_keeps_deleted_and_removed_visible(client, app_db):
     assert "removed on Reddit" in detail_m and "preserved here" in detail_m
 
 
+def test_mod_removed_hidden_from_gallery(client, app_db):
+    # a genuine mod removal is pulled from the public archive (still stored)
+    seed(app_db, title="Mod removed spam post", status="removed_by_mod")
+    assert "Mod removed spam post" not in client.get("/").text
+
+
+def test_mod_removed_detail_returns_410(client, app_db):
+    sid = seed(app_db, status="removed_by_mod")
+    # 410 Gone so Google de-indexes it cleanly (it was public + indexed)
+    assert client.get(f"/sighting/{sid}", follow_redirects=False).status_code == 410
+
+
+def test_mod_removed_visible_to_admin(client, app_db):
+    from app import auth
+    sid = seed(app_db, status="removed_by_mod")
+    admin_sid = auth.create_session(app_db, "tmosh", "tok-admin", 3600)
+    client.cookies.set("sid", admin_sid)
+    assert client.get(f"/sighting/{sid}").status_code == 200
+
+
 def test_pins_include_archived_and_accept_filters(client, app_db):
     kept = seed(app_db, title="Deleted pinned", status="deleted_by_user",
                 lat=10.0, lon=10.0,

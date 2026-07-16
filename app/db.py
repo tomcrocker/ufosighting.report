@@ -172,6 +172,7 @@ _MIGRATION_COLUMNS = [
     ("obs_positive_lift", "TEXT"),
     ("sky_events", "TEXT"),
     ("reddit_posted_at", "TEXT"),
+    ("removed_by_category", "TEXT"),  # raw Reddit removal reason (moderator/reddit/…)
 ]
 
 

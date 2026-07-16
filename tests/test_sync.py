@@ -23,13 +23,35 @@ def _fake_infos(monkeypatch, infos: dict):
                         lambda conn, tok, sid, pid: 0)
 
 
-def test_removed_post_hides_entry(db_conn, monkeypatch):
+def test_mod_removed_post_is_hidden(db_conn, monkeypatch):
+    # a real mod pulled it -> removed_by_mod (hidden), and the reason is stored
     sid = _seed(db_conn, "aaa", "live")
     _fake_infos(monkeypatch, {"aaa": reddit.PostInfo("moderator", 5, 2)})
     result = sync.sync_once(db_conn)
     row = db_conn.execute("SELECT * FROM sightings WHERE id=?", (sid,)).fetchone()
-    assert row["status"] == "removed_on_reddit"
+    assert row["status"] == "removed_by_mod"
+    assert row["removed_by_category"] == "moderator"
     assert result == {"checked": 1, "updated": 1, "comments": 0}
+
+
+def test_spam_filtered_post_stays_visible(db_conn, monkeypatch):
+    # Reddit spam-filter / modqueue-pending -> removed_on_reddit, still visible,
+    # since a mod may yet approve it
+    sid = _seed(db_conn, "aaz", "live")
+    _fake_infos(monkeypatch, {"aaz": reddit.PostInfo("automod_filtered", 5, 2)})
+    sync.sync_once(db_conn)
+    row = db_conn.execute("SELECT * FROM sightings WHERE id=?", (sid,)).fetchone()
+    assert row["status"] == "removed_on_reddit"
+    assert row["removed_by_category"] == "automod_filtered"
+
+
+def test_mod_removed_post_can_be_reapproved(db_conn, monkeypatch):
+    # sync must keep re-checking removed_by_mod so a re-approval returns to live
+    sid = _seed(db_conn, "aay", "removed_by_mod")
+    _fake_infos(monkeypatch, {"aay": reddit.PostInfo(None, 9, 3)})
+    sync.sync_once(db_conn)
+    row = db_conn.execute("SELECT status FROM sightings WHERE id=?", (sid,)).fetchone()
+    assert row["status"] == "live"
 
 
 def test_approved_post_flips_back_to_live(db_conn, monkeypatch):
@@ -163,7 +185,7 @@ def test_sync_respects_mod_removal_of_bot_post(db_conn, monkeypatch):
     sync.sync_once(db_conn, comment_sleep=lambda s: None)
     assert not approved
     row = db_conn.execute("SELECT status FROM sightings WHERE id=?", (sid,)).fetchone()
-    assert row["status"] == "removed_on_reddit"
+    assert row["status"] == "removed_by_mod"
 
 
 def test_sync_never_approves_ingested_posts(db_conn, monkeypatch):

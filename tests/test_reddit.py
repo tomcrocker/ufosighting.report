@@ -99,7 +99,13 @@ def test_status_mapping():
     f = reddit.status_from_removed_by_category
     assert f(None) == "live"
     assert f("deleted") == "deleted_by_user"
-    for rbc in ("moderator", "automod_filtered", "reddit", "spam", "content_takedown"):
+    assert f("author") == "deleted_by_user"
+    # a real mod (or Reddit T&S / legal takedown) pulled it -> hidden
+    for rbc in ("moderator", "anti_evil_ops", "community_ops",
+                "content_takedown", "copyright_takedown"):
+        assert f(rbc) == "removed_by_mod"
+    # spam-filter / modqueue-pending -> stays visible, may still be approved
+    for rbc in ("automod_filtered", "reddit", "spam"):
         assert f(rbc) == "removed_on_reddit"
 
 

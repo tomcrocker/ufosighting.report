@@ -251,8 +251,13 @@ def detail(
 ):
     row = conn.execute("SELECT * FROM sightings WHERE id=?", (sighting_id,)).fetchone()
     admin = is_admin(user)
-    if row is None or (row["status"] not in PUBLIC_STATUSES and not admin):
+    if row is None:
         raise HTTPException(status_code=404)
+    if row["status"] not in PUBLIC_STATUSES and not admin:
+        # mod-removed posts were public + indexed, so 410 (Gone) tells Google
+        # they're intentionally removed and de-indexes them cleanly; other
+        # non-public states (pending, admin-hidden) just 404.
+        raise HTTPException(status_code=410 if row["status"] == "removed_by_mod" else 404)
     canonical_slug = helpers.slugify(row["title"])
     if slug != canonical_slug:
         # one canonical URL per sighting — /sighting/{id} and stale slugs 301

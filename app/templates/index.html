@@ -43,8 +43,8 @@
     <option value="">Any country</option>
     {% for c in countries %}<option value="{{ c }}" {% if c == f.country %}selected{% endif %}>{{ c }}</option>{% endfor %}
   </select>
-  <input type="date" name="from" value="{{ f['from'] }}">
-  <input type="date" name="to" value="{{ f['to'] }}">
+  <label class="date-pill">From <input type="date" name="from" value="{{ f['from'] }}" aria-label="From date"></label>
+  <label class="date-pill">To <input type="date" name="to" value="{{ f['to'] }}" aria-label="To date"></label>
   <select name="media">
     <option value="">Any media</option>
     <option value="image" {% if f.media == 'image' %}selected{% endif %}>Images</option>

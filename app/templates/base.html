@@ -106,5 +106,15 @@
     <p>Run by the r/UFOs moderation team.</p>
   </div>
 </footer>
+<script>
+// iOS Safari shows nothing inside an empty date input; CSS paints a yyyy-mm-dd
+// hint via ::before and this hides it once the field actually has a value.
+document.querySelectorAll('input[type=date]').forEach(function (el) {
+  var sync = function () { el.classList.toggle('has-value', !!el.value); };
+  el.addEventListener('input', sync);
+  el.addEventListener('change', sync);
+  sync();
+});
+</script>
 </body>
 </html>

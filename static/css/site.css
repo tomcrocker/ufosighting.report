@@ -62,6 +62,27 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 44px; }
   background: var(--bg2); color: var(--text); border: 1px solid var(--line);
   border-radius: 8px; padding: 8px 10px; font: inherit;
 }
+/* gallery date fields: a labelled pill ("From [date]") — iOS Safari renders an
+   EMPTY date input as a blank box (no yyyy-mm-dd hint at all), so the field
+   needs a visible label on every platform */
+.filters .date-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 10px; color: var(--muted); font-size: .9rem;
+}
+.filters .date-pill input[type=date] {
+  background: none; border: 0; padding: 0; border-radius: 0;
+  flex: 1; min-width: 0; color: var(--text);
+}
+/* iOS/iPadOS WebKit only (touch-callout gate excludes Blink; coarse-pointer
+   gate excludes macOS Safari): paint the yyyy-mm-dd hint other browsers show
+   natively. .has-value (toggled in base.html) removes it once a date is set. */
+@supports (-webkit-touch-callout: none) {
+  @media (hover: none) and (pointer: coarse) {
+    input[type=date]:not(.has-value)::before { content: "yyyy-mm-dd"; color: var(--muted); }
+    input[type=date] { min-height: 1.3em; }
+  }
+}
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
 .card {
@@ -657,7 +678,7 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 
   /* homepage filters: no control may exceed the row */
   .filters { gap: 8px; }
-  .filters select, .filters input[type=date] {
+  .filters select, .filters .date-pill {
     flex: 1 1 calc(50% - 4px); min-width: 0; max-width: 100%;
   }
   .filters > .btn { flex: 1 1 100%; }

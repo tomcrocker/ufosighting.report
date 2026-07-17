@@ -129,6 +129,10 @@
     const qs = new URLSearchParams(location.search);
     fromEl.value = qs.get("from") || "";
     toEl.value = qs.get("to") || "";
+    // programmatic value-set fires no events — nudge the .has-value toggle
+    // (base.html) that hides the iOS empty-date hint
+    fromEl.dispatchEvent(new Event("change"));
+    toEl.dispatchEvent(new Event("change"));
     return () => apply(false);
   }
 

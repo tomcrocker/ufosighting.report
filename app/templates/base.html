@@ -17,6 +17,9 @@
   {% endblock %}
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128760;</text></svg>">
+  {# warm the media-host connection before the first thumb/viewer fetch —
+     saves a DNS+TLS round trip per session, noticeable on mobile #}
+  <link rel="preconnect" href="{{ media_base }}">
   <link rel="alternate" type="application/rss+xml" title="Latest UFO sightings" href="/feed.xml">
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
   <link rel="stylesheet" href="/static/css/site.css?v={{ static_v }}">
@@ -115,6 +118,27 @@ document.querySelectorAll('input[type=date]').forEach(function (el) {
   el.addEventListener('change', sync);
   sync();
 });
+// Prefetch same-origin pages on hover/touchstart so gallery clicks feel
+// instant — the SSR itself is ~10ms at the origin, the felt delay is the
+// Cloudflare round trip, which this hides. State-changing and private paths
+// are excluded; respects data-saver.
+(function () {
+  if (navigator.connection && navigator.connection.saveData) return;
+  var seen = {};
+  function prefetch(e) {
+    var a = e.target.closest && e.target.closest("a[href^='/']");
+    if (!a) return;
+    var h = a.getAttribute("href");
+    if (!h || seen[h] || /^\/(auth|admin|verify)/.test(h) || a.hasAttribute("download")) return;
+    seen[h] = 1;
+    var l = document.createElement("link");
+    l.rel = "prefetch";
+    l.href = h;
+    document.head.appendChild(l);
+  }
+  document.addEventListener("mouseover", prefetch, { passive: true });
+  document.addEventListener("touchstart", prefetch, { passive: true });
+})();
 </script>
 </body>
 </html>

@@ -11,6 +11,9 @@ from app.config import get_settings
 
 THUMB_MAX = 640
 DISPLAY_MAX = 2048  # browser-viewable derivative for HEIC originals
+# originals above this get a display derivative too — multi-MB Reddit media
+# made detail pages feel sluggish (the original stays for download/analysis)
+DISPLAY_BYTES = 400 * 1024
 
 
 def generate_image_thumb(data: bytes, max_px: int = THUMB_MAX, quality: int = 82) -> bytes:
@@ -124,9 +127,13 @@ def process_pending(conn, limit: int = 3, oldest_first: bool = False) -> int:
                 thumb = generate_image_thumb(resp.content)
                 meta = mediameta.extract_image_meta(resp.content)
                 # a display derivative (Pillow re-save = EXIF-free) is needed
-                # for HEIC always, and for ANY image whose location the
-                # reporter excluded — the original file itself carries GPS
-                if needs_display_derivative(row["r2_key"]) or hide_location:
+                # for HEIC always, for ANY image whose location the reporter
+                # excluded (the original file itself carries GPS), and for
+                # oversized originals that would make the viewer sluggish
+                # (except GIFs — a JPEG derivative would freeze the animation)
+                oversized = (len(resp.content) > DISPLAY_BYTES
+                             and not row["r2_key"].lower().endswith(".gif"))
+                if needs_display_derivative(row["r2_key"]) or hide_location or oversized:
                     display = generate_image_thumb(resp.content, DISPLAY_MAX, 90)
                     rest = row["r2_key"].split("/", 1)[1]
                     display_key = "display/" + rest.rsplit(".", 1)[0] + ".jpg"

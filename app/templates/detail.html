@@ -70,7 +70,7 @@
       {% if first.kind == 'video' %}
       <video controls preload="metadata" {% if first.thumb_url %}poster="{{ first.thumb_url }}"{% endif %} src="{{ first.url }}"></video>
       {% else %}
-      <img src="{{ first.display_url or first.url }}" alt="{{ s.title }}">
+      <img src="{{ first.display_url or first.url }}" alt="{{ s.title }}" fetchpriority="high" decoding="async">
       {% endif %}
     </div>
     {% if media | length > 1 %}

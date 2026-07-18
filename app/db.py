@@ -112,6 +112,13 @@ CREATE TABLE IF NOT EXISTS yt_jobs (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
+CREATE TABLE IF NOT EXISTS analytics_visits (
+  day TEXT NOT NULL,
+  visitor TEXT NOT NULL,          -- daily-salted IP hash, not reversible
+  hits INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (day, visitor)      -- dedup + indexes the day prefix
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS sightings_fts USING fts5(
   title, description, location_text,
   content='sightings', content_rowid='id'

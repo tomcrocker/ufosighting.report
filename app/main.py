@@ -83,6 +83,8 @@ def create_app(start_thumb_worker: bool = True) -> FastAPI:
         if sid:  # basic-auth login mints a session (see web.require_admin)
             resp.set_cookie("sid", sid, max_age=get_settings().session_ttl_seconds,
                             httponly=True, samesite="lax")
+        from app import analytics
+        analytics.record(request, resp.status_code)  # server-side, adblock-proof
         return resp
 
     @app.exception_handler(StarletteHTTPException)

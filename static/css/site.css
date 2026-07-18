@@ -623,6 +623,22 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .error-saucer { width: 240px; margin: 0 auto 8px; display: block; }
 .error-page h1 { font-size: 3rem; margin: 0 0 8px; }
 
+/* admin analytics */
+.stat-cards { display: flex; flex-wrap: wrap; gap: 12px; margin: 4px 0 22px; }
+.stat-card { flex: 1 1 130px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px 16px; }
+.stat-num { display: block; font-size: 1.9rem; font-weight: 700; color: var(--accent);
+  font-family: ui-monospace, monospace; line-height: 1.1; }
+.stat-label { font-size: .74rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.analytics-table { width: 100%; max-width: 620px; }
+.analytics-table th { text-align: left; font-size: .72rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted); font-weight: 600; padding-bottom: 6px; }
+.analytics-table td { padding: 4px 10px 4px 0; }
+.analytics-table .vcell { white-space: nowrap; }
+.vnum { display: inline-block; min-width: 2.6ch; margin-right: 8px; font-family: ui-monospace, monospace; }
+.analytics-table .vbar { display: inline-block; height: 8px; border-radius: 4px;
+  background: rgba(110,231,160,.32); vertical-align: middle; min-width: 2px; }
+
 /* admin status */
 .status-checks .ok { color: var(--accent); font-weight: 600; }
 .status-checks .bad { color: var(--danger); font-weight: 600; }

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Visitors — admin{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<section class="intro">
+  <h1>Visitors</h1>
+  <p>Counted at the server, so ad-blockers can't hide anyone (unlike Google
+     Analytics). A "visitor" is a daily-rotating hash of the IP, so no raw IPs are
+     stored and nobody is tracked across days. Bots and assets are filtered out.</p>
+</section>
+
+<div class="stat-cards">
+  <div class="stat-card"><span class="stat-num">{{ stats.today }}</span><span class="stat-label">unique today</span></div>
+  <div class="stat-card"><span class="stat-num">{{ stats.avg7 }}</span><span class="stat-label">avg / day (7d)</span></div>
+  <div class="stat-card"><span class="stat-num">{{ stats.avg30 }}</span><span class="stat-label">avg / day (30d)</span></div>
+  <div class="stat-card"><span class="stat-num">{{ "{:,}".format(stats.views30) }}</span><span class="stat-label">page views (30d)</span></div>
+</div>
+
+<table class="facts analytics-table">
+  <thead><tr><th>Date</th><th>Unique visitors</th><th>Page views</th></tr></thead>
+  <tbody>
+  {% for r in stats.daily %}
+    <tr>
+      <td>{{ r.day }}</td>
+      <td class="vcell"><span class="vnum">{{ r.visitors }}</span><span class="vbar" style="width: {{ (r.visitors / stats.peak * 200) | round }}px"></span></td>
+      <td class="muted">{{ "{:,}".format(r.views) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="3" class="muted">No visits recorded yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="muted src-note"><a href="/admin/status">&larr; System status</a></p>
+{% endblock %}
+{% block analytics %}{% endblock %}

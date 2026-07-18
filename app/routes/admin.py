@@ -126,6 +126,13 @@ def system_status(request: Request, conn=Depends(db.get_db), user=Depends(requir
          "csrf_token": auth.csrf_for(user.id)})
 
 
+@router.get("/admin/analytics")
+def analytics_page(request: Request, conn=Depends(db.get_db), user=Depends(require_admin)):
+    from app import analytics
+    return templates.TemplateResponse(
+        request, "analytics.html", {"user": user, "stats": analytics.summary(conn)})
+
+
 @router.get("/admin/review")
 def review_queue(request: Request, conn=Depends(db.get_db), user=Depends(require_admin)):
     rows = conn.execute(

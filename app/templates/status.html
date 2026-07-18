@@ -3,6 +3,7 @@
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <h1>System status</h1>
+<p class="muted src-note"><a href="/admin/analytics">Visitor analytics &rarr;</a></p>
 <table class="facts status-checks">
   {% for name, ok, detail in checks %}
   <tr>

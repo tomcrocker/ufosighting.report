@@ -16,11 +16,24 @@ SYNONYMS = {
     "ufo": ["uap", "uaps"], "uap": ["ufo", "ufos"],
     "disc": ["disk", "saucer"], "disk": ["disc", "saucer"], "saucer": ["disc", "disk"],
     "tic-tac": ["tictac"], "tictac": ["tic-tac"],
-    "orb": ["sphere"], "sphere": ["orb"],
+    "orb": ["sphere"], "sphere": ["orb", "spherical"],
+    # adjective forms so the shape chip's search terms match how people
+    # actually write ("a triangular craft") — neither prefix search nor typo
+    # tolerance bridges these word forms
+    "triangle": ["triangular"], "triangular": ["triangle"],
+    "circle": ["circular"], "circular": ["circle"],
+    "rectangle": ["rectangular"], "rectangular": ["rectangle"],
+    "cylinder": ["cylindrical"], "cylindrical": ["cylinder"],
+    "spherical": ["sphere", "orb"],
+    "cone": ["conical"], "conical": ["cone"],
+    "chevron": ["boomerang"], "boomerang": ["chevron"],
 }
 SETTINGS = {
+    # shape is searchable so the gallery's shape chip (which searches, see
+    # search_ids) also matches rows whose structured shape field is set even
+    # when the story text never names the shape
     "searchableAttributes": ["title", "description", "location_text", "city",
-                             "country", "reddit_username"],
+                             "country", "reddit_username", "shape"],
     "filterableAttributes": ["shape", "country", "source", "status", "media_kind",
                              "sighted_ts", "has_geo"],
     "sortableAttributes": ["sighted_ts", "reddit_score", "post_order"],
@@ -121,7 +134,11 @@ def search_ids(*, q="", shape=None, country=None, source=None, date_from=None,
         return None
     filters = [f"status IN [{', '.join(PUBLIC_STATUSES)}]"]
     if shape:
-        filters.append(f"shape = '{shape}'")
+        # Almost no ingested post carries a structured shape (wizard-only
+        # field), so a hard filter matched ~nothing. Treat the chip as search
+        # terms instead: matches shape MENTIONS in the text (synonyms give
+        # sphere⇄orb etc.) plus structured rows via the searchable shape field.
+        q = f"{q} {shape}".strip()
     if country:
         filters.append(f"country = '{country}'")
     if source:

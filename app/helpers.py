@@ -133,18 +133,18 @@ def iso_from_epoch(epoch) -> str | None:
 
 
 def post_date(iso: str | None) -> str:
-    """Readable date (e.g. '15 Jul 2026') for a stored ISO-UTC timestamp such
-    as a Reddit post time. Returns '' for missing/malformed input so the caller
-    can drop the row instead of rendering an empty cell. Day-first with a named
-    month keeps it unambiguous for the mixed international r/UFOs audience; the
-    f-string avoids the non-portable %-d strftime code."""
+    """Date-only (YYYY-MM-DD) for a stored ISO-UTC timestamp such as a Reddit
+    post time. Returns '' for missing/malformed input so the caller can drop
+    the row instead of rendering an empty cell. ISO format on purpose — the
+    community asked for one consistent, unambiguous date mask everywhere
+    (cards, When, filters all use it)."""
     if not iso:
         return ""
     try:
-        dt = datetime.strptime(iso, ISO)
+        datetime.strptime(iso, ISO)
     except (ValueError, TypeError):
         return ""
-    return f"{dt.day} {dt:%b %Y}"
+    return iso[:10]
 
 
 def format_post_body(

@@ -162,7 +162,7 @@ def test_detail_shows_reddit_posted_date(client, app_db):
                reddit_posted_at="2026-07-15T18:24:00Z")
     r = client.get(f"/sighting/{sid}/bright-orb-over-the-lake")
     assert "Posted to Reddit" in r.text
-    assert "15 Jul 2026" in r.text
+    assert "2026-07-15" in r.text  # ISO — consistent date mask sitewide
 
 
 def test_detail_hides_reddit_posted_date_when_absent(client, app_db):
@@ -187,6 +187,26 @@ def test_detail_404_for_hidden_unless_admin(client, app_db):
 
 def test_detail_404_unknown(client):
     assert client.get("/sighting/9999").status_code == 404
+
+
+def test_shape_filter_matches_text_mentions(client, app_db):
+    # ingested posts rarely carry a structured shape, so the chip matches
+    # MENTIONS in the text too, OR the structured field. (This exercises the
+    # SQL/FTS fallback: exact word + plural prefix; adjective forms like
+    # "triangular" are covered by Meili synonyms on the live path.)
+    seed(app_db, title="Dark craft over the ridge", shape=None,
+         description="A silent black triangle drifted overhead. " * 4)
+    seed(app_db, title="Plural mention row", shape=None,
+         description="Two glowing triangles crossed the valley. " * 4)
+    seed(app_db, title="Structured shape row", shape="triangle",
+         description="It moved strangely and vanished. " * 4)
+    seed(app_db, title="Unrelated orb story", shape=None,
+         description="A glowing ball hovered near the pier. " * 4)
+    r = client.get("/?shape=triangle").text
+    assert "Dark craft over the ridge" in r
+    assert "Plural mention row" in r
+    assert "Structured shape row" in r
+    assert "Unrelated orb story" not in r
 
 
 def test_reddit_source_shows_badge(client, app_db):

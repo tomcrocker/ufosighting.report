@@ -42,8 +42,9 @@ def test_iso_from_epoch():
 
 
 def test_post_date():
-    assert helpers.post_date("2026-07-15T18:24:00Z") == "15 Jul 2026"
-    assert helpers.post_date("2026-07-05T00:00:00Z") == "5 Jul 2026"  # no leading zero
+    # ISO date-only — one consistent mask across cards/When/filters
+    assert helpers.post_date("2026-07-15T18:24:00Z") == "2026-07-15"
+    assert helpers.post_date("2026-07-05T00:00:00Z") == "2026-07-05"
     assert helpers.post_date(None) == ""
     assert helpers.post_date("") == ""
     assert helpers.post_date("garbage") == ""

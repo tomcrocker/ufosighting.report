@@ -105,7 +105,10 @@ def test_search_ids_builds_filters_and_sort(monkeypatch):
                             top_window="week", date_from="2026-07-01")
     assert out["ids"] == [3, 1] and out["total"] == 2
     body = json.loads(route.calls[0].request.content)
-    assert "shape = 'sphere'" in body["filter"]
+    # shape rides as SEARCH TERMS (structured shapes are near-absent on
+    # ingested posts, so a hard filter matched ~nothing)
+    assert body["q"] == "sphere"
+    assert not any(f.startswith("shape") for f in body["filter"])
     assert "country = 'Canada'" in body["filter"]
     assert any(f.startswith("sighted_ts >= ") for f in body["filter"])
     assert body["sort"][0] == "reddit_score:desc"

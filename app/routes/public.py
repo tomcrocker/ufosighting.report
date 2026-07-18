@@ -29,8 +29,11 @@ def query_sightings(conn, *, shape=None, country=None, date_from=None, date_to=N
     where = [f"s.status IN {PUBLIC_STATUSES_SQL}"]
     args: list = []
     if shape:
-        where.append("s.shape = ?")
-        args.append(shape)
+        # mirror the Meili behaviour: match shape MENTIONS in the text (FTS,
+        # prefix so "triangle" finds "triangular") OR the structured field
+        where.append("(s.shape = ? OR s.id IN "
+                     "(SELECT rowid FROM sightings_fts WHERE sightings_fts MATCH ?))")
+        args.extend([shape, f'"{shape}"*'])
     if country:
         where.append("s.country = ? COLLATE NOCASE")
         args.append(country)
@@ -387,8 +390,10 @@ def pins(
              f"status IN {PUBLIC_STATUSES_SQL}"]
     args: list = []
     if shape:
-        where.append("shape = ?")
-        args.append(shape)
+        # same mention-or-structured match as the gallery (see query_sightings)
+        where.append("(shape = ? OR id IN "
+                     "(SELECT rowid FROM sightings_fts WHERE sightings_fts MATCH ?))")
+        args.extend([shape, f'"{shape}"*'])
     if date_from:
         where.append("substr(sighted_at, 1, 10) >= ?")
         args.append(date_from)

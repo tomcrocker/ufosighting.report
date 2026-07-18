@@ -20,6 +20,16 @@
            aria-label="Search sightings">
     <button class="btn primary" type="submit">Search</button>
   </div>
+  <div class="try-row">
+    <span class="try-label">Try:</span>
+    <a class="try-chip" href="/?shape=triangle">triangle</a>
+    <a class="try-chip" href="/?shape=sphere">sphere</a>
+    <a class="try-chip" href="/?q=tic-tac">&quot;tic-tac&quot;</a>
+    <a class="try-chip" href="/?shape=saucer">saucer</a>
+    <a class="try-chip" href="/?shape=fireball">fireball</a>
+    <a class="try-chip" href="/?shape=cigar">cigar</a>
+    <a class="try-chip" href="/map?from=2024-11-15&amp;to=2024-12-31">NJ drone flap</a>
+  </div>
   <select name="sort" onchange="this.form.submit()">
     {% if q %}<option value="relevance" {% if sort == 'relevance' %}selected{% endif %}>Best match</option>{% endif %}
     <option value="new" {% if sort == 'new' %}selected{% endif %}>Latest</option>

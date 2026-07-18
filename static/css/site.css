@@ -528,6 +528,22 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 
 /* Gallery search bar (search lives on the gallery, Blue Book style) */
 .home-search { display: flex; gap: 8px; flex-basis: 100%; }
+/* "Try:" quick-search chips (Blue Book Archive treatment) — one-tap entry
+   points into the shape mention-search + the drone-flap map range */
+.try-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  flex-basis: 100%; margin: -2px 0 2px;
+}
+.try-label {
+  font-family: ui-monospace, monospace; font-size: .72rem;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+}
+.try-chip {
+  font-family: ui-monospace, monospace; font-size: .8rem; color: var(--accent);
+  background: rgba(110, 231, 160, .07); border: 1px solid rgba(110, 231, 160, .35);
+  border-radius: 6px; padding: 3px 10px; line-height: 1.4;
+}
+.try-chip:hover { background: rgba(110, 231, 160, .16); text-decoration: none; }
 .home-search input[type=search] {
   flex: 1; font-size: 1.05rem; padding: 11px 14px;
   background: var(--bg2); color: var(--text);

@@ -63,6 +63,12 @@ def create_app(start_thumb_worker: bool = True) -> FastAPI:
 
     app.include_router(admin_routes.router)
 
+    from app import dcgag
+
+    @app.middleware("http")
+    async def dc_gag(request: Request, call_next):
+        return await dcgag.middleware(request, call_next)
+
     @app.middleware("http")
     async def security_headers(request: Request, call_next):
         resp = await call_next(request)

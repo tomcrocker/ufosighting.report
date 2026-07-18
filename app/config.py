@@ -52,6 +52,7 @@ class Settings:
     anonymous_onion: str
     anonymous_enabled: bool
     ga_measurement_id: str
+    dc_gag_enabled: bool
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -115,4 +116,8 @@ def get_settings() -> Settings:
         anonymous_enabled=_env("ANONYMOUS_ENABLED", "").strip().lower()
         in ("1", "true", "yes", "on"),
         ga_measurement_id=_env("GA_MEASUREMENT_ID", "").strip(),
+        # gag interstitial for Washington-DC visitors; needs Cloudflare's
+        # "Add visitor location headers" managed transform (CF-Region-Code)
+        dc_gag_enabled=_env("DC_GAG_ENABLED", "").strip().lower()
+        in ("1", "true", "yes", "on"),
     )

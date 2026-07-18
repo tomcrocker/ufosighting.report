@@ -12,6 +12,7 @@ from app.config import get_settings
 
 BYPASS_COOKIE = "dc_bypass"
 BYPASS_PATH = "/dc/reveal"
+PREVIEW_PATH = "/dc/preview"   # always renders the gag (for sharing/QA), ungated
 _BYPASS_TTL = 30 * 24 * 3600
 
 
@@ -32,6 +33,8 @@ def should_gag(request) -> bool:
 
 
 async def middleware(request, call_next):
+    if request.url.path == PREVIEW_PATH:      # see the bit without being in DC
+        return HTMLResponse(_PAGE, status_code=200)
     if get_settings().dc_gag_enabled and request.url.path == BYPASS_PATH:
         resp = RedirectResponse("/", status_code=303)
         resp.set_cookie(BYPASS_COOKIE, "1", max_age=_BYPASS_TTL,

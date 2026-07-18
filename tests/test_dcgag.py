@@ -56,3 +56,10 @@ def test_post_is_not_gagged(client, monkeypatch):
     _enable(monkeypatch)
     r = client.post("/does-not-exist", headers=DC)  # gag is GET-only
     assert "declassify" not in r.text.lower()
+
+
+def test_preview_always_renders_even_when_disabled(client):
+    # flag off (default), no DC headers — /dc/preview still shows the gag
+    r = client.get("/dc/preview")
+    assert r.status_code == 200
+    assert "Washington" in r.text and "declassify" in r.text.lower()

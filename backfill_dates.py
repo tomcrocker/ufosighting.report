@@ -108,8 +108,12 @@ def run(args):
 
         if new["date"] is not None and new_date != old_date:
             if not args.dry_run:
+                # Commit IMMEDIATELY: on a 1GB VM the web app writes analytics_visits
+                # on every page view, so we must never hold the write lock across the
+                # (slow) API calls of a batch — that stalled page loads up to 30s.
                 conn.execute("UPDATE sightings SET sighted_at=?, tz_name=? WHERE id=?",
                              (new_sighted, new_tz, sid))
+                conn.commit()
             changed += 1
             changed_ids.append(sid)
             clog.write(json.dumps({
@@ -121,8 +125,6 @@ def run(args):
 
         done.add(sid)
         if n % BATCH == 0:
-            if not args.dry_run:
-                conn.commit()
             save_state(args.state, done)
             print(f"  {n}/{len(todo)}  calls={calls} changed={changed} "
                   f"short={skipped_short}  (~${calls*CALL_COST:.2f})", flush=True)

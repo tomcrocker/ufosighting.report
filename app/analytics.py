@@ -58,6 +58,11 @@ def record(request, status: int) -> None:
     try:
         conn = db.connect(get_settings().db_path)
         try:
+            # Best-effort: analytics runs in the response path, so cap the wait on a
+            # busy DB at 1s (overriding the default 30s) and drop the count on lock
+            # rather than stalling the page. A missed visit hit is fine; a 30s page
+            # load is not.
+            conn.execute("PRAGMA busy_timeout=1000")
             conn.execute(
                 "INSERT INTO analytics_visits (day, visitor, hits) VALUES (?,?,1) "
                 "ON CONFLICT(day, visitor) DO UPDATE SET hits = hits + 1",

@@ -2,10 +2,12 @@ import re
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException as FastAPIHTTPException
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -86,6 +88,23 @@ def create_app(start_thumb_worker: bool = True) -> FastAPI:
         from app import analytics
         analytics.record(request, resp.status_code)  # server-side, adblock-proof
         return resp
+
+    @app.middleware("http")
+    async def canonical_host(request: Request, call_next):
+        # Consolidate the www alias onto the canonical apex so Google indexes one
+        # URL per page, not www + non-www duplicates. Only the exact www.<apex>
+        # host is redirected — the apex, localhost and 127.0.0.1 (health checks)
+        # pass straight through. Registered last => runs first (outermost).
+        base = get_settings().base_url
+        if base:
+            canonical = urlparse(base).netloc.split(":")[0].lower()
+            host = (request.headers.get("host") or "").split(":")[0].lower()
+            if canonical and host == "www." + canonical:
+                target = base + request.url.path
+                if request.url.query:
+                    target += "?" + request.url.query
+                return RedirectResponse(target, status_code=301)
+        return await call_next(request)
 
     @app.exception_handler(StarletteHTTPException)
     async def html_errors(request: Request, exc: StarletteHTTPException):

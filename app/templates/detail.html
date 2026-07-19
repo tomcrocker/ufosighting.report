@@ -44,7 +44,8 @@
   "description": {{ page_desc[:300] | tojson }},
   "contentUrl": {{ media[0].url | tojson }},
   {% if media[0].thumb_url %}"thumbnailUrl": {{ media[0].thumb_url | tojson }},{% endif %}
-  "uploadDate": {{ s.created_at | tojson }}
+  {% if s.duration_seconds %}"duration": {{ ("PT" ~ s.duration_seconds ~ "S") | tojson }},{% endif %}
+  "uploadDate": {{ (s.reddit_posted_at or s.created_at) | tojson }}
 }
 </script>
 {% endif %}

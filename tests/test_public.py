@@ -526,3 +526,38 @@ def test_ga_renders_when_configured_but_not_on_anonymous(client, monkeypatch):
     # the anonymous-submission page suppresses analytics for source privacy
     anon = client.get("/anonymous")
     assert "googletagmanager.com" not in anon.text
+
+
+def test_video_object_uses_post_date_and_duration(client, app_db):
+    sid = seed(app_db, source="reddit", reddit_post_id="1vid",
+               reddit_posted_at="2026-07-09T21:30:00Z",
+               created_at="2026-07-11T00:00:00Z", duration_seconds=125)
+    app_db.execute(
+        "INSERT INTO media (sighting_id, r2_key, kind, thumb_key, sort_order) "
+        "VALUES (?, 'uploads/2026/07/x.mp4', 'video', 'thumbs/x.jpg', 0)", (sid,))
+    app_db.commit()
+    html = client.get(f"/sighting/{sid}").text
+    assert '"@type": "VideoObject"' in html
+    assert '"duration": "PT125S"' in html
+    # uploadDate is the real Reddit post date, not the ingest/created_at date
+    assert '"uploadDate": "2026-07-09T21:30:00Z"' in html
+    block = html.split('"VideoObject"', 1)[1].split("</script>", 1)[0]
+    assert "2026-07-11" not in block  # created_at must NOT be the uploadDate
+
+
+def test_www_host_redirects_to_apex(client):
+    r = client.get("/guide", headers={"host": "www.testserver"}, follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "http://testserver/guide"
+
+
+def test_www_redirect_preserves_query(client):
+    r = client.get("/?q=orb&t=week", headers={"host": "www.testserver"},
+                   follow_redirects=False)
+    assert r.status_code == 301
+    assert r.headers["location"] == "http://testserver/?q=orb&t=week"
+
+
+def test_apex_host_not_redirected(client):
+    r = client.get("/guide", headers={"host": "testserver"}, follow_redirects=False)
+    assert r.status_code == 200

@@ -120,6 +120,38 @@ def test_extract_fields_custom_provider_and_reasoning_off(monkeypatch):
     assert sent["messages"][0]["content"].endswith("/no_think")
 
 
+def test_system_prompt_has_post_date_rule():
+    assert "[POST DATE]" in extract.SYSTEM_PROMPT
+    low = extract.SYSTEM_PROMPT.lower()
+    assert "yesterday" in low and "never after" in low
+    assert "someone else" in low  # second-hand undated story -> null clause
+
+
+@respx.mock
+def test_extract_fields_injects_post_date(monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    get_settings.cache_clear()
+    route = respx.post(CHAT).mock(return_value=_chat_response('{"date":"2025-07-01"}'))
+    extract.extract_fields("Orb last night over Tofino", post_date="2025-07-02")
+    import json as _json
+    user = _json.loads(route.calls[0].request.content)["messages"][1]["content"]
+    assert user.startswith("[POST DATE] 2025-07-02")
+    assert "Orb last night over Tofino" in user
+
+
+@respx.mock
+def test_extract_fields_no_post_date_omits_marker(monkeypatch):
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    monkeypatch.delenv("LLM_BASE_URL", raising=False)
+    get_settings.cache_clear()
+    route = respx.post(CHAT).mock(return_value=_chat_response('{"date":"2025-07-01"}'))
+    extract.extract_fields("Orb last night over Tofino")
+    import json as _json
+    user = _json.loads(route.calls[0].request.content)["messages"][1]["content"]
+    assert "[POST DATE]" not in user
+
+
 @respx.mock
 def test_extract_fields_llm_key_falls_back_to_xai(monkeypatch):
     # No LLM_* set → falls back to XAI key/model/url (backward compat).

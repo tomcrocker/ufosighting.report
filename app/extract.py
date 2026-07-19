@@ -93,7 +93,15 @@ SYSTEM_PROMPT = (
     "shape, num_objects (one of 1,2,3,4,5+), duration_seconds (integer), "
     "summary (one neutral sentence). Use null for any field NOT explicitly "
     "stated in the text — do NOT guess or invent. shape must be one of: "
-    + ", ".join(helpers.SHAPES) + "."
+    + ", ".join(helpers.SHAPES) + ". "
+    "If the message begins with a line '[POST DATE] YYYY-MM-DD' (when the post "
+    "was submitted), resolve relative or year-less dates against it: "
+    "'yesterday'/'last night' = the day before or the night of [POST DATE]; a "
+    "weekday like 'last Thursday' = the most recent such weekday on or before "
+    "[POST DATE]; a month+day with no year = the most recent occurrence on or "
+    "before [POST DATE]; 'just saw'/'right now'/'at the moment' = [POST DATE]. "
+    "The sighting date is never after [POST DATE]. If the post only relays "
+    "someone else's undated account, or no date is stated or implied, use null."
 )
 
 
@@ -153,12 +161,16 @@ def _call_llm(text: str, *, base_url: str, api_key: str, model: str,
         return {}
 
 
-def extract_fields(text: str) -> dict:
+def extract_fields(text: str, *, post_date: str | None = None) -> dict:
+    """Extract sighting fields from combined post text. `post_date` (YYYY-MM-DD,
+    the post's submission date) is prepended as a [POST DATE] marker so the model
+    can resolve relative/year-less dates against it (see SYSTEM_PROMPT)."""
     s = get_settings()
     if not s.llm_api_key:
         return {}
+    user = f"[POST DATE] {post_date[:10]}\n{text}" if post_date else text
     return _call_llm(
-        text,
+        user,
         base_url=s.llm_base_url,
         api_key=s.llm_api_key,
         model=s.llm_model,

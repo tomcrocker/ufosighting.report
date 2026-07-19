@@ -18,7 +18,7 @@ def _empty_clamped():
 def _stub_pipeline(monkeypatch, *, clamped=None, coords=None, comments=None):
     monkeypatch.setattr(ingest, "download_media", lambda post: [])
     monkeypatch.setattr(ingest, "fetch_op_comments", lambda token, post: comments or [])
-    monkeypatch.setattr(ingest.extract, "extract_fields", lambda text: {})
+    monkeypatch.setattr(ingest.extract, "extract_fields", lambda text, **kw: {})
     monkeypatch.setattr(ingest.extract, "validate_and_clamp",
                         lambda raw, post_created_iso: clamped or _empty_clamped())
     monkeypatch.setattr(ingest.geocode, "forward", lambda conn, q: coords)
@@ -119,7 +119,7 @@ def test_ingest_video_media_kind(db_conn, monkeypatch):
     monkeypatch.setattr(ingest, "download_media",
                         lambda post: [(b"mp4bytes", "video/mp4", ".mp4")])
     monkeypatch.setattr(ingest, "fetch_op_comments", lambda token, post: [])
-    monkeypatch.setattr(ingest.extract, "extract_fields", lambda text: {})
+    monkeypatch.setattr(ingest.extract, "extract_fields", lambda text, **kw: {})
     monkeypatch.setattr(ingest.extract, "validate_and_clamp",
                         lambda raw, post_created_iso: _empty_clamped())
     monkeypatch.setattr(ingest.geocode, "forward", lambda conn, q: None)
@@ -186,7 +186,7 @@ def test_ingest_post_uses_provided_op_comments(db_conn, monkeypatch):
                         lambda token, post: (_ for _ in ()).throw(AssertionError("API fetch called")))
     monkeypatch.setattr(ingest.extract, "combine_post_text",
                         lambda post, oc: seen.update(oc=oc) or "text")
-    monkeypatch.setattr(ingest.extract, "extract_fields", lambda text: {})
+    monkeypatch.setattr(ingest.extract, "extract_fields", lambda text, **kw: {})
     monkeypatch.setattr(ingest.extract, "validate_and_clamp",
                         lambda raw, post_created_iso: _empty_clamped())
     monkeypatch.setattr(ingest.geocode, "forward", lambda conn, q: None)

@@ -191,8 +191,9 @@ def ingest_post(conn, post: dict, token=None, op_comments: list[str] | None = No
     if op_comments is None:
         op_comments = fetch_op_comments(token, post)
     text = extract.combine_post_text(post, op_comments)
-    clamped = extract.validate_and_clamp(extract.extract_fields(text),
-                                         post_created_iso=post_created_iso)
+    clamped = extract.validate_and_clamp(
+        extract.extract_fields(text, post_date=post_created_iso),
+        post_created_iso=post_created_iso)
 
     coords = None
     for q in geocode.candidates(clamped.get("location_text") or "",

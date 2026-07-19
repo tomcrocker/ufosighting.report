@@ -175,7 +175,8 @@ SELECT * FROM sightings s
 WHERE s.bsky_posted_at IS NULL
   AND s.status = 'live'
   AND EXISTS (SELECT 1 FROM media m WHERE m.sighting_id = s.id)
-  AND (s.lat IS NOT NULL OR length(coalesce(s.description, '')) >= 80)
+  AND s.lat IS NOT NULL
+  AND length(coalesce(s.description, '')) >= 40
 ORDER BY s.id DESC
 LIMIT ?
 """

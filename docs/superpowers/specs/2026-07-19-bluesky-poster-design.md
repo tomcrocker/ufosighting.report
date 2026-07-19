@@ -17,7 +17,8 @@ Best-effort: failures logged, never break ingest.
 
 ## Eligibility
 `bsky_posted_at IS NULL` AND `status='live'` AND has ≥1 media row AND
-(`lat IS NOT NULL` OR `length(description) >= 80`). Newest first, up to N/run,
+`lat IS NOT NULL` (geocoded — guarantees a 📍 and drops "Any ideas?" text noise)
+AND `length(description) >= 40`. Newest first, up to N/run,
 short sleep between posts. A per-row failure leaves `bsky_posted_at` NULL → retried
 next sweep.
 

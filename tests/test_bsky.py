@@ -86,19 +86,20 @@ def _media(conn, sid, thumb_key="thumbs/x.jpg"):
 
 
 def test_eligible_rows_filters(db_conn):
-    ok_geo = _seed(db_conn); _media(db_conn, ok_geo)                       # media + geo
-    ok_text = _seed(db_conn, lat=None, lon=None, description="y" * 80)     # media + long text
-    _media(db_conn, ok_text)
+    ok = _seed(db_conn); _media(db_conn, ok)                               # media + geo + body
+    no_geo = _seed(db_conn, lat=None, lon=None, description="y" * 80)      # no location -> skip
+    _media(db_conn, no_geo)
     no_media = _seed(db_conn)                                              # no media -> skip
-    hidden = _seed(db_conn, status="hidden_by_admin"); _media(db_conn, hidden)  # not live
-    thin = _seed(db_conn, lat=None, lon=None, description="short"); _media(db_conn, thin)  # no geo, short
+    hidden = _seed(db_conn, status="hidden_by_admin"); _media(db_conn, hidden)  # not live -> skip
+    empty_body = _seed(db_conn, description="hi"); _media(db_conn, empty_body)   # body < 40 -> skip
     posted = _seed(db_conn); _media(db_conn, posted)
     db_conn.execute("UPDATE sightings SET bsky_posted_at='skipped' WHERE id=?", (posted,))
     db_conn.commit()
 
     ids = {r["id"] for r in bsky.eligible_rows(db_conn, limit=50)}
-    assert ids == {ok_geo, ok_text}
-    assert no_media not in ids and hidden not in ids and thin not in ids and posted not in ids
+    assert ids == {ok}
+    for skip in (no_geo, no_media, hidden, empty_body, posted):
+        assert skip not in ids
 
 
 def test_post_new_noop_when_disabled(db_conn, monkeypatch):

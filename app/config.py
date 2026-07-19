@@ -44,6 +44,10 @@ class Settings:
     verify_dm_per_username_hours: int
     xai_api_key: str
     xai_model: str
+    llm_base_url: str
+    llm_api_key: str
+    llm_model: str
+    llm_reasoning_off: bool
     ingest_subreddit: str
     meili_url: str
     meili_key: str
@@ -103,6 +107,11 @@ def get_settings() -> Settings:
         verify_dm_per_username_hours=int(_env("VERIFY_DM_PER_USERNAME_HOURS", "1")),
         xai_api_key=_env("XAI_API_KEY", ""),
         xai_model=_env("XAI_MODEL", "grok-3-mini"),
+        llm_base_url=_env("LLM_BASE_URL", "https://api.x.ai/v1"),
+        llm_api_key=_env("LLM_API_KEY", "") or _env("XAI_API_KEY", ""),
+        llm_model=_env("LLM_MODEL", "") or _env("XAI_MODEL", "grok-3-mini"),
+        llm_reasoning_off=_env("LLM_REASONING_OFF", "").strip().lower()
+        in ("1", "true", "yes", "on"),
         ingest_subreddit=_env("INGEST_SUBREDDIT", "") or subreddit,
         meili_url=_env("MEILI_URL", ""),
         meili_key=_env("MEILI_KEY", ""),

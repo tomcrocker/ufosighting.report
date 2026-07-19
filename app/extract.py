@@ -7,8 +7,6 @@ import httpx
 from app import helpers
 from app.config import get_settings
 
-CHAT_URL = "https://api.x.ai/v1/chat/completions"
-
 MAX_SOURCE = 2000
 MAX_TOTAL = 6500
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -99,29 +97,70 @@ SYSTEM_PROMPT = (
 )
 
 
-def extract_fields(text: str) -> dict:
-    s = get_settings()
-    if not s.xai_api_key:
+def _parse_json_content(content) -> dict:
+    """Parse a chat completion's content into a dict, tolerating markdown
+    fences (```json ... ```) that some models wrap JSON in."""
+    if not isinstance(content, str):
         return {}
+    c = content.strip()
+    if c.startswith("```"):
+        c = c[3:]
+        if c[:4].lower() == "json":
+            c = c[4:]
+        if c.endswith("```"):
+            c = c[:-3]
+        c = c.strip()
+    try:
+        data = json.loads(c)
+    except ValueError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _call_llm(text: str, *, base_url: str, api_key: str, model: str,
+              reasoning_off: bool, timeout: float = 45,
+              max_tokens: int = 1024) -> dict:
+    """Provider-agnostic OpenAI-compatible chat call. Returns the raw parsed
+    JSON dict (pre-validation), or {} on any failure.
+
+    `reasoning_off` appends the Qwen/Nemotron `/no_think` token so reasoning
+    models emit the JSON directly instead of filling `reasoning_content`.
+    `max_tokens` bounds cost and stops a reasoning model from running away if
+    the off-switch is ever missing (our schema needs <200 tokens)."""
+    system = SYSTEM_PROMPT + (" /no_think" if reasoning_off else "")
+    url = base_url.rstrip("/") + "/chat/completions"
     try:
         resp = httpx.post(
-            CHAT_URL,
-            headers={"Authorization": f"Bearer {s.xai_api_key}"},
+            url,
+            headers={"Authorization": f"Bearer {api_key}"},
             json={
-                "model": s.xai_model,
+                "model": model,
                 "temperature": 0,
+                "max_tokens": max_tokens,
                 "response_format": {"type": "json_object"},
                 "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": system},
                     {"role": "user", "content": text},
                 ],
             },
-            timeout=45,
+            timeout=timeout,
         )
         if resp.status_code != 200:
             return {}
         content = resp.json()["choices"][0]["message"]["content"]
-        data = json.loads(content)
-        return data if isinstance(data, dict) else {}
+        return _parse_json_content(content)
     except (httpx.HTTPError, ValueError, KeyError, IndexError):
         return {}
+
+
+def extract_fields(text: str) -> dict:
+    s = get_settings()
+    if not s.llm_api_key:
+        return {}
+    return _call_llm(
+        text,
+        base_url=s.llm_base_url,
+        api_key=s.llm_api_key,
+        model=s.llm_model,
+        reasoning_off=s.llm_reasoning_off,
+    )

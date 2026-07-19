@@ -1,12 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-{% from "_brand.html" import snoo %}
+{% from "_brand.html" import snoo, bsky %}
 <section class="intro">
   <p class="community-eyebrow">{{ snoo() }} The r/UFOs community sighting archive</p>
   <h1>UFO sightings, on the record</h1>
   <p class="hero-stats"><strong>{{ "{:,}".format(grand_total) }}</strong> sightings archived
     {% if latest_at %}&middot; latest added {{ latest_at[:10] }}{% endif %}
-    &middot; <a href="/feed.xml">RSS</a></p>
+    &middot; <a href="/feed.xml">RSS</a>
+    &middot; <a class="bsky-link" href="https://bsky.app/profile/ufosighting.bsky.social"
+       target="_blank" rel="noopener" title="Follow on Bluesky">{{ bsky() }} Bluesky</a></p>
   <p>This is the sighting archive of <a href="https://www.reddit.com/r/UFOs/">r/UFOs</a> —
      every sighting reported through this site or posted to the subreddit, preserved with
      its media, location, and time. Browse the gallery, explore the

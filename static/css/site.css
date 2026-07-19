@@ -466,6 +466,11 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .btn.reddit .snoo { width: 18px; height: 18px; }
 .btn.reddit:hover { background: rgba(255, 69, 0, .18); text-decoration: none; }
 .community-reddit { display: inline-flex !important; align-items: center; gap: 7px; }
+.community-bsky { display: inline-flex !important; align-items: center; gap: 7px; }
+.bsky { width: 20px; height: 18px; flex: none; display: inline-block; vertical-align: middle; }
+.bsky.bsky-sm { width: 15px; height: 14px; }
+.hero-stats .bsky-link { color: var(--muted); white-space: nowrap; }
+.hero-stats .bsky-link .bsky { width: 15px; height: 14px; vertical-align: -2px; }
 
 /* --- homepage intro --- */
 .intro { margin: 2px 0 18px; max-width: 720px; }

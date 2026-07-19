@@ -57,6 +57,9 @@ class Settings:
     anonymous_enabled: bool
     ga_measurement_id: str
     dc_gag_enabled: bool
+    bsky_enabled: bool
+    bsky_handle: str
+    bsky_app_password: str
 
 
 def _env(name: str, default: str | None = None) -> str:
@@ -129,4 +132,8 @@ def get_settings() -> Settings:
         # "Add visitor location headers" managed transform (CF-Region-Code)
         dc_gag_enabled=_env("DC_GAG_ENABLED", "").strip().lower()
         in ("1", "true", "yes", "on"),
+        bsky_enabled=_env("BSKY_ENABLED", "").strip().lower()
+        in ("1", "true", "yes", "on"),
+        bsky_handle=_env("BSKY_HANDLE", "").strip(),
+        bsky_app_password=_env("BSKY_APP_PASSWORD", "").strip(),
     )

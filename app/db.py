@@ -180,6 +180,7 @@ _MIGRATION_COLUMNS = [
     ("sky_events", "TEXT"),
     ("reddit_posted_at", "TEXT"),
     ("removed_by_category", "TEXT"),  # raw Reddit removal reason (moderator/reddit/…)
+    ("bsky_posted_at", "TEXT"),       # NULL=eligible, ISO ts=posted, 'skipped'=pre-rollout
 ]
 
 

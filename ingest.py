@@ -287,6 +287,11 @@ def ingest_once(conn, *, limit=100, after=None) -> dict:
             added_pids.append(p["id"])
             time.sleep(PER_POST_SLEEP_SECONDS)
     _ping_indexnow(conn, added_pids)
+    try:  # best-effort Bluesky cross-post sweep — must never break ingest
+        from app import bsky
+        bsky.post_new(conn)
+    except Exception as exc:  # noqa: BLE001
+        print(f"ingest: bsky post_new failed: {exc}")
     return {"seen": len(posts), "added": len(added_pids)}
 
 

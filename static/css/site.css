@@ -54,6 +54,10 @@ main { max-width: 1200px; margin: 0 auto; padding: 20px 16px 44px; }
 
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
 .panel.narrow { max-width: 560px; margin: 48px auto; }
+.submitted-actions { display: flex; align-items: center; gap: 16px; margin-top: 22px; flex-wrap: wrap; }
+.submitted-actions form { margin: 0; }
+.muted-link { color: var(--muted); font-size: .92rem; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
 .muted { color: var(--muted); }
 .flash.error { background: #3a1520; border: 1px solid var(--danger); color: #ffc9c9; padding: 10px 14px; border-radius: var(--radius); }
 

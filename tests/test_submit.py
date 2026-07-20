@@ -61,7 +61,7 @@ def test_happy_path_creates_pending_verify_and_dms(client, app_db, monkeypatch):
         return_value=httpx.Response(200, json={"json": {"errors": []}}))
     csrf = get_csrf(client)
     r = client.post("/submit", data=form(csrf), follow_redirects=False)
-    assert r.status_code == 200 and "inbox" in r.text.lower()
+    assert r.status_code == 200 and "chat" in r.text.lower()
     row = app_db.execute("SELECT * FROM sightings WHERE id=1").fetchone()
     assert row["status"] == "pending_verify"
     assert row["reddit_username"] == "witness1"
@@ -370,3 +370,54 @@ def test_media_requires_own_capture_confirm(client, app_db):
     assert r.status_code == 422
     assert "your own eyes" in r.text
     assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 0
+
+
+def test_retry_after_minutes(db_conn):
+    from app import ratelimit
+    ratelimit.record(db_conn, "someuser", "dm")
+    assert 58 <= ratelimit.retry_after_minutes(db_conn, "someuser", "dm", 1) <= 60
+    assert ratelimit.retry_after_minutes(db_conn, "nobody", "dm", 1) == 0
+
+
+@respx.mock
+def test_second_submit_same_user_shows_throttled_message(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "bot-tok")
+    dm = respx.post("https://oauth.reddit.com/api/compose").mock(
+        return_value=httpx.Response(200, json={"json": {"errors": []}}))
+    csrf = get_csrf(client)
+    r1 = client.post("/submit", data=form(csrf), follow_redirects=False)
+    assert r1.status_code == 200 and "chat" in r1.text.lower()
+    r2 = client.post("/submit", data=form(csrf), follow_redirects=False)
+    assert r2.status_code == 200
+    # honest copy: don't imply a fresh DM; point them at chat requests + a wait
+    assert "chat requests" in r2.text.lower() and "another" in r2.text.lower()
+    assert dm.call_count == 1                                   # no second DM sent
+    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 2
+
+
+@respx.mock
+def test_resend_sends_when_gate_open(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "t")
+    dm = respx.post("https://oauth.reddit.com/api/compose").mock(
+        return_value=httpx.Response(200, json={"json": {"errors": []}}))
+    app_db.execute(
+        "INSERT INTO sightings (reddit_username,title,sighted_at,location_text,status,"
+        "verify_token) VALUES ('lonewitness','Orb','2026-07-01T00:00:00Z','X','pending_verify',"
+        "'tok-xyz')")
+    app_db.commit()
+    csrf = get_csrf(client)
+    r = client.post("/submit/resend", data={"csrf_token": csrf, "token": "tok-xyz"})
+    assert r.status_code == 200 and dm.called
+    assert "re-sent" in r.text.lower()
+
+
+def test_resend_bad_token_is_gone(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit/resend", data={"csrf_token": csrf, "token": "nope"})
+    assert r.status_code == 200 and "already confirmed" in r.text.lower()
+
+
+def test_resend_bad_csrf_rejected(client):
+    get_csrf(client)
+    r = client.post("/submit/resend", data={"csrf_token": "forged", "token": "x"})
+    assert r.status_code == 403

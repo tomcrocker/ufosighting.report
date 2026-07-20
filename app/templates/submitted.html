@@ -1,17 +1,51 @@
 {% extends "base.html" %}
-{% block title %}Check your Reddit inbox — ufosighting.report{% endblock %}
+{% block title %}Confirm your sighting — ufosighting.report{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <section class="panel narrow">
-  <h1>Almost there — check your Reddit inbox</h1>
-  <p>We sent <strong>u/{{ username }}</strong> a private message from
-     <strong>u/{{ bot_username }}</strong> with a confirmation link.</p>
-  <p><strong>Your sighting is not live yet.</strong> Clicking that link confirms you are who
-     you say you are — as soon as you do, your sighting posts to the subreddit and appears
-     in the gallery.</p>
-  <p class="muted">Didn't get it, or that's not your account? No problem — after
-     {{ verify_hours }} hours a moderator will review your sighting and post it, credited
-     as self-reported. Nothing is lost.</p>
-  <a class="btn" href="/">Back to the gallery</a>
+{% if dm_status == 'throttled' %}
+  <h1>Check your Reddit chat</h1>
+  <p>You requested a confirmation link a few minutes ago. It went to
+     <strong>u/{{ username }}</strong> as a <strong>Reddit chat</strong> from
+     <strong>u/{{ bot_username }}</strong> — look under <strong>chat requests</strong>
+     (the chat icon), not your email or your post inbox.</p>
+  <p class="muted">Still can't find it? You can request another in about
+     {{ retry_minutes }} minute{{ '' if retry_minutes == 1 else 's' }}.</p>
+{% elif dm_status == 'failed' %}
+  <h1>Almost there</h1>
+  <p>We couldn't send <strong>u/{{ username }}</strong> a chat from
+     <strong>u/{{ bot_username }}</strong> just now.</p>
+  <p class="muted">Nothing is lost — after {{ verify_hours }} hours a moderator reviews your
+     sighting and posts it, credited as self-reported. You can also try resending below.</p>
+{% elif dm_status == 'gone' %}
+  <h1>Already confirmed</h1>
+  <p>This sighting is no longer awaiting confirmation — it may already be live, or the link
+     has expired.</p>
+{% else %}{# sent #}
+  <h1>Check your Reddit chat</h1>
+  <p>We sent <strong>u/{{ username }}</strong> a <strong>Reddit chat</strong> from
+     <strong>u/{{ bot_username }}</strong> with your confirmation link.</p>
+  <p class="muted">It usually lands under <strong>chat requests</strong> (the chat icon) —
+     check there if you don't see it right away.</p>
+  {% if resent %}<p class="flash">Link re-sent.</p>{% endif %}
+{% endif %}
+
+{% if dm_status != 'gone' %}
+  <p><strong>Your sighting is not live yet.</strong> Clicking the link confirms you own the
+     account — then it posts to r/UFOs and appears in the gallery.</p>
+{% endif %}
+
+<div class="submitted-actions">
+  {% if dm_status in ('sent', 'throttled', 'failed') and verify_token %}
+  <form method="post" action="/submit/resend">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <input type="hidden" name="token" value="{{ verify_token }}">
+    <button type="submit" class="btn"{% if dm_status == 'throttled' %} disabled{% endif %}>
+      {% if dm_status == 'throttled' %}Resend in ~{{ retry_minutes }} min{% else %}Resend link{% endif %}
+    </button>
+  </form>
+  {% endif %}
+  <a class="muted-link" href="/">Back to the gallery</a>
+</div>
 </section>
 {% endblock %}

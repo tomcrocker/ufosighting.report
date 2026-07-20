@@ -401,19 +401,43 @@ def submit_form(request: Request):
     return _render_form(request, values={}, errors=[], csrf=csrf)
 
 
-def _try_send_verify_dm(conn, username: str, token: str) -> None:
-    """Fire the verification DM; guarded per-username, non-fatal on failure."""
+def _try_send_verify_dm(conn, username: str, token: str) -> str:
+    """Fire the verification DM; guarded per-username, non-fatal on failure.
+    Returns the outcome so the confirmation page can tell the user the truth:
+    'sent' | 'throttled' (recent DM still within the gate) | 'failed'."""
     s = get_settings()
     if not ratelimit.allowed(conn, username.lower(), "dm", 1,
                              window_hours=s.verify_dm_per_username_hours):
-        return
+        return "throttled"
     verify_url = f"{s.base_url}/verify/{token}"
     subject, text = verify.verify_message(username, verify_url)
     try:
         reddit.send_message(reddit.script_token(), to=username, subject=subject, text=text)
         ratelimit.record(conn, username.lower(), "dm")
+        return "sent"
     except reddit.RedditError as exc:
         print(f"verify DM to u/{username} failed: {exc}")
+        return "failed"
+
+
+def _render_submitted(request, conn, username, dm_status, token, *, resent=False):
+    """Confirmation page, honest about what actually happened with the DM."""
+    s = get_settings()
+    retry_minutes = (
+        ratelimit.retry_after_minutes(conn, username.lower(), "dm",
+                                      s.verify_dm_per_username_hours)
+        if dm_status == "throttled" else 0)
+    # Reuse the existing csrf cookie (both callers arrive with a valid one) so the
+    # resend form matches it without rotating the token mid-session.
+    csrf = request.cookies.get("csrf") or new_csrf()
+    resp = templates.TemplateResponse(request, "submitted.html", {
+        "user": None, "username": username, "bot_username": s.script_username,
+        "verify_hours": s.verify_window_hours, "dm_status": dm_status,
+        "retry_minutes": retry_minutes, "verify_token": token, "csrf": csrf,
+        "resent": resent})
+    if not request.cookies.get("csrf"):
+        resp.set_cookie("csrf", csrf, max_age=7200, httponly=True, samesite="lax")
+    return resp
 
 
 @router.post("/submit")
@@ -484,8 +508,24 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
         )
     conn.commit()
     ratelimit.record(conn, ip, "submit")
-    _try_send_verify_dm(conn, username, token)
-    return templates.TemplateResponse(
-        request, "submitted.html",
-        {"user": None, "username": username,
-         "bot_username": s.script_username, "verify_hours": s.verify_window_hours})
+    dm_status = _try_send_verify_dm(conn, username, token)
+    return _render_submitted(request, conn, username, dm_status, token)
+
+
+@router.post("/submit/resend")
+async def submit_resend(request: Request, conn=Depends(db.get_db)):
+    """Re-fire the verification DM for a still-pending sighting, respecting the
+    per-username gate. Reached from the 'resend' button on the confirmation page."""
+    form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
+    cookie_csrf = request.cookies.get("csrf", "")
+    if not cookie_csrf or not hmac.compare_digest(form.get("csrf_token", ""), cookie_csrf):
+        raise HTTPException(status_code=403, detail="Bad CSRF token")
+    token = form.get("token", "")
+    row = conn.execute(
+        "SELECT reddit_username FROM sightings "
+        "WHERE verify_token=? AND status='pending_verify'", (token,)).fetchone()
+    if not row:  # already verified, expired, or bad token
+        return _render_submitted(request, conn, "", "gone", token)
+    username = row["reddit_username"]
+    dm_status = _try_send_verify_dm(conn, username, token)
+    return _render_submitted(request, conn, username, dm_status, token, resent=True)

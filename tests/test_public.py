@@ -538,11 +538,20 @@ def test_video_object_uses_post_date_and_duration(client, app_db):
     app_db.commit()
     html = client.get(f"/sighting/{sid}").text
     assert '"@type": "VideoObject"' in html
+    assert '"@type": "Article"' not in html          # video page: video is the primary entity
     assert '"duration": "PT125S"' in html
     # uploadDate is the real Reddit post date, not the ingest/created_at date
     assert '"uploadDate": "2026-07-09T21:30:00Z"' in html
     block = html.split('"VideoObject"', 1)[1].split("</script>", 1)[0]
     assert "2026-07-11" not in block  # created_at must NOT be the uploadDate
+    assert '"contentLocation"' in block and '"latitude": 48.8' in block  # geo preserved
+
+
+def test_text_sighting_keeps_article_schema(client, app_db):
+    sid = seed(app_db)  # no media -> not a video watch page
+    html = client.get(f"/sighting/{sid}").text
+    assert '"@type": "Article"' in html
+    assert '"@type": "VideoObject"' not in html
 
 
 def test_www_host_redirects_to_apex(client):

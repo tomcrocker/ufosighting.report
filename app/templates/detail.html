@@ -16,6 +16,9 @@
 {% endif %}
 {% endblock %}
 {% block head %}
+{# A video sighting page is a watch page: VideoObject is its primary entity, so
+   we skip Article there. Image/text sightings keep Article. #}
+{% if not (media and media[0].kind == 'video') %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -35,6 +38,7 @@
   "articleSection": "UFO sighting report"
 }
 </script>
+{% endif %}
 {% if media and media[0].kind == 'video' %}
 <script type="application/ld+json">
 {
@@ -45,7 +49,8 @@
   "contentUrl": {{ media[0].url | tojson }},
   {% if media[0].thumb_url %}"thumbnailUrl": {{ media[0].thumb_url | tojson }},{% endif %}
   {% if s.duration_seconds %}"duration": {{ ("PT" ~ s.duration_seconds ~ "S") | tojson }},{% endif %}
-  "uploadDate": {{ (s.reddit_posted_at or s.created_at) | tojson }}
+  "uploadDate": {{ (s.reddit_posted_at or s.created_at) | tojson }}{% if s.lat is not none %},
+  "contentLocation": {"@type": "Place", {% if s.city or s.country %}"name": {{ ((s.city or '') + (', ' if s.city and s.country else '') + (s.country or '')) | tojson }}, {% endif %}"geo": {"@type": "GeoCoordinates", "latitude": {{ s.lat }}, "longitude": {{ s.lon }}}}{% endif %}
 }
 </script>
 {% endif %}

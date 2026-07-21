@@ -181,6 +181,7 @@ _MIGRATION_COLUMNS = [
     ("reddit_posted_at", "TEXT"),
     ("removed_by_category", "TEXT"),  # raw Reddit removal reason (moderator/reddit/…)
     ("bsky_posted_at", "TEXT"),       # NULL=eligible, ISO ts=posted, 'skipped'=pre-rollout
+    ("bsky_uri", "TEXT"),             # at:// URI of the Bluesky post, for retraction
 ]
 
 

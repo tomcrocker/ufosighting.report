@@ -174,7 +174,8 @@ ELIGIBLE_SQL = """
 SELECT * FROM sightings s
 WHERE s.bsky_posted_at IS NULL
   AND s.status = 'live'
-  AND EXISTS (SELECT 1 FROM media m WHERE m.sighting_id = s.id)
+  AND EXISTS (SELECT 1 FROM media m WHERE m.sighting_id = s.id
+              AND m.thumb_key IS NOT NULL AND m.thumb_key <> '')
   AND s.lat IS NOT NULL
   AND length(coalesce(s.description, '')) >= 40
 ORDER BY s.id DESC
@@ -203,8 +204,8 @@ def post_new(conn, limit=POST_LIMIT_DEFAULT) -> dict:
     for row in rows:
         try:
             uri = post_sighting(conn, row, session=session)
-            conn.execute("UPDATE sightings SET bsky_posted_at=? WHERE id=?",
-                         (now, row["id"]))
+            conn.execute("UPDATE sightings SET bsky_posted_at=?, bsky_uri=? WHERE id=?",
+                         (now, uri, row["id"]))
             conn.commit()
             posted += 1
             print(f"bsky: posted sighting {row['id']} -> {uri}")
@@ -212,3 +213,48 @@ def post_new(conn, limit=POST_LIMIT_DEFAULT) -> dict:
         except Exception as exc:  # noqa: BLE001 — leave NULL, retried next sweep
             print(f"bsky: post failed for sighting {row['id']}: {exc}")
     return {"posted": posted}
+
+
+def delete_post(session: dict, uri: str) -> None:
+    """Delete a post record by its at:// URI (at://did/collection/rkey)."""
+    parts = uri.rstrip("/").split("/")
+    rkey, collection = parts[-1], parts[-2]
+    r = httpx.post(f"{BASE}/com.atproto.repo.deleteRecord",
+                   json={"repo": session["did"], "collection": collection, "rkey": rkey},
+                   headers={"Authorization": f"Bearer {session['jwt']}"}, timeout=30)
+    r.raise_for_status()
+
+
+# Detail pages are served only for these statuses; anything else (removed_by_mod,
+# hidden_by_admin, …) now 410/404s, so a Bluesky link to it is dead.
+RETRACT_SQL = (
+    "SELECT id, bsky_uri FROM sightings WHERE bsky_uri IS NOT NULL "
+    "AND status NOT IN ('live','deleted_by_user','removed_on_reddit') LIMIT ?"
+)
+
+
+def retract_removed(conn, limit=20) -> dict:
+    """Delete Bluesky posts whose sighting is no longer publicly served (e.g. a
+    mod-removed post that now 410s) so we never leave dead links up. Best-effort."""
+    if not enabled():
+        return {"retracted": 0, "disabled": True}
+    rows = conn.execute(RETRACT_SQL, (limit,)).fetchall()
+    if not rows:
+        return {"retracted": 0}
+    try:
+        session = create_session()
+    except Exception as exc:  # noqa: BLE001
+        print(f"bsky: session failed (retract): {exc}")
+        return {"retracted": 0, "error": str(exc)[:120]}
+    n = 0
+    for row in rows:
+        try:
+            delete_post(session, row["bsky_uri"])
+            conn.execute("UPDATE sightings SET bsky_uri=NULL WHERE id=?", (row["id"],))
+            conn.commit()
+            n += 1
+            print(f"bsky: retracted removed sighting {row['id']}")
+            time.sleep(1)
+        except Exception as exc:  # noqa: BLE001 — leave bsky_uri, retried next sweep
+            print(f"bsky: retract failed for sighting {row['id']}: {exc}")
+    return {"retracted": n}

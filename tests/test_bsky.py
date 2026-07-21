@@ -86,10 +86,11 @@ def _media(conn, sid, thumb_key="thumbs/x.jpg"):
 
 
 def test_eligible_rows_filters(db_conn):
-    ok = _seed(db_conn); _media(db_conn, ok)                               # media + geo + body
+    ok = _seed(db_conn); _media(db_conn, ok)                               # media + thumb + geo + body
     no_geo = _seed(db_conn, lat=None, lon=None, description="y" * 80)      # no location -> skip
     _media(db_conn, no_geo)
     no_media = _seed(db_conn)                                              # no media -> skip
+    no_thumb = _seed(db_conn); _media(db_conn, no_thumb, thumb_key=None)   # thumb not ready -> skip
     hidden = _seed(db_conn, status="hidden_by_admin"); _media(db_conn, hidden)  # not live -> skip
     empty_body = _seed(db_conn, description="hi"); _media(db_conn, empty_body)   # body < 40 -> skip
     posted = _seed(db_conn); _media(db_conn, posted)
@@ -98,7 +99,7 @@ def test_eligible_rows_filters(db_conn):
 
     ids = {r["id"] for r in bsky.eligible_rows(db_conn, limit=50)}
     assert ids == {ok}
-    for skip in (no_geo, no_media, hidden, empty_body, posted):
+    for skip in (no_geo, no_media, no_thumb, hidden, empty_body, posted):
         assert skip not in ids
 
 
@@ -133,10 +134,40 @@ def test_post_new_posts_and_marks(db_conn, monkeypatch):
     sid = _seed(db_conn); _media(db_conn, sid)
     result = bsky.post_new(db_conn)
     assert result == {"posted": 1}
-    # row is marked posted (won't repost)
-    ts = db_conn.execute("SELECT bsky_posted_at FROM sightings WHERE id=?", (sid,)).fetchone()[0]
-    assert ts and ts != "skipped"
+    # row is marked posted (won't repost) and the post uri is stored for retraction
+    row = db_conn.execute("SELECT bsky_posted_at, bsky_uri FROM sightings WHERE id=?",
+                          (sid,)).fetchone()
+    assert row[0] and row[0] != "skipped"
+    assert row[1] == "at://did:plc:x/app.bsky.feed.post/abc"
     # the record carried text + facets + image embed
     body = json.loads(create.calls[0].request.content)["record"]
     assert "Orb over the lake" in body["text"]
     assert body["facets"] and body["embed"]["$type"] == "app.bsky.embed.images"
+
+
+@respx.mock
+def test_retract_removed_deletes_dead_posts(db_conn, monkeypatch):
+    monkeypatch.setenv("BSKY_ENABLED", "1")
+    monkeypatch.setenv("BSKY_HANDLE", "ufosighting.bsky.social")
+    monkeypatch.setenv("BSKY_APP_PASSWORD", "app-pass")
+    get_settings.cache_clear()
+    monkeypatch.setattr(bsky.time, "sleep", lambda *a: None)
+    respx.post(f"{BSKY}/com.atproto.server.createSession").mock(
+        return_value=httpx.Response(200, json={"accessJwt": "jwt", "did": "did:plc:x"}))
+    delroute = respx.post(f"{BSKY}/com.atproto.repo.deleteRecord").mock(
+        return_value=httpx.Response(200, json={}))
+
+    removed = _seed(db_conn, status="removed_by_mod")
+    live = _seed(db_conn, status="live")
+    deleted = _seed(db_conn, status="deleted_by_user")  # page still public -> keep
+    for sid, rkey in ((removed, "dead1"), (live, "keep1"), (deleted, "keep2")):
+        db_conn.execute("UPDATE sightings SET bsky_uri=? WHERE id=?",
+                        (f"at://did:plc:x/app.bsky.feed.post/{rkey}", sid))
+    db_conn.commit()
+
+    assert bsky.retract_removed(db_conn) == {"retracted": 1}
+    assert db_conn.execute("SELECT bsky_uri FROM sightings WHERE id=?", (removed,)).fetchone()[0] is None
+    assert db_conn.execute("SELECT bsky_uri FROM sightings WHERE id=?", (live,)).fetchone()[0] is not None
+    assert db_conn.execute("SELECT bsky_uri FROM sightings WHERE id=?", (deleted,)).fetchone()[0] is not None
+    body = json.loads(delroute.calls[0].request.content)
+    assert body["rkey"] == "dead1" and body["collection"] == "app.bsky.feed.post"

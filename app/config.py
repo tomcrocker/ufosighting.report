@@ -97,7 +97,7 @@ def get_settings() -> Settings:
         ),
         admin_password=_env("ADMIN_PASSWORD", ""),
         user_agent="web:report.ufosighting:v1.0 (by /u/tmosh)",
-        session_ttl_seconds=3600,
+        session_ttl_seconds=int(_env("SESSION_TTL_SECONDS", "2592000")),  # 30d default
         max_image_bytes=25 * 1024 * 1024,
         max_video_bytes=500 * 1024 * 1024,
         max_files=10,

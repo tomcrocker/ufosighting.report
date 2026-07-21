@@ -131,3 +131,20 @@ def test_compass_name():
     assert compass_name(205.6) == "SSW"
     assert compass_name(359) == "N"
     assert compass_name(90) == "E"
+
+
+def test_format_post_body_flags_non_original_media():
+    prov = {"original": False, "label": "Screenshot",
+            "detail": "Looks like a screenshot (Monosnap)."}
+    body = helpers.format_post_body(
+        {"tz_name": "UTC", "description": "d"}, sighted_local="x", location_line="",
+        media_urls=[], gallery_url="g", media_provenance=prov)
+    assert "Media note" in body and "screenshot" in body.lower()
+
+
+def test_format_post_body_no_note_for_original_media():
+    prov = {"original": True, "label": "Original camera file", "detail": "ok"}
+    body = helpers.format_post_body(
+        {"tz_name": "UTC", "description": "d"}, sighted_local="x", location_line="",
+        media_urls=[], gallery_url="g", media_provenance=prov)
+    assert "Media note" not in body

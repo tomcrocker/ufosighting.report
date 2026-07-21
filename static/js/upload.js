@@ -130,6 +130,20 @@
       });
       if (!resp.ok) return;
       const data = await resp.json();
+      let anchor = row;
+      // Provenance nudge: warn (before the metadata table) if this doesn't look
+      // like an original camera file — this must run even when there are no rows
+      // to show, because a screenshot / stripped file is exactly the case to flag.
+      if (data.provenance && !data.provenance.original) {
+        const warn = document.createElement("div");
+        warn.className = "meta-warn";
+        warn.innerHTML =
+          "<strong>⚠️ This may not be an original camera file.</strong> " +
+          data.provenance.detail +
+          " If you still have the original photo or video straight from your camera, please upload that instead.";
+        anchor.after(warn);
+        anchor = warn;
+      }
       if (!data.rows.length) return;
       item.exif = { device: true, time: true, location: true };
       const box = document.createElement("div");
@@ -156,7 +170,7 @@
           syncState();
         });
       });
-      row.after(box);
+      anchor.after(box);
       syncState(); // persist item.exif into media_json
     } catch (e) { /* preview is best-effort */ }
   }

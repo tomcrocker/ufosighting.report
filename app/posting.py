@@ -1,6 +1,6 @@
 import json
 
-from app import helpers, r2, reddit, reddit_media, search
+from app import helpers, mediameta, r2, reddit, reddit_media, search
 from app.config import get_settings
 
 _MIME = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
@@ -91,9 +91,12 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
     for f in ("movement", "sensors", "witness_background"):
         clean[f] = json.loads(row[f]) if row[f] else []
     media = conn.execute(
-        "SELECT r2_key, thumb_key, display_key, kind FROM media WHERE sighting_id=? ORDER BY sort_order",
-        (sighting_id,),
+        "SELECT r2_key, thumb_key, display_key, kind, exif_json FROM media "
+        "WHERE sighting_id=? ORDER BY sort_order", (sighting_id,),
     ).fetchall()
+    provenance = None  # flag the primary file if it doesn't look like an original
+    if media and media[0]["exif_json"]:
+        provenance = mediameta.provenance(json.loads(media[0]["exif_json"]))
     slug = helpers.slugify(row["title"])
     gallery_url = f"{s.base_url}/sighting/{sighting_id}/{slug}"
     location_line = ", ".join(dict.fromkeys(
@@ -120,6 +123,7 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
         media_urls=[] if native else [r2.public_url(m["r2_key"]) for m in media],
         gallery_url=gallery_url,
         attribution=attribution,
+        media_provenance=provenance,
     )
     if native:
         try:

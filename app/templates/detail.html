@@ -99,6 +99,12 @@
         <a href="{{ m.display_url or m.url }}" download>&#11015;&#65039; Download image {{ loop.index }}</a>
         <span class="muted">location metadata removed at the reporter's request</span>
         {% endif %}
+        {% if m.provenance %}
+        <div class="provenance{% if not m.provenance.original %} provenance-warn{% endif %}"
+             title="{{ m.provenance.detail }}">
+          {% if m.provenance.original %}&#10003;{% else %}&#9888;&#65039;{% endif %} {{ m.provenance.label }}
+        </div>
+        {% endif %}
         {% if m.meta_rows %}
         <details class="tech-details">
           <summary>Technical details</summary>

@@ -292,6 +292,9 @@ def detail(
             # reporter did NOT ask to obscure the location
             "meta_rows": mediameta.public_rows(
                 meta, include_gps=not row["location_obscured"] and not loc_excluded),
+            # originality signal — only meaningful for site uploads (ingested
+            # Reddit media is already transcoded by Reddit, so we don't judge it)
+            "provenance": mediameta.provenance(meta) if row["source"] == "site" else None,
             # reporter excluded location: originals with embedded GPS are
             # withheld; the EXIF-free display derivative is downloadable
             "download_original": not (loc_excluded and m["kind"] == "image"),

@@ -157,3 +157,41 @@ def test_video_silent_flagged(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: FakeProc())
     assert mediameta.extract_video_meta("u")["audio"] == "none (silent file)"
+
+
+def test_provenance_original_camera_image():
+    p = mediameta.provenance({"make": "Apple", "model": "iPhone 15", "iso": 100,
+                              "f_number": 1.8, "format": "JPEG"})
+    assert p["original"] is True and "iPhone 15" in p["detail"]
+
+
+def test_provenance_original_video():
+    p = mediameta.provenance({"make": "Apple", "model": "iPhone 15", "codec": "hevc"})
+    assert p["original"] is True
+
+
+def test_provenance_screenshot():
+    p = mediameta.provenance({"software": "Monosnap", "format": "PNG"})
+    assert p["original"] is False and p["label"] == "Screenshot"
+
+
+def test_provenance_editor_overrides_camera():
+    p = mediameta.provenance({"make": "Apple", "model": "iPhone 15",
+                              "software": "Adobe Photoshop 2026", "iso": 100})
+    assert p["original"] is False and "Edited" in p["label"]
+
+
+def test_provenance_no_metadata():
+    assert mediameta.provenance({})["label"] == "No metadata"
+
+
+def test_provenance_stripped_no_camera():
+    p = mediameta.provenance({"width": 800, "height": 600, "format": "PNG"})
+    assert p["original"] is False and "No camera" in p["label"]
+
+
+def test_provenance_ios_version_not_flagged():
+    # iOS stamps its version in Software; must NOT read as editing software
+    p = mediameta.provenance({"make": "Apple", "model": "iPhone 15",
+                              "software": "17.5.1", "iso": 100})
+    assert p["original"] is True

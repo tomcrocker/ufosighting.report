@@ -592,6 +592,20 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .meta-preview table { margin: 8px 0; }
 .meta-choices { display: grid; gap: 6px; margin-top: 8px; }
 .meta-note { margin: 6px 0 0; font-size: .8rem; }
+.meta-warn {
+  margin: 10px 0; padding: 10px 12px; border-radius: 8px; font-size: .88rem;
+  line-height: 1.4; background: rgba(255, 170, 0, .1);
+  border: 1px solid rgba(255, 170, 0, .4); color: #ffd48a;
+}
+.meta-warn strong { color: #ffb020; }
+.provenance { font-size: .8rem; margin-top: 3px; color: var(--muted); }
+.provenance-warn { color: #ffb020; }
+.upload-original-note {
+  margin: 4px 0 14px; padding: 11px 13px; border-radius: 8px; font-size: .9rem;
+  line-height: 1.45; background: rgba(110, 231, 160, .08);
+  border: 1px solid rgba(110, 231, 160, .28); color: var(--text);
+}
+.upload-original-note strong { color: var(--accent); }
 
 /* five observables block on the features step */
 .obs-heading { margin-top: 28px; }

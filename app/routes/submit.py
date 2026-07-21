@@ -106,6 +106,7 @@ def media_meta(req: MediaMetaRequest, request: Request, conn=Depends(db.get_db))
         meta = mediameta.extract_video_meta(url)
     return {
         "rows": mediameta.public_rows(meta, include_gps=True),
+        "provenance": mediameta.provenance(meta),
         "has": {
             "device": any(meta.get(k) for k in ("make", "model", "lens", "software", "encoder")),
             "time": bool(meta.get("captured_at")),

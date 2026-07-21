@@ -185,6 +185,51 @@ def extract_video_meta(url: str) -> dict:
     return out
 
 
+# software/encoder substrings that mean a file was screenshotted or exported by
+# editing/re-encoding software rather than saved straight from a camera. Phones
+# stamp their OS VERSION in the same field (e.g. "17.5.1", "Android 14"), which
+# is fine and won't match any of these.
+_SCREENSHOT_TOOLS = ("monosnap", "screenshot", "screen shot", "snipping", "snip & sketch",
+                     "cleanshot", "greenshot", "lightshot", "snagit", "shottr", "screencap")
+_EDITOR_TOOLS = ("photoshop", "lightroom", "gimp", "snapseed", "pixelmator", "affinity",
+                 "facetune", "picsart", "vsco", "canva", "capcut", "kinemaster", "davinci",
+                 "premiere", "screenflow", "handbrake", "avidemux", "instagram", "fotor",
+                 "polarr", "photoscape", "lavf", "ffmpeg", "quicktime player")
+
+
+def provenance(meta: dict) -> dict:
+    """Heuristic 'is this an original camera file?' from the extracted metadata.
+    Returns {original: bool, label: str, detail: str}. A SIGNAL, not proof:
+    EXIF can be stripped (any social-media download looks 'stripped') or spoofed,
+    and light phone edits keep the camera fingerprint. Phrase it as 'looks like'."""
+    if not meta:
+        return {"original": False, "label": "No metadata",
+                "detail": "No camera or editing data — could be a screenshot, a "
+                          "re-upload, or have had its metadata stripped."}
+    raw_sw = str(meta.get("software") or meta.get("encoder") or "")
+    sw = raw_sw.lower()
+    for tool in _SCREENSHOT_TOOLS:
+        if tool in sw:
+            return {"original": False, "label": "Screenshot",
+                    "detail": f"Looks like a screenshot ({raw_sw})."}
+    for tool in _EDITOR_TOOLS:
+        if tool in sw:
+            return {"original": False, "label": "Edited / re-encoded",
+                    "detail": f"Exported by editing software ({raw_sw})."}
+    is_video = "codec" in meta or "duration_s" in meta
+    has_camera = bool(meta.get("make") and meta.get("model"))
+    if not is_video:  # images also need optics/exposure — make/model alone is weak
+        has_camera = has_camera and any(
+            meta.get(k) for k in ("exposure", "f_number", "iso", "focal_length_mm", "lens"))
+    if has_camera:
+        dev = " ".join(x for x in (meta.get("make"), meta.get("model")) if x).strip()
+        return {"original": True, "label": "Original camera file",
+                "detail": f"Original capture{f' — {dev}' if dev else ''}."}
+    return {"original": False, "label": "No camera metadata",
+            "detail": "No camera make/model or exposure data — could be a screenshot, "
+                      "a re-upload, or have had its metadata stripped."}
+
+
 # fields shown publicly on detail pages (GPS is handled separately — it can
 # expose a reporter's home even when they asked to obscure the location)
 PUBLIC_FIELDS = [

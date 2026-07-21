@@ -150,6 +150,7 @@ def post_date(iso: str | None) -> str:
 def format_post_body(
     clean: dict, *, sighted_local: str, location_line: str,
     media_urls: list[str], gallery_url: str, attribution: str = "",
+    media_provenance: dict | None = None,
 ) -> str:
     facts = [f"**When:** {sighted_local} ({clean['tz_name']})"]
     if location_line:
@@ -185,6 +186,8 @@ def format_post_body(
         facts.append(f"**Why not a common object:** {clean['rule_out']}")
     if clean.get("capture_device"):
         facts.append(f"**Captured on:** {clean['capture_device']}")
+    if media_provenance and not media_provenance.get("original"):
+        facts.append(f"**⚠️ Media note:** {media_provenance['detail']}")
     if clean.get("sensors"):
         facts.append("**Sensor detection:** " + ", ".join(clean["sensors"]))
     if clean.get("witness_background"):

@@ -182,6 +182,8 @@ _MIGRATION_COLUMNS = [
     ("removed_by_category", "TEXT"),  # raw Reddit removal reason (moderator/reddit/…)
     ("bsky_posted_at", "TEXT"),       # NULL=eligible, ISO ts=posted, 'skipped'=pre-rollout
     ("bsky_uri", "TEXT"),             # at:// URI of the Bluesky post, for retraction
+    ("first_hand", "INTEGER NOT NULL DEFAULT 1"),  # 0 = shared second-hand report
+    ("source_note", "TEXT"),          # where a shared (second-hand) sighting came from
 ]
 
 

@@ -264,8 +264,17 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
             "Briefly rule out common explanations (aircraft, drone, Starlink, "
             "planet, balloon…) — one sentence of at least 20 characters."
         )
-    if form.get("confirm_eyewitness") not in ("1", "on", "true"):
-        errors.append("Confirm you saw this with your own eyes at the time.")
+    # first-hand (own sighting) vs second-hand (sharing someone else's). A shared
+    # report waives the eyewitness + capture confirmations but must name a source.
+    clean["first_hand"] = 0 if form.get("is_shared") in ("1", "on", "true") else 1
+    clean["source_note"] = (form.get("source_note") or "").strip()[:500] or None
+    if clean["first_hand"] == 0:
+        if not clean["source_note"]:
+            errors.append("Add where this shared sighting is from (a group, person, or link).")
+    else:
+        clean["source_note"] = None
+        if form.get("confirm_eyewitness") not in ("1", "on", "true"):
+            errors.append("Confirm you saw this with your own eyes at the time.")
 
     clean["capture_device"] = (form.get("capture_device") or "").strip()[:100] or None
 
@@ -346,7 +355,7 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
                 },
             }
         )
-    if clean["media"]:
+    if clean["media"] and clean["first_hand"] == 1:  # shared reports skip capture confirms
         confirms = (
             ("confirm_own_capture",
              "Confirm you took this photo/video yourself and saw it with "
@@ -479,9 +488,9 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
               has_wings, has_rotors, has_plume, makes_noise, sensors, witness_background,
               location_text, city, country, lat, lon, location_obscured, rule_out,
               capture_device, obs_accel, obs_no_signature, obs_low_observability,
-              obs_transmedium, obs_positive_lift,
+              obs_transmedium, obs_positive_lift, first_hand, source_note,
               submitter_ip, verify_token, verify_sent_at, status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
                    strftime('%Y-%m-%dT%H:%M:%SZ','now'),'pending_verify')""",
         (
             username, clean["title"], clean["description"], clean["sighted_at"],
@@ -495,7 +504,8 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
             clean["lat"], clean["lon"], clean["location_obscured"], clean["rule_out"],
             clean["capture_device"], clean["obs_accel"], clean["obs_no_signature"],
             clean["obs_low_observability"], clean["obs_transmedium"],
-            clean["obs_positive_lift"], ip, token,
+            clean["obs_positive_lift"], clean["first_hand"], clean["source_note"],
+            ip, token,
         ),
     )
     sighting_id = cur.lastrowid

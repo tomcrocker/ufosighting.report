@@ -421,3 +421,43 @@ def test_resend_bad_csrf_rejected(client):
     get_csrf(client)
     r = client.post("/submit/resend", data={"csrf_token": "forged", "token": "x"})
     assert r.status_code == 403
+
+
+@respx.mock
+def test_shared_sighting_waives_confirms_needs_source(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "t")
+    respx.post("https://oauth.reddit.com/api/compose").mock(
+        return_value=httpx.Response(200, json={"json": {"errors": []}}))
+    csrf = get_csrf(client)
+    f = form(csrf)
+    f["is_shared"] = "1"
+    f["source_note"] = "Facebook group 'UFO Sightings Poland'"
+    # a sharer can't truthfully confirm they witnessed / captured it
+    for k in ("confirm_eyewitness", "confirm_own_capture", "confirm_no_fixed_cam",
+              "confirm_not_screen", "confirm_in_focus"):
+        f.pop(k, None)
+    r = client.post("/submit", data=f, follow_redirects=False)
+    assert r.status_code == 200
+    row = app_db.execute("SELECT first_hand, source_note FROM sightings WHERE id=1").fetchone()
+    assert row["first_hand"] == 0 and "Poland" in row["source_note"]
+
+
+def test_shared_sighting_requires_source(client, app_db):
+    csrf = get_csrf(client)
+    f = form(csrf)
+    f["is_shared"] = "1"
+    f["source_note"] = ""
+    f.pop("confirm_eyewitness", None)
+    r = client.post("/submit", data=f)
+    assert r.status_code == 422
+    assert "where this shared sighting is from" in r.text.lower()
+    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 0
+
+
+def test_own_sighting_still_requires_eyewitness(client, app_db):
+    csrf = get_csrf(client)
+    f = form(csrf)
+    f.pop("confirm_eyewitness", None)  # not shared, so it stays required
+    r = client.post("/submit", data=f)
+    assert r.status_code == 422
+    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 0

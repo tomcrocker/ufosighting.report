@@ -29,12 +29,17 @@
     const confirms = document.getElementById("media-confirms");
     if (confirms) {
       const hasMedia = media.length > 0;
+      const shared = !!(document.getElementById("is_shared") || {}).checked;
       confirms.hidden = !hasMedia;
+      // capture confirms don't apply to a shared (second-hand) report
       confirms.querySelectorAll("input[type=checkbox]").forEach((cb) => {
-        cb.required = hasMedia;
+        cb.required = hasMedia && !shared;
       });
     }
   }
+
+  const sharedToggle = document.getElementById("is_shared");
+  if (sharedToggle) sharedToggle.addEventListener("change", syncState);
 
   function renderRow(name, item, progressEl) {
     const row = document.createElement("div");

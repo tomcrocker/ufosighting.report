@@ -105,11 +105,25 @@
           <a href="https://stellarium-web.org" target="_blank" rel="noopener">Stellarium</a>,
           <a href="https://www.heavens-above.com" target="_blank" rel="noopener">Heavens-Above</a>
           — or browse <a href="/investigate" target="_blank">commonly misidentified objects</a>.</p>
-        <label class="check">
+        <label class="check" id="eyewitness-check">
           <input type="checkbox" name="confirm_eyewitness" value="1" required
                  {% if values.confirm_eyewitness %}checked{% endif %}>
           I saw this with my own eyes at the time — not something found later in photos or footage <span class="req">*</span>
         </label>
+        <label class="check">
+          <input type="checkbox" name="is_shared" id="is_shared" value="1"
+                 {% if values.is_shared %}checked{% endif %}>
+          This isn't my own sighting. I'm sharing footage from someone else (e.g. a Facebook group).
+        </label>
+        <div id="shared-fields" hidden>
+          <label>Where is this sighting from? <span class="req">*</span>
+            <input name="source_note" id="source_note" maxlength="500" autocomplete="off" required
+                   placeholder="e.g. Facebook group 'UFO Sightings', the original poster, or a link"
+                   value="{{ values.source_note or '' }}">
+          </label>
+          <p class="muted">A group name, the original poster, or a link, whatever you have.
+            Please credit the original where you can.</p>
+        </div>
       </section>
 
       <section class="step" data-step="4">
@@ -192,6 +206,7 @@
                    placeholder="e.g. iPhone 16 Pro, Pixel 9, Sony A7 III + 200mm"
                    value="{{ values.capture_device or '' }}">
           </label>
+          <div id="capture-confirms">
           <p class="muted">A few confirmations about your media (r/UFOs guidelines) — all required:</p>
           <label class="check">
             <input type="checkbox" name="confirm_own_capture" value="1" required
@@ -214,6 +229,7 @@
                    {% if values.confirm_in_focus %}checked{% endif %}>
             The imagery is in focus most of the time <span class="req">*</span>
           </label>
+          </div>
         </div>
       </section>
 

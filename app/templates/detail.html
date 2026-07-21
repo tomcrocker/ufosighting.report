@@ -132,6 +132,9 @@
     <p class="muted src-note">Details auto-extracted from the original
       {% if reddit_url %}<a href="{{ reddit_url }}">Reddit post</a>{% else %}Reddit post{% endif %}.</p>
     {% endif %}
+    {% if s.source == 'site' and not s.first_hand %}
+    <p class="flash archive-note">&#9888;&#65039; Shared by u/{{ s.reddit_username }}, not their own sighting.{% if s.source_note %} Reported source: {{ s.source_note }}{% endif %}</p>
+    {% endif %}
     <div class="md-body">{{ s.description|reddit_md|safe }}</div>
     {% if comments %}
     <section class="top-comments">

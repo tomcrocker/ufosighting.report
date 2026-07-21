@@ -285,6 +285,33 @@
   form.addEventListener("input", revalidate);
   form.addEventListener("change", revalidate);
 
+  // --- shared (second-hand) sighting: waive the eyewitness + capture confirms
+  //     and require a source instead. requiredOk skips hidden fields
+  //     (offsetParent === null), so we toggle both `required` and visibility. ---
+  const sharedCb = document.getElementById("is_shared");
+  if (sharedCb) {
+    const eyewitness = document.getElementById("eyewitness-check");
+    const eyewitnessCb = form.elements["confirm_eyewitness"];
+    const sharedFields = document.getElementById("shared-fields");
+    const sourceInput = document.getElementById("source_note");
+    const captureConfirms = document.getElementById("capture-confirms");
+    const syncShared = () => {
+      const shared = sharedCb.checked;
+      if (eyewitness) eyewitness.hidden = shared;
+      if (eyewitnessCb) eyewitnessCb.required = !shared;
+      if (sharedFields) sharedFields.hidden = !shared;
+      if (sourceInput) sourceInput.required = shared;
+      if (captureConfirms) {
+        captureConfirms.hidden = shared;
+        if (shared) captureConfirms.querySelectorAll("input[type=checkbox]")
+          .forEach((cb) => { cb.required = false; });
+      }
+      revalidate();
+    };
+    sharedCb.addEventListener("change", syncShared);
+    syncShared();
+  }
+
   function requiredOk(index) {
     // flatpickr with altInput turns #sighted_at_picker into a hidden input;
     // hidden required fields can't be validated by reportValidity(), so we

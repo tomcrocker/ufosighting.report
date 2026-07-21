@@ -102,7 +102,12 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
     location_line = ", ".join(dict.fromkeys(
         p for p in (row["location_text"], row["city"], row["country"]) if p))
     tag = "verified" if verified else "self-reported"
-    attribution = f"Reported by u/{row['reddit_username']} ({tag} via ufosighting.report)"
+    if row["first_hand"]:
+        attribution = f"Reported by u/{row['reddit_username']} ({tag} via ufosighting.report)"
+    else:
+        src = f" Reported source: {row['source_note']}." if row["source_note"] else ""
+        attribution = (f"⚠️ Shared by u/{row['reddit_username']} ({tag} account, via "
+                       f"ufosighting.report). This is not their own sighting.{src}")
     title = row["title"]
     token = reddit.script_token()
 

@@ -150,7 +150,7 @@ def post_date(iso: str | None) -> str:
 def format_post_body(
     clean: dict, *, sighted_local: str, location_line: str,
     media_urls: list[str], gallery_url: str, attribution: str = "",
-    media_provenance: dict | None = None,
+    media_provenance: dict | None = None, sky: str = "",
 ) -> str:
     facts = [f"**When:** {sighted_local} ({clean['tz_name']})"]
     if location_line:
@@ -197,6 +197,8 @@ def format_post_body(
         parts.append("**Media:**\n\n" + "\n".join(f"- {u}" for u in media_urls))
     if attribution:
         parts.append(attribution)
+    if sky:
+        parts.append(sky)
     parts.append(
         f"[Original-quality media and full report]({gallery_url}) — Reddit re-encodes "
         f"uploads; the gallery keeps the untouched originals for analysis. "

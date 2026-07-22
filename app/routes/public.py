@@ -5,7 +5,7 @@ import urllib.parse
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, Response
 
-from app import auth, db, helpers, mediameta, r2, search as meili
+from app import auth, db, helpers, mediameta, r2, search as meili, skycontext
 from app.config import get_settings
 from app.investigate_data import ENTRIES as INVESTIGATE_ENTRIES
 from app.web import current_user, is_admin, templates
@@ -328,7 +328,7 @@ def detail(
     # sky-context: hand analysts the exact time/place (and camera heading)
     sky = None
     if row["lat"] is not None:
-        lat, lon, day = row["lat"], row["lon"], row["sighted_at"][:10]
+        lat, lon = row["lat"], row["lon"]
         heading = None
         for m in media:
             meta = json.loads(m["exif_json"]) if m["exif_json"] else {}
@@ -337,24 +337,10 @@ def detail(
                            "name": helpers.compass_name(meta["compass_deg"]),
                            "ref": meta.get("compass_ref", "true")}
                 break
-        hhmm = row["sighted_at"][11:16]
         sats = json.loads(row["sky_events"]) if row["sky_events"] else None
-        sky = {
-            "sats": sats,
-            # tar1090 playback: ?replay=YYYY-MM-DD-HH:MM rewinds the whole
-            # area to that moment (showTrace needs a specific airframe)
-            "adsb": (f"https://globe.adsbexchange.com/?lat={lat:.3f}&lon={lon:.3f}"
-                     f"&zoom=9&replay={day}-{hhmm}"),
-            # FR24 parses >2 decimals as a flight callsign ("flight not found")
-            "fr24": f"https://www.flightradar24.com/{lat:.2f},{lon:.2f}/9",
-            "heavens": f"https://www.heavens-above.com/?lat={lat:.4f}&lng={lon:.4f}",
-            # in-the-sky honors date params (location is a one-time setting
-            # on their side); timeanddate ignored ?month/year — verified
-            "skychart": (f"https://in-the-sky.org/skymap.php?year={day[:4]}"
-                         f"&month={int(day[5:7])}&day={int(day[8:10])}"
-                         f"&latitude={lat:.4f}&longitude={lon:.4f}"),
-            "heading": heading,
-        }
+        # same URL builder the bot's pinned comment uses (app/skycontext.py)
+        sky = {**skycontext.links(lat, lon, row["sighted_at"]),
+               "sats": sats, "heading": heading}
     base = get_settings().base_url
     return templates.TemplateResponse(
         request, "detail.html",

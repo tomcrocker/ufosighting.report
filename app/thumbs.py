@@ -187,6 +187,13 @@ def process_sky_events(conn, limit: int = 2) -> int:
         conn.execute("UPDATE sightings SET sky_events=? WHERE id=?",
                      (json.dumps(out), r["id"]))
         conn.commit()
+        # the bot's pinned comment shipped before this data existed — fold it in
+        try:
+            from app import posting
+            if posting.refresh_sky_comment(conn, r["id"]):
+                print(f"sky: updated pinned comment for sighting {r['id']}")
+        except Exception as exc:  # never let a Reddit hiccup stall the worker
+            print(f"sky: comment refresh failed for {r['id']} (non-fatal): {exc}")
         done += 1
     return done
 

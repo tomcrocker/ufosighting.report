@@ -184,6 +184,8 @@ _MIGRATION_COLUMNS = [
     ("bsky_uri", "TEXT"),             # at:// URI of the Bluesky post, for retraction
     ("first_hand", "INTEGER NOT NULL DEFAULT 1"),  # 0 = shared second-hand report
     ("source_note", "TEXT"),          # where a shared (second-hand) sighting came from
+    ("bot_comment_id", "TEXT"),       # bot's pinned details comment, so the sky
+                                      # worker can edit computed passes into it
 ]
 
 

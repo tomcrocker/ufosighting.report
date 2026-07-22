@@ -1,6 +1,6 @@
 import json
 
-from app import helpers, mediameta, r2, reddit, reddit_media, search
+from app import helpers, mediameta, r2, reddit, reddit_media, search, skycontext
 from app.config import get_settings
 
 _MIME = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
@@ -76,6 +76,69 @@ def _post_native(token: str, media: list, title: str) -> str | None:
     return post_id
 
 
+def details_body(conn, sighting_id: int, *, verified: bool, native: bool,
+                 sats: dict | None = None) -> str:
+    """Assemble the details block (pinned comment on native posts, the body
+    itself on self posts).
+
+    Shared by the initial post and by the sky worker's later edit, so both
+    render identically — the only difference is `sats`, which doesn't exist
+    until after the post goes live.
+    """
+    s = get_settings()
+    row = conn.execute("SELECT * FROM sightings WHERE id=?", (sighting_id,)).fetchone()
+    clean = dict(row)
+    for f in ("movement", "sensors", "witness_background"):
+        clean[f] = json.loads(row[f]) if row[f] else []
+    media = conn.execute(
+        "SELECT r2_key, exif_json FROM media WHERE sighting_id=? ORDER BY sort_order",
+        (sighting_id,),
+    ).fetchall()
+    provenance = None  # flag the primary file if it doesn't look like an original
+    if media and media[0]["exif_json"]:
+        provenance = mediameta.provenance(json.loads(media[0]["exif_json"]))
+    gallery_url = f"{s.base_url}/sighting/{sighting_id}/{helpers.slugify(row['title'])}"
+    location_line = ", ".join(dict.fromkeys(
+        p for p in (row["location_text"], row["city"], row["country"]) if p))
+    tag = "verified" if verified else "self-reported"
+    if row["first_hand"]:
+        attribution = f"Reported by u/{row['reddit_username']} ({tag} via ufosighting.report)"
+    else:
+        src = f" Reported source: {row['source_note']}." if row["source_note"] else ""
+        attribution = (f"⚠️ Shared by u/{row['reddit_username']} ({tag} account, via "
+                       f"ufosighting.report). This is not their own sighting.{src}")
+    sky = skycontext.markdown(
+        skycontext.links(row["lat"], row["lon"], row["sighted_at"]), sats)
+    return helpers.format_post_body(
+        clean,
+        sighted_local=helpers.from_utc(row["sighted_at"], row["tz_name"]),
+        location_line=location_line,
+        media_urls=[] if native else [r2.public_url(m["r2_key"]) for m in media],
+        gallery_url=gallery_url,
+        attribution=attribution,
+        media_provenance=provenance,
+        sky=sky,
+    )
+
+
+def refresh_sky_comment(conn, sighting_id: int) -> bool:
+    """Fold freshly-computed satellite passes into the already-posted pinned
+    comment. Best-effort: returns False when there's nothing to edit."""
+    row = conn.execute(
+        "SELECT bot_comment_id, sky_events, username_verified FROM sightings WHERE id=?",
+        (sighting_id,)).fetchone()
+    if row is None or not row["bot_comment_id"] or not row["sky_events"]:
+        return False
+    sats = json.loads(row["sky_events"])
+    if not sats.get("checked"):
+        return False  # nothing computed worth showing
+    body = details_body(conn, sighting_id,
+                        verified=bool(row["username_verified"]), native=True, sats=sats)
+    reddit_media.edit_comment(reddit.script_token(),
+                              comment_id=row["bot_comment_id"], text=body)
+    return True
+
+
 def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
     """Post a sighting to the subreddit as the bot and mark it live.
 
@@ -87,27 +150,10 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
     """
     s = get_settings()
     row = conn.execute("SELECT * FROM sightings WHERE id=?", (sighting_id,)).fetchone()
-    clean = dict(row)
-    for f in ("movement", "sensors", "witness_background"):
-        clean[f] = json.loads(row[f]) if row[f] else []
     media = conn.execute(
         "SELECT r2_key, thumb_key, display_key, kind, exif_json FROM media "
         "WHERE sighting_id=? ORDER BY sort_order", (sighting_id,),
     ).fetchall()
-    provenance = None  # flag the primary file if it doesn't look like an original
-    if media and media[0]["exif_json"]:
-        provenance = mediameta.provenance(json.loads(media[0]["exif_json"]))
-    slug = helpers.slugify(row["title"])
-    gallery_url = f"{s.base_url}/sighting/{sighting_id}/{slug}"
-    location_line = ", ".join(dict.fromkeys(
-        p for p in (row["location_text"], row["city"], row["country"]) if p))
-    tag = "verified" if verified else "self-reported"
-    if row["first_hand"]:
-        attribution = f"Reported by u/{row['reddit_username']} ({tag} via ufosighting.report)"
-    else:
-        src = f" Reported source: {row['source_note']}." if row["source_note"] else ""
-        attribution = (f"⚠️ Shared by u/{row['reddit_username']} ({tag} account, via "
-                       f"ufosighting.report). This is not their own sighting.{src}")
     title = row["title"]
     token = reddit.script_token()
 
@@ -121,19 +167,17 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
             post_id = _post_native(token, media, title)  # may raise; None = fallback
     native = post_id is not None
 
-    body = helpers.format_post_body(
-        clean,
-        sighted_local=helpers.from_utc(row["sighted_at"], row["tz_name"]),
-        location_line=location_line,
-        media_urls=[] if native else [r2.public_url(m["r2_key"]) for m in media],
-        gallery_url=gallery_url,
-        attribution=attribution,
-        media_provenance=provenance,
-    )
+    # sky_events is still NULL here (the row isn't live yet, and only live rows
+    # are picked up), so the comment ships with the investigation links and the
+    # worker edits the computed passes in afterwards via refresh_sky_comment.
+    body = details_body(conn, sighting_id, verified=verified, native=native)
     if native:
         try:
             comment_id = reddit_media.comment(token, post_id=post_id, text=body)
             if comment_id:
+                conn.execute("UPDATE sightings SET bot_comment_id=? WHERE id=?",
+                             (comment_id, sighting_id))
+                conn.commit()
                 # pin the details to the top of the thread (bot is a mod)
                 reddit_media.pin_comment(token, comment_id=comment_id)
                 # preemptive approve: marks the comment mod-approved so the

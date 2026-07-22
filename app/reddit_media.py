@@ -152,6 +152,19 @@ def comment(token: str, *, post_id: str, text: str) -> str | None:
     return things[0]["data"].get("id") if things else None
 
 
+def edit_comment(token: str, *, comment_id: str, text: str) -> None:
+    """Rewrite one of the bot's own comments in place. Used to fold computed
+    satellite passes into an already-posted details comment (they aren't
+    available until the background worker runs, after the post goes live)."""
+    resp = httpx.post("https://oauth.reddit.com/api/editusertext",
+                      data={"api_type": "json", "thing_id": f"t1_{comment_id}",
+                            "text": text},
+                      headers=_headers(token), timeout=30)
+    if resp.status_code != 200:
+        raise RedditError(f"edit comment failed: HTTP {resp.status_code}")
+    _check_errors(resp.json())
+
+
 def pin_comment(token: str, *, comment_id: str) -> None:
     """Distinguish + sticky the bot's own comment (needs mod rights). Pinned
     details comments sit at the top of the thread under the media post."""

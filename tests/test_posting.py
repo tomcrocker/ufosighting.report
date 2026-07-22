@@ -291,3 +291,98 @@ def test_fallback_self_post_also_self_approves(db_conn, monkeypatch):
                         lambda tok, **k: approved.append(k.get("post_id")))
     assert posting.post_sighting(db_conn, sid, verified=True) == "self5"
     assert approved == ["self5"]
+
+
+# --- sky context in the pinned comment ---
+
+def _geocode(conn, sid):
+    conn.execute("UPDATE sightings SET lat=48.8123, lon=-124.1456 WHERE id=?", (sid,))
+    conn.commit()
+
+
+def _submitted_text(route):
+    """The post body, decoded out of the urlencoded submit form."""
+    from urllib.parse import parse_qs
+    return parse_qs(route.calls[0].request.content.decode())["text"][0]
+
+
+@respx.mock
+def test_post_body_carries_sky_links_when_geocoded(db_conn, monkeypatch):
+    monkeypatch.setattr(posting.reddit, "script_token", lambda: "bot-tok")
+    route = respx.post("https://oauth.reddit.com/api/submit").mock(
+        return_value=httpx.Response(200, json={"json": {"errors": [], "data": {"name": "t3_sk"}}}))
+    respx.get("https://oauth.reddit.com/api/info").mock(
+        return_value=httpx.Response(200, json={"data": {"children": [
+            {"data": {"id": "sk", "removed_by_category": None}}]}}))
+    sid = _seed_ready(db_conn)
+    _geocode(db_conn, sid)
+    posting.post_sighting(db_conn, sid, verified=True)
+    body = _submitted_text(route)
+    assert "Sky context for this time and place" in body
+    assert "globe.adsbexchange.com" in body and "heavens-above.com" in body
+    # sky_events is still NULL at post time, so no computed claims yet
+    assert "No bright satellites" not in body
+
+
+@respx.mock
+def test_post_body_omits_sky_block_without_coords(db_conn, monkeypatch):
+    monkeypatch.setattr(posting.reddit, "script_token", lambda: "bot-tok")
+    route = respx.post("https://oauth.reddit.com/api/submit").mock(
+        return_value=httpx.Response(200, json={"json": {"errors": [], "data": {"name": "t3_ng"}}}))
+    respx.get("https://oauth.reddit.com/api/info").mock(
+        return_value=httpx.Response(200, json={"data": {"children": [
+            {"data": {"id": "ng", "removed_by_category": None}}]}}))
+    sid = _seed_ready(db_conn)  # no lat/lon
+    posting.post_sighting(db_conn, sid, verified=True)
+    assert "Sky context" not in _submitted_text(route)
+
+
+def test_native_post_stores_bot_comment_id(db_conn, monkeypatch):
+    sid = _seed_ready(db_conn)
+    _mk_media(db_conn, sid, ("uploads/a.jpg", "image", None))
+    calls = {}
+    _native_stubs(monkeypatch, calls)
+    monkeypatch.setattr(posting.reddit_media, "submit_image", lambda tok, **k: None)
+    monkeypatch.setattr(posting.reddit_media, "wait_for_post_id", lambda tok, **k: "img77")
+    monkeypatch.setattr(posting.reddit_media, "comment", lambda tok, *, post_id, text: "cmt77")
+    monkeypatch.setattr(posting.reddit_media, "pin_comment", lambda tok, **k: None)
+    monkeypatch.setattr(posting.reddit, "fetch_post", lambda tok, pid: {"removed_by_category": None})
+    monkeypatch.setattr(posting.reddit, "approve", lambda tok, **k: None)
+    posting.post_sighting(db_conn, sid, verified=True)
+    row = db_conn.execute("SELECT bot_comment_id FROM sightings WHERE id=?", (sid,)).fetchone()
+    assert row["bot_comment_id"] == "cmt77"  # needed so the sky worker can edit it
+
+
+def test_refresh_sky_comment_edits_in_computed_passes(db_conn, monkeypatch):
+    import json as _json
+    sid = _seed_ready(db_conn)
+    _geocode(db_conn, sid)
+    sats = {"checked": True, "catalog_date": "2026-07-01", "bright": [], "launches": [],
+            "iss": None, "starlink_visible": 23,
+            "trains": [{"count": 23, "az": "NW", "time": "05:28"}]}
+    db_conn.execute("UPDATE sightings SET bot_comment_id='cmtX', sky_events=? WHERE id=?",
+                    (_json.dumps(sats), sid))
+    db_conn.commit()
+    edited = {}
+    monkeypatch.setattr(posting.reddit, "script_token", lambda: "tok")
+    monkeypatch.setattr(posting.reddit_media, "edit_comment",
+                        lambda tok, *, comment_id, text: edited.update(id=comment_id, text=text))
+    assert posting.refresh_sky_comment(db_conn, sid) is True
+    assert edited["id"] == "cmtX"
+    assert "Starlink train overhead" in edited["text"] and "23 satellites" in edited["text"]
+    assert "globe.adsbexchange.com" in edited["text"]  # links survive the edit
+
+
+def test_refresh_sky_comment_noop_without_comment_or_data(db_conn, monkeypatch):
+    import json as _json
+    monkeypatch.setattr(posting.reddit_media, "edit_comment",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not edit")))
+    sid = _seed_ready(db_conn)
+    assert posting.refresh_sky_comment(db_conn, sid) is False   # no comment, no data
+    db_conn.execute("UPDATE sightings SET bot_comment_id='c1' WHERE id=?", (sid,))
+    db_conn.commit()
+    assert posting.refresh_sky_comment(db_conn, sid) is False   # comment but no sky data
+    db_conn.execute("UPDATE sightings SET sky_events=? WHERE id=?",
+                    (_json.dumps({"checked": False, "reason": "no TLEs"}), sid))
+    db_conn.commit()
+    assert posting.refresh_sky_comment(db_conn, sid) is False   # unchecked -> no claims

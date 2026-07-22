@@ -149,9 +149,10 @@ def post_date(iso: str | None) -> str:
 
 def format_post_body(
     clean: dict, *, sighted_local: str, location_line: str,
-    media_urls: list[str], gallery_url: str, attribution: str = "",
-    media_provenance: dict | None = None, sky: str = "",
+    media_urls: list[str], media_provenance: dict | None = None, sky: str = "",
 ) -> str:
+    """The sighting details themselves. The caller prepends the attribution
+    header and the horizontal rule (see posting.details_body)."""
     facts = [f"**When:** {sighted_local} ({clean['tz_name']})"]
     if location_line:
         facts.append(f"**Where:** {location_line}")
@@ -195,13 +196,6 @@ def format_post_body(
     parts = ["  \n".join(facts), clean["description"].strip()]
     if media_urls:
         parts.append("**Media:**\n\n" + "\n".join(f"- {u}" for u in media_urls))
-    if attribution:
-        parts.append(attribution)
     if sky:
         parts.append(sky)
-    parts.append(
-        f"[Original-quality media and full report]({gallery_url}) — Reddit re-encodes "
-        f"uploads; the gallery keeps the untouched originals for analysis. "
-        f"*Submitted via [ufosighting.report](https://ufosighting.report)*"
-    )
     return "\n\n".join(parts)

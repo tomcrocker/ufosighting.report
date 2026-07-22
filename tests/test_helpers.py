@@ -69,7 +69,6 @@ def test_format_post_body_full():
         sighted_local="2026-07-01 22:15",
         location_line="Lake Cowichan, BC, Canada",
         media_urls=["https://media.test/uploads/2026/07/aa.jpg"],
-        gallery_url="https://ufosighting.report/sighting/1/bright-orb",
     )
     assert "**When:** 2026-07-01 22:15 (America/Vancouver)" in body
     assert "**Where:** Lake Cowichan, BC, Canada" in body
@@ -84,14 +83,13 @@ def test_format_post_body_full():
     assert "**Sensor detection:** infrared" in body
     assert "**Reporter background:** pilot" in body
     assert "- https://media.test/uploads/2026/07/aa.jpg" in body
-    assert "https://ufosighting.report/sighting/1/bright-orb" in body
 
 
 def test_format_post_body_skips_empty_fields():
     body = helpers.format_post_body(
         {"tz_name": "UTC", "description": "d"},
         sighted_local="2026-07-01 22:15", location_line="",
-        media_urls=[], gallery_url="https://x/1",
+        media_urls=[],
     )
     for label in ("**Where:**", "**Objects:**", "**Shape:**", "**Movement:**",
                   "**Features:**", "**Sensor detection:**", "**Media:**"):
@@ -105,16 +103,6 @@ def test_clean_username():
     assert helpers.clean_username("ab") is None            # too short
     assert helpers.clean_username("has space") is None
     assert helpers.clean_username("bad!char") is None
-
-
-def test_format_post_body_attribution():
-    body = helpers.format_post_body(
-        {"tz_name": "UTC", "description": "d"},
-        sighted_local="2026-07-01 22:15", location_line="",
-        media_urls=[], gallery_url="https://x/1",
-        attribution="Reported by u/witness1 (verified via ufosighting.report)",
-    )
-    assert "Reported by u/witness1 (verified via ufosighting.report)" in body
 
 
 def test_haversine_known_distance():
@@ -138,7 +126,7 @@ def test_format_post_body_flags_non_original_media():
             "detail": "Looks like a screenshot (Monosnap)."}
     body = helpers.format_post_body(
         {"tz_name": "UTC", "description": "d"}, sighted_local="x", location_line="",
-        media_urls=[], gallery_url="g", media_provenance=prov)
+        media_urls=[], media_provenance=prov)
     assert "Media note" in body and "screenshot" in body.lower()
 
 
@@ -146,5 +134,5 @@ def test_format_post_body_no_note_for_original_media():
     prov = {"original": True, "label": "Original camera file", "detail": "ok"}
     body = helpers.format_post_body(
         {"tz_name": "UTC", "description": "d"}, sighted_local="x", location_line="",
-        media_urls=[], gallery_url="g", media_provenance=prov)
+        media_urls=[], media_provenance=prov)
     assert "Media note" not in body

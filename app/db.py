@@ -80,6 +80,16 @@ CREATE TABLE IF NOT EXISTS rate_events (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 
+-- Every key we hand out a presigned upload URL for. A file the browser
+-- uploads but never attaches to a submission leaves no other trace, so this
+-- is what makes orphaned uploads findable (see app/orphans.py).
+CREATE TABLE IF NOT EXISTS upload_keys (
+  key TEXT PRIMARY KEY,
+  ip TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+
 CREATE TABLE IF NOT EXISTS geocode_cache (
   query TEXT PRIMARY KEY,
   lat REAL,
@@ -186,6 +196,10 @@ _MIGRATION_COLUMNS = [
     ("source_note", "TEXT"),          # where a shared (second-hand) sighting came from
     ("bot_comment_id", "TEXT"),       # bot's pinned details comment, so the sky
                                       # worker can edit computed passes into it
+    # Deferred posting: the verify click queues the sighting instead of posting
+    # inline, so media processing (video posters especially) can finish first.
+    ("pending_post_at", "TEXT"),      # when it entered the post queue
+    ("post_attempts", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 

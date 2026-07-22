@@ -205,6 +205,10 @@ def start_worker(stop_event: threading.Event) -> threading.Thread:
             try:
                 busy = process_pending(conn)
                 busy += process_sky_events(conn)
+                # after thumbs, so a video uploaded moments ago already has its
+                # poster and makes it into the Reddit post
+                from app import posting
+                busy += posting.process_post_queue(conn)
                 if busy == 0:
                     stop_event.wait(10)
             except Exception as exc:

@@ -4,7 +4,7 @@ from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from app import auth, db, posting, r2, search
+from app import auth, db, orphans, posting, r2, search
 from app.web import require_admin, templates
 
 router = APIRouter()
@@ -117,6 +117,12 @@ def system_status(request: Request, conn=Depends(db.get_db), user=Depends(requir
         ("Public sightings", conn.execute(
             "SELECT COUNT(*) FROM sightings WHERE status IN "
             "('live','removed_on_reddit')").fetchone()[0]),
+        ("Queued to post", conn.execute(
+            "SELECT COUNT(*) FROM sightings WHERE status='pending_post'").fetchone()[0]),
+        ("Stuck posts (gave up)", conn.execute(
+            "SELECT COUNT(*) FROM sightings WHERE status='pending_post' AND post_attempts >= ?",
+            (posting.MAX_POST_ATTEMPTS,)).fetchone()[0]),
+        ("Orphaned uploads", orphans.count(conn)),
         ("Sky-checked sightings", conn.execute(
             "SELECT COUNT(*) FROM sightings WHERE sky_events LIKE "
             "'%\"checked\": true%'").fetchone()[0]),

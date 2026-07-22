@@ -7,7 +7,8 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from app import db, geocode, helpers, mediameta, r2, ratelimit, reddit, turnstile, verify
+from app import (db, geocode, helpers, mediameta, orphans, r2, ratelimit, reddit,
+                 turnstile, verify)
 from app.countries import COUNTRY_NAMES
 from app.config import get_settings
 from app.web import client_ip, new_csrf, templates
@@ -42,6 +43,9 @@ def presign(req: PresignRequest, request: Request, conn=Depends(db.get_db)):
         )
     key = r2.make_upload_key(req.content_type)
     ratelimit.record(conn, ip, "presign")
+    # the PUT goes browser->R2 directly, so this row is the only record that
+    # this file was ever offered an upload slot (see app/orphans.py)
+    orphans.record_key(conn, key=key, ip=ip, kind=kind)
     return {
         "key": key,
         "upload_url": r2.presign_put(key, req.content_type, req.size_bytes),
@@ -519,6 +523,10 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
         )
     conn.commit()
     ratelimit.record(conn, ip, "submit")
+    # catch a file that was uploaded but dropped before submit, while we still
+    # know which reporter and sighting it belonged to
+    orphans.warn_for_submission(
+        conn, ip=ip, attached=[m["key"] for m in clean["media"]], sighting_id=sighting_id)
     dm_status = _try_send_verify_dm(conn, username, token)
     return _render_submitted(request, conn, username, dm_status, token)
 

@@ -182,8 +182,7 @@ def test_rule_out_stored_and_in_post_body(client, app_db):
     body = helpers.format_post_body(
         dict(row) | {"tz_name": "UTC", "description": "d", "movement": [],
                      "sensors": [], "witness_background": []},
-        sighted_local="x", location_line="y", media_urls=[], gallery_url="u",
-        attribution="")
+        sighted_local="x", location_line="y", media_urls=[])
     assert "Why not a common object" in body and RULE_OUT in body
 
 
@@ -246,8 +245,7 @@ def test_capture_device_stored_and_in_post_body(client, app_db):
     body = helpers.format_post_body(
         {"capture_device": "iPhone 16 Pro", "tz_name": "UTC", "description": "d",
          "movement": [], "sensors": [], "witness_background": []},
-        sighted_local="x", location_line="y", media_urls=[], gallery_url="u",
-        attribution="")
+        sighted_local="x", location_line="y", media_urls=[])
     assert "Captured on:** iPhone 16 Pro" in body
 
 
@@ -285,7 +283,7 @@ def test_observables_stored_and_in_post_body(client, app_db):
         dict(row) | {"tz_name": "UTC", "description": "d", "movement": [],
                      "sensors": [], "witness_background": [],
                      "obs_low_observability": None},
-        sighted_local="x", location_line="y", media_urls=[], gallery_url="u")
+        sighted_local="x", location_line="y", media_urls=[])
     assert "Five observables:" in body and "sudden, extreme acceleration: yes" in body
 
 

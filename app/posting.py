@@ -23,12 +23,16 @@ def _upload(token: str, key: str) -> reddit_media.Asset:
 
 
 def _reddit_safe_key(m) -> str:
-    """Reddit's upload API rejects HEIC/HEIF — send the JPEG display
-    derivative instead; the site keeps serving the untouched original."""
-    key = m["r2_key"]
-    if key.lower().rsplit(".", 1)[-1] in ("heic", "heif") and m["display_key"]:
-        return m["display_key"]
-    return key
+    """Always hand Reddit the JPEG display derivative when we have one.
+
+    It rejects HEIC/HEIF outright, but the subtler problem is modern phone
+    JPEGs: a Galaxy S25+ Ultra HDR file carries a gain map that Reddit's
+    pipeline mis-applies and renders as a solid black gallery image. The
+    derivative is a plain re-encode with the gain map and EXIF stripped, and
+    Reddit re-compresses everything anyway, so there's nothing to lose. The
+    site keeps serving the untouched original for download.
+    """
+    return m["display_key"] or m["r2_key"]
 
 
 def _post_native(token: str, media: list, title: str) -> str | None:
@@ -76,6 +80,58 @@ def _post_native(token: str, media: list, title: str) -> str | None:
     return post_id
 
 
+# How long to wait for media processing before posting anyway. A stuck or
+# failed thumbnail must never strand a sighting in the queue forever.
+POST_QUEUE_TIMEOUT_MINUTES = 10
+MAX_POST_ATTEMPTS = 5
+
+
+def process_post_queue(conn, limit: int = 1) -> int:
+    """Post sightings the verify click queued, once their media is ready.
+
+    "Ready" means every attached file has a thumbnail — for a video that's the
+    poster frame Reddit needs, and the thing whose absence used to make
+    _post_native silently drop the video. Falls through after the timeout so a
+    failed thumbnail delays a post instead of losing it.
+    """
+    rows = conn.execute(
+        """SELECT id, username_verified, title FROM sightings
+             WHERE status='pending_post'
+               -- only rows the verify flow queued: a pending_post row with no
+               -- queue timestamp predates this flow and must never auto-post
+               AND pending_post_at IS NOT NULL
+               AND post_attempts < ?
+               AND (NOT EXISTS (SELECT 1 FROM media m
+                                 WHERE m.sighting_id = sightings.id
+                                   AND m.thumb_key IS NULL)
+                    OR pending_post_at <= strftime('%Y-%m-%dT%H:%M:%SZ','now',?))
+             ORDER BY pending_post_at
+             LIMIT ?""",
+        (MAX_POST_ATTEMPTS, f"-{POST_QUEUE_TIMEOUT_MINUTES} minutes", limit),
+    ).fetchall()
+    done = 0
+    for r in rows:
+        # count the attempt before trying, so a call that dies mid-flight can't
+        # spin forever against Reddit
+        conn.execute("UPDATE sightings SET post_attempts = post_attempts + 1 WHERE id=?",
+                     (r["id"],))
+        conn.commit()
+        try:
+            post_sighting(conn, r["id"], verified=bool(r["username_verified"]))
+            print(f"post-queue: posted sighting {r['id']}")
+            done += 1
+            try:  # brand-new URL — nudge IndexNow (best-effort)
+                from app import indexnow
+                slug = helpers.slugify(r["title"])
+                indexnow.submit_url(
+                    f"{get_settings().base_url}/sighting/{r['id']}/{slug}")
+            except Exception:
+                pass
+        except Exception as exc:  # noqa: BLE001 — stays queued for the next pass
+            print(f"post-queue: sighting {r['id']} failed, will retry: {exc}")
+    return done
+
+
 def details_body(conn, sighting_id: int, *, verified: bool, native: bool,
                  sats: dict | None = None) -> str:
     """Assemble the details block (pinned comment on native posts, the body
@@ -100,25 +156,53 @@ def details_body(conn, sighting_id: int, *, verified: bool, native: bool,
     gallery_url = f"{s.base_url}/sighting/{sighting_id}/{helpers.slugify(row['title'])}"
     location_line = ", ".join(dict.fromkeys(
         p for p in (row["location_text"], row["city"], row["country"]) if p))
-    tag = "verified" if verified else "self-reported"
-    if row["first_hand"]:
-        attribution = f"Reported by u/{row['reddit_username']} ({tag} via ufosighting.report)"
-    else:
-        src = f" Reported source: {row['source_note']}." if row["source_note"] else ""
-        attribution = (f"⚠️ Shared by u/{row['reddit_username']} ({tag} account, via "
-                       f"ufosighting.report). This is not their own sighting.{src}")
     sky = skycontext.markdown(
         skycontext.links(row["lat"], row["lon"], row["sighted_at"]), sats)
-    return helpers.format_post_body(
+    details = helpers.format_post_body(
         clean,
         sighted_local=helpers.from_utc(row["sighted_at"], row["tz_name"]),
         location_line=location_line,
         media_urls=[] if native else [r2.public_url(m["r2_key"]) for m in media],
-        gallery_url=gallery_url,
-        attribution=attribution,
         media_provenance=provenance,
         sky=sky,
     )
+    return "\n\n".join([_attribution_header(row, verified=verified,
+                                            gallery_url=gallery_url),
+                        "---", details])
+
+
+def _attribution_header(row, *, verified: bool, gallery_url: str) -> str:
+    """Who filed this and how we know, stated up front.
+
+    Readers land on a post from an account that isn't the witness, so the
+    comment has to answer "who actually saw this, and why should I believe the
+    name?" before it shows any sighting details.
+    """
+    s = get_settings()
+    user, bot = row["reddit_username"], s.script_username
+    tag = "verified" if verified else "self-reported"
+    if row["first_hand"]:
+        who = f"**Reported by u/{user}** ({tag} via ufosighting.report)"
+    else:
+        src = f" Reported source: {row['source_note']}." if row["source_note"] else ""
+        who = (f"⚠️ **Shared by u/{user}** ({tag} account, via ufosighting.report). "
+               f"This is not their own sighting.{src}")
+    if verified:
+        proof = (f"u/{user} confirmed this submission from their own Reddit account "
+                 f"through a one-time link, so the name above is verified as the "
+                 f"submitter.")
+    else:
+        proof = (f"u/{user} never confirmed the submission, so the name above is "
+                 f"self-reported and unverified.")
+    return "\n\n".join([
+        who,
+        f"*This is an automated post.* The report was filed through the structured "
+        f"sighting form on [ufosighting.report](https://ufosighting.report) and posted "
+        f"here by u/{bot} on the reporter's behalf. {proof}",
+        f"📎 **[Original-quality media and full report]({gallery_url})**. Reddit "
+        f"re-encodes every upload, so the archive keeps the untouched original files "
+        f"alongside the structured details and the map entry.",
+    ])
 
 
 def refresh_sky_comment(conn, sighting_id: int) -> bool:

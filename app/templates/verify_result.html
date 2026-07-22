@@ -3,7 +3,14 @@
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <section class="panel narrow">
-{% if ok %}
+{% if ok and queued %}
+  <h1>You're verified &#128760;</h1>
+  <p>Thanks for confirming. Your sighting will be live shortly.</p>
+  <p class="muted">We're finishing up your photos and video first, usually a couple of minutes,
+     so everything you uploaded makes it into the post. It'll appear on r/UFOs and in the
+     gallery automatically. Nothing else for you to do.</p>
+  <a class="btn" href="/">Browse the gallery</a>
+{% elif ok %}
   <h1>You're verified — your sighting is live 🛸</h1>
   <p>Thanks for confirming. It's been posted to the subreddit and added to the gallery.</p>
   <a class="btn primary" href="{{ url }}">View your sighting</a>

@@ -386,3 +386,63 @@ def test_refresh_sky_comment_noop_without_comment_or_data(db_conn, monkeypatch):
                     (_json.dumps({"checked": False, "reason": "no TLEs"}), sid))
     db_conn.commit()
     assert posting.refresh_sky_comment(db_conn, sid) is False   # unchecked -> no claims
+
+
+def test_reddit_gets_the_clean_display_derivative(db_conn):
+    """Samsung Ultra HDR originals render as a solid black gallery image on
+    Reddit; the display derivative is a plain re-encode without the gain map."""
+    from app import posting as p
+    assert p._reddit_safe_key(
+        {"r2_key": "uploads/2026/07/x.jpg", "display_key": "display/2026/07/x.jpg"}
+    ) == "display/2026/07/x.jpg"
+    # small images never get a derivative — send the original
+    assert p._reddit_safe_key(
+        {"r2_key": "uploads/2026/07/small.jpg", "display_key": None}
+    ) == "uploads/2026/07/small.jpg"
+
+
+# --- attribution header: who filed this, and why the name is trustworthy ---
+
+def _hdr(db_conn, *, verified=True, **over):
+    sid = _seed_ready(db_conn)
+    if over:
+        sets = ", ".join(f"{k}=?" for k in over)
+        db_conn.execute(f"UPDATE sightings SET {sets} WHERE id=?", (*over.values(), sid))
+        db_conn.commit()
+    row = db_conn.execute("SELECT * FROM sightings WHERE id=?", (sid,)).fetchone()
+    return posting._attribution_header(
+        row, verified=verified, gallery_url="https://ufosighting.report/sighting/1/x")
+
+
+def test_header_leads_with_verified_reporter(db_conn):
+    h = _hdr(db_conn, verified=True)
+    assert h.startswith("**Reported by u/witness1** (verified via ufosighting.report)")
+    assert "confirmed this submission from their own Reddit account" in h
+    assert "automated post" in h                     # says plainly it's a bot
+    assert "structured sighting form" in h           # and how it got here
+    assert "Original-quality media and full report" in h
+    assert "https://ufosighting.report/sighting/1/x" in h
+
+
+def test_header_is_honest_when_unverified(db_conn):
+    h = _hdr(db_conn, verified=False)
+    assert "(self-reported via ufosighting.report)" in h
+    assert "never confirmed the submission" in h
+    assert "verified as the submitter" not in h      # must not overclaim
+
+
+def test_header_flags_a_shared_sighting(db_conn):
+    h = _hdr(db_conn, verified=True, first_hand=0, source_note="Facebook group 'UFOs PL'")
+    assert "Shared by u/witness1" in h
+    assert "This is not their own sighting" in h
+    assert "Facebook group" in h
+
+
+def test_body_separates_header_from_details_with_a_rule(db_conn):
+    sid = _seed_ready(db_conn)
+    body = posting.details_body(db_conn, sid, verified=True, native=True)
+    head, sep, rest = body.partition("\n\n---\n\n")
+    assert sep, "expected a markdown horizontal rule between header and details"
+    assert "Reported by u/witness1" in head          # attribution above the rule
+    assert "**When:**" not in head                   # details below it
+    assert "**When:**" in rest

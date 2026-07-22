@@ -72,12 +72,16 @@ def markdown(sky: dict | None, sats: dict | None = None) -> str:
     if sats and sats.get("checked"):
         lines += _computed_lines(sats)
         lines.append(f"* *Computed from orbital data ({sats.get('catalog_date')} catalog).*")
+    # The first two rewind to the sighting's own date/time; the last two show
+    # current conditions. Say so plainly — readers were skimming past the ADS-B
+    # link and assuming there was no historical playback.
     lines += [
-        f"* [Aircraft that day]({sky['adsb']}) — ADS-B Exchange historical playback",
+        f"* [Aircraft overhead at that exact minute]({sky['adsb']}) — ADS-B Exchange "
+        f"historical playback (free, no account needed)",
         f"* [Sky chart for that date]({sky['skychart']}) — in-the-sky.org planetarium "
         f"(set your location once on their site)",
         f"* [Satellite passes at this spot]({sky['heavens']}) — Heavens-Above; shows "
-        f"current passes, useful for recent sightings",
-        f"* [Live air traffic]({sky['fr24']}) — FlightRadar24 over this spot",
+        f"upcoming passes, not the sighting date",
+        f"* [Live air traffic now]({sky['fr24']}) — FlightRadar24 over this spot",
     ]
     return "\n".join(lines)

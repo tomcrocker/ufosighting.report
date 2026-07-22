@@ -229,13 +229,13 @@
         <p class="muted sat-note">Computed from orbital data ({{ sky.sats.catalog_date }} catalog)</p>
       </div>
       {% endif %}
-      <p class="rel-item"><a href="{{ sky.adsb }}" target="_blank" rel="noopener">Aircraft that day</a>
-        <span class="muted">— ADS-B Exchange historical playback</span></p>
+      <p class="rel-item"><a href="{{ sky.adsb }}" target="_blank" rel="noopener">Aircraft overhead at that exact minute</a>
+        <span class="muted">— ADS-B Exchange historical playback (free, no account needed)</span></p>
       <p class="rel-item"><a href="{{ sky.skychart }}" target="_blank" rel="noopener">Sky chart for that date</a>
         <span class="muted">— in-the-sky.org planetarium (set your location once on their site)</span></p>
       <p class="rel-item"><a href="{{ sky.heavens }}" target="_blank" rel="noopener">Satellite passes at this spot</a>
-        <span class="muted">— Heavens-Above; shows current passes, useful for recent sightings</span></p>
-      <p class="rel-item"><a href="{{ sky.fr24 }}" target="_blank" rel="noopener">Live air traffic</a>
+        <span class="muted">— Heavens-Above; shows upcoming passes, not the sighting date</span></p>
+      <p class="rel-item"><a href="{{ sky.fr24 }}" target="_blank" rel="noopener">Live air traffic now</a>
         <span class="muted">— FlightRadar24 over this spot</span></p>
     </div>
     {% endif %}

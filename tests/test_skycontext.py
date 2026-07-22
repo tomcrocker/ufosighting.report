@@ -25,11 +25,20 @@ def test_markdown_empty_without_links():
 
 def test_markdown_always_carries_the_four_links():
     md = skycontext.markdown(skycontext.links(*COORDS))
-    for label in ("Aircraft that day", "Sky chart for that date",
-                  "Satellite passes at this spot", "Live air traffic"):
+    for label in ("Aircraft overhead at that exact minute", "Sky chart for that date",
+                  "Satellite passes at this spot", "Live air traffic now"):
         assert label in md
     assert "globe.adsbexchange.com" in md and "in-the-sky.org" in md
     assert "heavens-above.com" in md and "flightradar24.com" in md
+
+
+def test_markdown_distinguishes_historical_from_current():
+    """Readers skimmed past the ADS-B link and assumed there was no historical
+    playback, so each link must say which moment it shows."""
+    md = skycontext.markdown(skycontext.links(*COORDS))
+    assert "historical playback" in md          # ADS-B rewinds to the sighting
+    assert "not the sighting date" in md        # Heavens-Above does not
+    assert "Live air traffic now" in md         # FR24 is current-only
 
 
 def test_markdown_all_clear_when_nothing_overhead():
@@ -65,5 +74,5 @@ def test_markdown_reports_iss_and_launch():
 
 def test_markdown_skips_computed_block_when_unchecked():
     md = skycontext.markdown(skycontext.links(*COORDS), {"checked": False, "reason": "no TLEs"})
-    assert "Aircraft that day" in md          # links still useful
+    assert "ADS-B Exchange" in md             # links still useful
     assert "No bright satellites" not in md   # but no claims about the sky

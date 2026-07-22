@@ -124,7 +124,7 @@
     {% endif %}
     <h1>{{ s.title }}</h1>
     {% if s.status == 'deleted_by_user' %}
-    <p class="flash archive-note">The original Reddit post was deleted by its author — this sighting is preserved here as an archive.</p>
+    <p class="flash archive-note">&#128274; The author deleted the original Reddit post, so this sighting is hidden from the public archive. It is retained here for moderators only.</p>
     {% elif s.status == 'removed_on_reddit' %}
     <p class="flash archive-note">The original Reddit post was removed on Reddit — this sighting is preserved here as an archive.</p>
     {% endif %}

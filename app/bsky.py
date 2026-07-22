@@ -226,10 +226,11 @@ def delete_post(session: dict, uri: str) -> None:
 
 
 # Detail pages are served only for these statuses; anything else (removed_by_mod,
-# hidden_by_admin, …) now 410/404s, so a Bluesky link to it is dead.
+# deleted_by_user, hidden_by_admin, …) now 410/404s, so a Bluesky link to it is
+# dead. Keep this set in sync with public.PUBLIC_STATUSES.
 RETRACT_SQL = (
     "SELECT id, bsky_uri FROM sightings WHERE bsky_uri IS NOT NULL "
-    "AND status NOT IN ('live','deleted_by_user','removed_on_reddit') LIMIT ?"
+    "AND status NOT IN ('live','removed_on_reddit') LIMIT ?"
 )
 
 

@@ -159,3 +159,27 @@ def test_admin_delete_needs_csrf(client, app_db):
     r = client.post(f"/admin/sighting/{sid}/delete", data={"csrf_token": "wrong"})
     assert r.status_code == 403
     assert app_db.execute("SELECT COUNT(*) FROM sightings WHERE id=?", (sid,)).fetchone()[0] == 1
+
+
+def test_review_queue_link_and_ip_collision_flag(client, app_db):
+    # two throwaway usernames from one IP, plus an unrelated submission
+    a = seed(app_db, title="Queued A", reddit_username="Slight_Perception_95",
+             status="pending_review", submitter_ip="203.0.113.7")
+    seed(app_db, title="Queued B", reddit_username="Slight_Perception_24",
+         status="pending_review", submitter_ip="203.0.113.7")
+    seed(app_db, title="Queued C", reddit_username="someone_else",
+         status="pending_review", submitter_ip="198.51.100.9")
+    _admin(client, app_db)
+    r = client.get("/admin/review")
+    assert r.status_code == 200
+    assert f'href="/sighting/{a}"' in r.text          # full-submission link
+    assert "203.0.113.7" in r.text                    # IP surfaced to the mod
+    assert "shared with 1 other submission" in r.text  # collision flagged
+
+
+def test_admin_can_view_pending_review_detail(client, app_db):
+    sid = seed(app_db, title="Queued detail", status="pending_review")
+    _admin(client, app_db)
+    r = client.get(f"/sighting/{sid}")  # 301 -> canonical slug, then 200 for admin
+    assert r.status_code == 200
+    assert "Queued detail" in r.text

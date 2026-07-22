@@ -90,7 +90,7 @@
                     placeholder="Tell us more about your sighting.">{{ values.description or '' }}</textarea>
         </label>
         <p class="muted">Min 150 characters — <span id="charcount">0 / 150 min</span></p>
-        <label>Your Reddit username <span class="req">*</span> <span class="muted">— we'll credit you (self-reported until you confirm)</span>
+        <label>Your Reddit username <span class="req">*</span> <span class="muted">— we credit this account once you confirm it's yours</span>
           <input name="reddit_username" required value="{{ values.reddit_username or '' }}"
                  placeholder="e.g. your_reddit_name" autocomplete="off">
         </label>
@@ -113,9 +113,13 @@
         <label class="check">
           <input type="checkbox" name="is_shared" id="is_shared" value="1"
                  {% if values.is_shared %}checked{% endif %}>
-          This isn't my own sighting. I'm sharing footage from someone else (e.g. a Facebook group).
+          This isn't my own sighting. I'm sharing it on behalf of someone else (from Facebook,
+          Reddit, X/Twitter, YouTube, a friend or family member, etc.).
         </label>
         <div id="shared-fields" hidden>
+          <p class="meta-warn">&#9888;&#65039; <strong>Only share someone else's sighting if you
+            have their permission</strong> to post it on their behalf. Crediting the original
+            reporter and respecting their wishes matters to the whole community.</p>
           <label>Where is this sighting from? <span class="req">*</span>
             <input name="source_note" id="source_note" maxlength="500" autocomplete="off" required
                    placeholder="e.g. Facebook group 'UFO Sightings', the original poster, or a link"

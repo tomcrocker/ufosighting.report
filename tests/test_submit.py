@@ -265,7 +265,7 @@ def test_submitted_page_names_bot_and_gates(client, app_db):
     r = client.post("/submit", data=gform(csrf), cookies={"csrf": csrf})
     assert r.status_code == 200
     assert "u/modbot" in r.text                 # SCRIPT_USERNAME in the test env
-    assert "not live yet" in r.text
+    assert "won't be posted until you confirm" in r.text
     assert "6 hours" in r.text                  # verify window default
 
 

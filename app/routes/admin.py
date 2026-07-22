@@ -1,4 +1,5 @@
 import hmac
+from collections import Counter
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
@@ -115,7 +116,7 @@ def system_status(request: Request, conn=Depends(db.get_db), user=Depends(requir
         ("YouTube queue", f"{yt.get('pending', 0)} pending / {yt.get('failed', 0)} failed"),
         ("Public sightings", conn.execute(
             "SELECT COUNT(*) FROM sightings WHERE status IN "
-            "('live','deleted_by_user','removed_on_reddit')").fetchone()[0]),
+            "('live','removed_on_reddit')").fetchone()[0]),
         ("Sky-checked sightings", conn.execute(
             "SELECT COUNT(*) FROM sightings WHERE sky_events LIKE "
             "'%\"checked\": true%'").fetchone()[0]),
@@ -138,6 +139,10 @@ def review_queue(request: Request, conn=Depends(db.get_db), user=Depends(require
     rows = conn.execute(
         "SELECT * FROM sightings WHERE status='pending_review' ORDER BY created_at"
     ).fetchall()
+    # Flag submissions that share a submitter IP — a quick tell for one person
+    # filing under several throwaway usernames (the queue only holds unverified
+    # submissions, so this is where sockpuppets surface).
+    ip_counts = Counter(r["submitter_ip"] for r in rows if r["submitter_ip"])
     media = {}
     for row in rows:
         media[row["id"]] = conn.execute(
@@ -146,7 +151,8 @@ def review_queue(request: Request, conn=Depends(db.get_db), user=Depends(require
         ).fetchall()
     return templates.TemplateResponse(
         request, "review.html",
-        {"user": user, "rows": rows, "media": media, "csrf_token": auth.csrf_for(user.id)},
+        {"user": user, "rows": rows, "media": media, "ip_counts": ip_counts,
+         "csrf_token": auth.csrf_for(user.id)},
     )
 
 

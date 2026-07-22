@@ -11,7 +11,7 @@ import httpx
 from app.config import get_settings
 
 ISO = "%Y-%m-%dT%H:%M:%SZ"
-PUBLIC_STATUSES = ("live", "deleted_by_user", "removed_on_reddit")
+PUBLIC_STATUSES = ("live", "removed_on_reddit")
 SYNONYMS = {
     "ufo": ["uap", "uaps"], "uap": ["ufo", "ufos"],
     "disc": ["disk", "saucer"], "disk": ["disc", "saucer"], "saucer": ["disc", "disk"],

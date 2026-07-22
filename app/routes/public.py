@@ -17,11 +17,14 @@ PER_PAGE = 24
 SORTS = ("new", "old", "top")
 TOP_WINDOW_HOURS = {"day": 24, "week": 24 * 7, "month": 24 * 30, "year": 24 * 365, "all": None}
 
-# Archive philosophy: entries persist even when the Reddit post is removed
-# (by mods) or deleted (by the author) — reddit status is shown as provenance,
-# not used for visibility. hidden_by_admin is the site's own kill switch.
-PUBLIC_STATUSES = ("live", "deleted_by_user", "removed_on_reddit")
-PUBLIC_STATUSES_SQL = "('live', 'deleted_by_user', 'removed_on_reddit')"
+# Reddit Data API compliance: we honor deletions. A post the author deletes
+# (deleted_by_user) or a mod/Reddit removes (removed_by_mod) drops out of the
+# public archive — the row is retained privately but never shown or indexed.
+# removed_on_reddit is the spam/automod-pending bucket: not a deletion, and it
+# flips back to live if approved, so it stays public. hidden_by_admin is the
+# site's own kill switch.
+PUBLIC_STATUSES = ("live", "removed_on_reddit")
+PUBLIC_STATUSES_SQL = "('live', 'removed_on_reddit')"
 
 
 def query_sightings(conn, *, shape=None, country=None, date_from=None, date_to=None,
@@ -257,10 +260,14 @@ def detail(
     if row is None:
         raise HTTPException(status_code=404)
     if row["status"] not in PUBLIC_STATUSES and not admin:
-        # mod-removed posts were public + indexed, so 410 (Gone) tells Google
-        # they're intentionally removed and de-indexes them cleanly; other
-        # non-public states (pending, admin-hidden) just 404.
-        raise HTTPException(status_code=410 if row["status"] == "removed_by_mod" else 404)
+        # Content that was public + indexed and is now honored-as-deleted
+        # (mod-removed or author-deleted) returns 410 (Gone) so Google
+        # de-indexes it cleanly; other non-public states (pending,
+        # admin-hidden) just 404.
+        raise HTTPException(
+            status_code=410
+            if row["status"] in ("removed_by_mod", "deleted_by_user")
+            else 404)
     canonical_slug = helpers.slugify(row["title"])
     if slug != canonical_slug:
         # one canonical URL per sighting — /sighting/{id} and stale slugs 301

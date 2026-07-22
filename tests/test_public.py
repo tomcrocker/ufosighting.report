@@ -52,17 +52,33 @@ def test_home_hides_admin_hidden_and_pending(client, app_db):
     assert "Awaiting review" not in r.text
 
 
-def test_archive_keeps_deleted_and_removed_visible(client, app_db):
-    # archive philosophy: reddit removal/deletion is provenance, not visibility
-    d = seed(app_db, title="Author deleted sighting", status="deleted_by_user")
+def test_removed_on_reddit_stays_visible(client, app_db):
+    # spam/automod-pending posts aren't a deletion and flip back to live if
+    # approved, so they stay in the public archive
     m = seed(app_db, title="Mod removed sighting", status="removed_on_reddit")
     home = client.get("/").text
-    assert "Author deleted sighting" in home
     assert "Mod removed sighting" in home
-    detail_d = client.get(f"/sighting/{d}").text
-    assert "deleted by its author" in detail_d and "preserved here" in detail_d
     detail_m = client.get(f"/sighting/{m}").text
     assert "removed on Reddit" in detail_m and "preserved here" in detail_m
+
+
+def test_author_deleted_hidden_from_public(client, app_db):
+    # Reddit Data API compliance: a post the author deleted is honored as
+    # deleted — pulled from the public archive and 410 (Gone) so Google
+    # de-indexes it, while the row is retained privately.
+    d = seed(app_db, title="Author deleted sighting", status="deleted_by_user")
+    assert "Author deleted sighting" not in client.get("/").text
+    assert client.get(f"/sighting/{d}", follow_redirects=False).status_code == 410
+
+
+def test_author_deleted_visible_to_admin(client, app_db):
+    from app import auth
+    d = seed(app_db, title="Author deleted sighting", status="deleted_by_user")
+    admin_sid = auth.create_session(app_db, "tmosh", "tok-admin", 3600)
+    client.cookies.set("sid", admin_sid)
+    detail = client.get(f"/sighting/{d}")
+    assert detail.status_code == 200
+    assert "retained here for moderators only" in detail.text
 
 
 def test_mod_removed_hidden_from_gallery(client, app_db):
@@ -86,7 +102,7 @@ def test_mod_removed_visible_to_admin(client, app_db):
 
 
 def test_pins_include_archived_and_accept_filters(client, app_db):
-    kept = seed(app_db, title="Deleted pinned", status="deleted_by_user",
+    kept = seed(app_db, title="Archived pinned", status="removed_on_reddit",
                 lat=10.0, lon=10.0,
                 sighted_at="2026-07-01T05:00:00Z", shape="triangle")
     seed(app_db, title="Out of range", status="live", lat=20.0, lon=20.0,

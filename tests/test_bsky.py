@@ -157,17 +157,20 @@ def test_retract_removed_deletes_dead_posts(db_conn, monkeypatch):
     delroute = respx.post(f"{BSKY}/com.atproto.repo.deleteRecord").mock(
         return_value=httpx.Response(200, json={}))
 
-    removed = _seed(db_conn, status="removed_by_mod")
-    live = _seed(db_conn, status="live")
-    deleted = _seed(db_conn, status="deleted_by_user")  # page still public -> keep
-    for sid, rkey in ((removed, "dead1"), (live, "keep1"), (deleted, "keep2")):
+    removed = _seed(db_conn, status="removed_by_mod")       # 410 -> retract
+    live = _seed(db_conn, status="live")                    # public -> keep
+    deleted = _seed(db_conn, status="deleted_by_user")      # now 410 -> retract
+    pending = _seed(db_conn, status="removed_on_reddit")    # still public -> keep
+    for sid, rkey in ((removed, "dead1"), (live, "keep1"),
+                      (deleted, "dead2"), (pending, "keep2")):
         db_conn.execute("UPDATE sightings SET bsky_uri=? WHERE id=?",
                         (f"at://did:plc:x/app.bsky.feed.post/{rkey}", sid))
     db_conn.commit()
 
-    assert bsky.retract_removed(db_conn) == {"retracted": 1}
+    assert bsky.retract_removed(db_conn) == {"retracted": 2}
     assert db_conn.execute("SELECT bsky_uri FROM sightings WHERE id=?", (removed,)).fetchone()[0] is None
+    assert db_conn.execute("SELECT bsky_uri FROM sightings WHERE id=?", (deleted,)).fetchone()[0] is None
     assert db_conn.execute("SELECT bsky_uri FROM sightings WHERE id=?", (live,)).fetchone()[0] is not None
-    assert db_conn.execute("SELECT bsky_uri FROM sightings WHERE id=?", (deleted,)).fetchone()[0] is not None
-    body = json.loads(delroute.calls[0].request.content)
-    assert body["rkey"] == "dead1" and body["collection"] == "app.bsky.feed.post"
+    assert db_conn.execute("SELECT bsky_uri FROM sightings WHERE id=?", (pending,)).fetchone()[0] is not None
+    retracted_rkeys = {json.loads(c.request.content)["rkey"] for c in delroute.calls}
+    assert retracted_rkeys == {"dead1", "dead2"}

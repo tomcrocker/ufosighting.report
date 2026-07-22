@@ -15,8 +15,8 @@
   <h1>Almost there</h1>
   <p>We couldn't send <strong>u/{{ username }}</strong> a chat from
      <strong>u/{{ bot_username }}</strong> just now.</p>
-  <p class="muted">Nothing is lost — after {{ verify_hours }} hours a moderator reviews your
-     sighting and posts it, credited as self-reported. You can also try resending below.</p>
+  <p class="muted">Try resending below. Your sighting posts only after you click the confirmation
+     link, so we can be sure the account is really yours.</p>
 {% elif dm_status == 'gone' %}
   <h1>Already confirmed</h1>
   <p>This sighting is no longer awaiting confirmation — it may already be live, or the link
@@ -31,8 +31,10 @@
 {% endif %}
 
 {% if dm_status != 'gone' %}
-  <p><strong>Your sighting is not live yet.</strong> Clicking the link confirms you own the
-     account — then it posts to r/UFOs and appears in the gallery.</p>
+  <p><strong>Your sighting won't be posted until you confirm it.</strong> Click the link in the
+     Reddit chat from <strong>u/{{ bot_username }}</strong> to prove the account is yours. Then it
+     posts to r/UFOs and appears in the gallery. The link is good for {{ verify_hours }} hours;
+     without that click, your sighting stays unposted.</p>
 {% endif %}
 
 <div class="submitted-actions">

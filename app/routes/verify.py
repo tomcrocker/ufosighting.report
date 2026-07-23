@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, Request
 
-from app import appsettings, db, quality
+import json
+
+from app import accountintel, appsettings, db
 from app.web import templates
 
 router = APIRouter()
@@ -27,26 +29,30 @@ def verify_click(request: Request, token: str, conn=Depends(db.get_db)):
     if row is None:
         return templates.TemplateResponse(request, "verify_result.html", {"user": None, "ok": False})
 
+    # Deep account assessment (CQS signals + aged/reactivated deep-dive + AI
+    # summary). Always stored for the review panel, even when it passes.
+    intel = accountintel.assess(row["reddit_username"])
+    intel_json = json.dumps(intel)
     if appsettings.hold_posts(conn):
         to_review, reason = True, "moderation hold (all submissions held)"
     else:
-        ok, reason = quality.gate(row["reddit_username"])
-        to_review = not ok
+        to_review = bool(intel.get("route_to_review"))
+        reason = intel.get("reason") or ""
 
     if to_review:
         conn.execute(
             """UPDATE sightings SET status='pending_review', username_verified=1,
-                  verify_token=NULL, review_reason=? WHERE id=?""",
-            (reason, row["id"]),
+                  verify_token=NULL, review_reason=?, account_intel=? WHERE id=?""",
+            (reason, intel_json, row["id"]),
         )
         print(f"verify: sighting {row['id']} (u/{row['reddit_username']}) "
               f"sent to review — {reason}")
     else:
         conn.execute(
             """UPDATE sightings SET status='pending_post', username_verified=1,
-                  verify_token=NULL,
+                  verify_token=NULL, account_intel=?,
                   pending_post_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?""",
-            (row["id"],),
+            (intel_json, row["id"]),
         )
     conn.commit()
     return templates.TemplateResponse(

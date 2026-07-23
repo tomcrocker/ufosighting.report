@@ -1,4 +1,5 @@
 import hmac
+import json
 from collections import Counter
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -200,16 +201,21 @@ def review_queue(request: Request, conn=Depends(db.get_db), user=Depends(require
             if h["id"] not in shown_ids:  # only PRIOR reports, not a card itself
                 ip_history.setdefault(h["submitter_ip"], []).append(h)
 
-    media = {}
+    media, intel = {}, {}
     for row in both:
         media[row["id"]] = conn.execute(
             "SELECT r2_key, thumb_key, kind FROM media WHERE sighting_id=? ORDER BY sort_order",
             (row["id"],),
         ).fetchall()
+        if row["account_intel"]:
+            try:
+                intel[row["id"]] = json.loads(row["account_intel"])
+            except (ValueError, TypeError):
+                pass
     return templates.TemplateResponse(
         request, "review.html",
         {"user": user, "rows": rows, "awaiting": awaiting, "media": media,
-         "ip_counts": ip_counts, "ip_history": ip_history,
+         "intel": intel, "ip_counts": ip_counts, "ip_history": ip_history,
          "verify_hours": get_settings().verify_window_hours,
          "csrf_token": auth.csrf_for(user.id)},
     )

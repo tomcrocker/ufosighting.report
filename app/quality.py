@@ -42,14 +42,24 @@ def gate(username: str) -> tuple[bool, str]:
         return True, ""
     if about is None:
         return False, "account not found (suspended, shadowbanned, or deleted)"
+    reason = check_about(about)
+    return (reason is None), (reason or "")
+
+
+def check_about(about: dict) -> str | None:
+    """The account-signal checks (everything except the ban lookup) given an
+    already-fetched /about payload. Returns a reason to send to review, or None
+    if the account clears. Shared by gate() and the deep-dive so both apply the
+    exact same thresholds."""
+    s = get_settings()
     if about.get("is_suspended"):
-        return False, "account is suspended"
+        return "account is suspended"
 
     created = about.get("created_utc")
     if created:
         age_days = (time.time() - created) / 86400
         if age_days < s.cqs_min_account_age_days:
-            return False, f"new account ({int(age_days)} days old)"
+            return f"new account ({int(age_days)} days old)"
 
     link = about.get("link_karma", 0) or 0
     comment = about.get("comment_karma", 0) or 0
@@ -57,15 +67,15 @@ def gate(username: str) -> tuple[bool, str]:
     # Negative karma is a strong stand-alone signal — legitimate accounts almost
     # never carry it, downvoted trolls do.
     if link < 0 or comment < 0:
-        return False, f"negative karma (post {link}, comment {comment})"
+        return f"negative karma (post {link}, comment {comment})"
     if link < s.cqs_min_link_karma:
-        return False, f"low post karma ({link})"
+        return f"low post karma ({link})"
     if comment < s.cqs_min_comment_karma:
-        return False, f"low comment karma ({comment})"
+        return f"low comment karma ({comment})"
     if total < s.cqs_min_karma:
-        return False, f"low total karma ({total})"
+        return f"low total karma ({total})"
 
     if s.cqs_require_verified_email and not about.get("has_verified_email"):
-        return False, "email not verified"
+        return "email not verified"
 
-    return True, ""
+    return None

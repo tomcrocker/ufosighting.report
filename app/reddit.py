@@ -292,6 +292,46 @@ def is_banned(username: str) -> bool:
     return len(children) > 0
 
 
+def user_activity(username: str, *, comment_pages: int = 3, post_pages: int = 2,
+                  per_page: int = 100) -> list[dict]:
+    """Recent comments + submissions, paged back far enough to expose a dormancy
+    gap. Returns dicts (newest first): kind, created_utc, subreddit, score, text,
+    removed. Empty list when the history is private/empty/unreadable. Read via
+    the mod token, so removed items in moderated subs are visible."""
+    token = read_token()
+    out: list[dict] = []
+    for kind, path, pages in (("comment", "comments", comment_pages),
+                              ("post", "submitted", post_pages)):
+        after = None
+        for _ in range(pages):
+            try:
+                resp = httpx.get(
+                    f"https://oauth.reddit.com/user/{username}/{path}",
+                    params={"limit": per_page, "after": after, "sort": "new",
+                            "raw_json": 1},
+                    headers=_headers(token), timeout=15)
+            except httpx.HTTPError:
+                break
+            if resp.status_code != 200:
+                break
+            data = resp.json().get("data", {})
+            for child in data.get("children", []):
+                d = child.get("data", {})
+                out.append({
+                    "kind": kind,
+                    "created_utc": d.get("created_utc"),
+                    "subreddit": d.get("subreddit"),
+                    "score": d.get("score"),
+                    "text": (d.get("body") or d.get("title") or "")[:280],
+                    "removed": bool(d.get("removed_by_category") or d.get("banned_by")),
+                })
+            after = data.get("after")
+            if not after:
+                break
+    out.sort(key=lambda x: x["created_utc"] or 0, reverse=True)
+    return out
+
+
 def fetch_post(access_token, post_id):
     resp = httpx.get(
         INFO_URL,

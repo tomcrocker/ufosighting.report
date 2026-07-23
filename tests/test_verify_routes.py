@@ -14,7 +14,8 @@ def _pending(app_db, token="tok-abc"):
 def test_valid_token_queues_for_posting(client, app_db, monkeypatch):
     """The click no longer posts inline — it queues, so media processing (a
     video's poster frame especially) can finish before the post goes out."""
-    monkeypatch.setattr("app.routes.verify.quality.gate", lambda u: (True, ""))
+    monkeypatch.setattr("app.routes.verify.accountintel.assess",
+                        lambda u: {"route_to_review": False, "reason": ""})
     sid = _pending(app_db)
     r = client.get("/verify/tok-abc")
     assert r.status_code == 200
@@ -130,20 +131,27 @@ def test_queue_ignores_rows_predating_this_flow(app_db, monkeypatch):
     assert posted == []
 
 
-# --- CQS-proxy gate at verify time ---
+# --- account assessment at verify time ---
+
+def _assess(route=False, reason="", **extra):
+    return lambda u: {"username": u, "exists": True, "route_to_review": route,
+                      "reason": reason, "flags": [], **extra}
+
 
 def test_good_account_auto_queues(client, app_db, monkeypatch):
-    monkeypatch.setattr("app.routes.verify.quality.gate", lambda u: (True, ""))
+    monkeypatch.setattr("app.routes.verify.accountintel.assess", _assess())
     sid = _pending(app_db)
     r = client.get("/verify/tok-abc")
     assert "live shortly" in r.text.lower()
-    row = app_db.execute("SELECT status, review_reason FROM sightings WHERE id=?", (sid,)).fetchone()
+    row = app_db.execute("SELECT status, review_reason, account_intel FROM sightings WHERE id=?",
+                         (sid,)).fetchone()
     assert row["status"] == "pending_post" and row["review_reason"] is None
+    assert row["account_intel"] is not None          # intel stored even when it passes
 
 
 def test_low_cqs_account_routed_to_review(client, app_db, monkeypatch):
-    monkeypatch.setattr("app.routes.verify.quality.gate",
-                        lambda u: (False, "new account (2 days old)"))
+    monkeypatch.setattr("app.routes.verify.accountintel.assess",
+                        _assess(route=True, reason="new account (2 days old)"))
     sid = _pending(app_db)
     r = client.get("/verify/tok-abc")
     # honest, non-insulting message — never tells the reporter they're "low quality"
@@ -156,23 +164,24 @@ def test_low_cqs_account_routed_to_review(client, app_db, monkeypatch):
 
 
 def test_banned_reporter_never_reaches_post_queue(client, app_db, monkeypatch):
-    monkeypatch.setattr("app.routes.verify.quality.gate",
-                        lambda u: (False, "🚫 BANNED on r/UFOs — do not approve (ban evasion)"))
+    monkeypatch.setattr("app.routes.verify.accountintel.assess",
+                        _assess(route=True, reason="🚫 BANNED on r/UFOs — do not approve (ban evasion)"))
     sid = _pending(app_db)
     client.get("/verify/tok-abc")
     row = app_db.execute("SELECT status, review_reason FROM sightings WHERE id=?", (sid,)).fetchone()
     assert row["status"] == "pending_review" and "BANNED" in row["review_reason"]
 
 
-def test_global_hold_skips_the_gate(client, app_db, monkeypatch):
+def test_global_hold_overrides_a_clean_account(client, app_db, monkeypatch):
     from app import appsettings
-    called = []
-    monkeypatch.setattr("app.routes.verify.quality.gate",
-                        lambda u: called.append(u) or (True, ""))
+    # even a clean account is held while the moderation hold is on; the intel is
+    # still computed and stored for the review panel
+    monkeypatch.setattr("app.routes.verify.accountintel.assess", _assess(route=False))
     appsettings.set(app_db, appsettings.HOLD_POSTS, "1")
     sid = _pending(app_db)
     client.get("/verify/tok-abc")
-    row = app_db.execute("SELECT status, review_reason FROM sightings WHERE id=?", (sid,)).fetchone()
+    row = app_db.execute("SELECT status, review_reason, account_intel FROM sightings WHERE id=?",
+                         (sid,)).fetchone()
     assert row["status"] == "pending_review"
     assert "moderation hold" in row["review_reason"]
-    assert called == []  # hold short-circuits before any Reddit API call
+    assert row["account_intel"] is not None

@@ -214,6 +214,9 @@ _MIGRATION_COLUMNS = [
     # why a sighting was routed to the review queue (CQS-proxy gate, ban,
     # moderation hold) — shown to the moderator on the review card
     ("review_reason", "TEXT"),
+    # JSON account intel (age, karma/yr, dormancy, subreddits, AI summary)
+    # captured at verify time, rendered in the review panel
+    ("account_intel", "TEXT"),
 ]
 
 

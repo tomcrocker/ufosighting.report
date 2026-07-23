@@ -467,6 +467,15 @@ def _render_submitted(request, conn, username, dm_status, token, *, resent=False
     return resp
 
 
+def _username_missing(username: str) -> bool:
+    """True only when Reddit definitively says the account doesn't exist. Fails
+    OPEN (returns False) on any API error so a lookup blip never blocks a submit."""
+    try:
+        return reddit.user_about(username) is None
+    except reddit.RedditError:
+        return False
+
+
 @router.post("/submit")
 async def submit_create(request: Request, conn=Depends(db.get_db)):
     s = get_settings()
@@ -481,7 +490,11 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
         return _render_form(request, form, ["Anti-spam check failed — please try again."],
                             csrf=cookie_csrf, status_code=400)
 
-    if not ratelimit.allowed(conn, ip, "submit", s.rate_submit_per_hour):
+    # Per-IP throttles on the same 'submit' events: a short-term burst cap and a
+    # daily cap (blocks a flood from one connection without needing an account).
+    if (not ratelimit.allowed(conn, ip, "submit", s.rate_submit_per_hour)
+            or not ratelimit.allowed(conn, ip, "submit", s.rate_submit_per_day,
+                                     window_hours=24)):
         return _render_form(request, form,
                             ["You've submitted several sightings recently. Please try again later."],
                             csrf=cookie_csrf, status_code=429)
@@ -490,6 +503,19 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
     clean, errors = validate_submission(form)
     if username is None:
         errors.insert(0, "Enter a valid Reddit username (3–20 letters, digits, _ or -).")
+    # Reject a username that doesn't resolve on Reddit before we send a DM into
+    # the void. Fail OPEN if the lookup errors (don't block on our own hiccup).
+    elif _username_missing(username):
+        errors.insert(0, f"We couldn't find u/{username} on Reddit. Enter your exact "
+                         f"Reddit username (check the spelling).")
+    # One sighting per account per day — they post as themselves, so a second is
+    # spam. Keyed by the claimed username (unverified here, but the IP caps above
+    # and the CQS gate at verify cover the rest).
+    elif not ratelimit.allowed(conn, username.lower(), "submit_user", 1,
+                               window_hours=s.submit_per_username_hours):
+        errors.insert(0, f"u/{username} already submitted a sighting in the last "
+                         f"{s.submit_per_username_hours} hours. Each account can submit "
+                         f"one sighting per day — please try again later.")
     for m in clean["media"]:
         if not r2.head_exists(m["key"]):
             errors.append("An uploaded file was not found in storage — please re-upload.")
@@ -536,7 +562,8 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
              i, json.dumps(m["exif_prefs"])),
         )
     conn.commit()
-    ratelimit.record(conn, ip, "submit")
+    ratelimit.record(conn, ip, "submit")           # per-IP hourly + daily caps
+    ratelimit.record(conn, username.lower(), "submit_user")  # per-account daily cap
     # catch a file that was uploaded but dropped before submit, while we still
     # know which reporter and sighting it belonged to
     orphans.warn_for_submission(

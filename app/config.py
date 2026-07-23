@@ -38,8 +38,10 @@ class Settings:
     turnstile_site_key: str
     turnstile_secret_key: str
     rate_submit_per_hour: int
+    rate_submit_per_day: int
     rate_presign_per_hour: int
     rate_geocode_per_hour: int
+    submit_per_username_hours: int
     verify_window_hours: int
     verify_dm_per_username_hours: int
     cqs_min_account_age_days: int
@@ -47,6 +49,10 @@ class Settings:
     cqs_min_link_karma: int
     cqs_min_comment_karma: int
     cqs_require_verified_email: bool
+    account_intel_enabled: bool
+    intel_dormancy_gap_days: int
+    intel_reactivation_recent_days: int
+    intel_min_karma_per_year: int
     xai_api_key: str
     xai_model: str
     llm_base_url: str
@@ -109,8 +115,12 @@ def get_settings() -> Settings:
         turnstile_site_key=_env("TURNSTILE_SITE_KEY", ""),
         turnstile_secret_key=_env("TURNSTILE_SECRET_KEY", ""),
         rate_submit_per_hour=int(_env("RATE_SUBMIT_PER_HOUR", "5")),
+        rate_submit_per_day=int(_env("RATE_SUBMIT_PER_DAY", "8")),
         rate_presign_per_hour=int(_env("RATE_PRESIGN_PER_HOUR", "40")),
         rate_geocode_per_hour=int(_env("RATE_GEOCODE_PER_HOUR", "60")),
+        # one sighting per Reddit account per day (they post as themselves, so
+        # more than that from one account is spam)
+        submit_per_username_hours=int(_env("SUBMIT_PER_USERNAME_HOURS", "24")),
         verify_window_hours=int(_env("VERIFY_WINDOW_HOURS", "6")),
         # CQS-proxy gate: accounts below these auto-route to the review queue.
         # Loose by default — target throwaways, not ordinary participants.
@@ -121,6 +131,12 @@ def get_settings() -> Settings:
         cqs_min_link_karma=int(_env("CQS_MIN_LINK_KARMA", "0")),
         cqs_min_comment_karma=int(_env("CQS_MIN_COMMENT_KARMA", "0")),
         cqs_require_verified_email=_env("CQS_REQUIRE_VERIFIED_EMAIL", "1") == "1",
+        # Aged-account deep dive: age passes CQS, so also look at activity. A
+        # long silence then a recent burst is the reactivated-account tell.
+        account_intel_enabled=_env("ACCOUNT_INTEL_ENABLED", "1") == "1",
+        intel_dormancy_gap_days=int(_env("INTEL_DORMANCY_GAP_DAYS", "180")),
+        intel_reactivation_recent_days=int(_env("INTEL_REACTIVATION_RECENT_DAYS", "45")),
+        intel_min_karma_per_year=int(_env("INTEL_MIN_KARMA_PER_YEAR", "15")),
         verify_dm_per_username_hours=int(_env("VERIFY_DM_PER_USERNAME_HOURS", "1")),
         xai_api_key=_env("XAI_API_KEY", ""),
         xai_model=_env("XAI_MODEL", "grok-3-mini"),

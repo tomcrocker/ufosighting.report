@@ -37,6 +37,9 @@ def form(csrf):
 def _stubs(monkeypatch):
     monkeypatch.setattr("app.routes.submit.r2.head_exists", lambda k: True)
     monkeypatch.setattr("app.routes.submit.turnstile.verify", lambda t, ip=None: True)
+    # by default the claimed username exists on Reddit (override to None to test
+    # the "doesn't exist" path); keeps the existence check off the network
+    monkeypatch.setattr("app.routes.submit.reddit.user_about", lambda u: {"name": u})
     from app.routes import submit as sm
     sm._geocode_cache.clear()
 
@@ -97,10 +100,29 @@ def test_rate_limit_trips(client, app_db, monkeypatch):
     monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "t")
     monkeypatch.setattr("app.routes.submit.reddit.send_message", lambda *a, **k: None)
     csrf = get_csrf(client)
-    for _ in range(5):
-        client.post("/submit", data=form(csrf))
-    r = client.post("/submit", data=form(csrf))
+    # different username each time so the PER-IP hourly cap (5) is what trips,
+    # not the per-account daily cooldown
+    for i in range(5):
+        client.post("/submit", data=form(csrf) | {"reddit_username": f"witness{i}"})
+    r = client.post("/submit", data=form(csrf) | {"reddit_username": "witness9"})
     assert r.status_code == 429
+
+
+@respx.mock
+def test_daily_ip_cap_trips(client, app_db, monkeypatch):
+    from app.config import get_settings
+    monkeypatch.setenv("RATE_SUBMIT_PER_HOUR", "100")  # take the hourly cap out of the way
+    monkeypatch.setenv("RATE_SUBMIT_PER_DAY", "3")
+    get_settings.cache_clear()
+    monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "t")
+    monkeypatch.setattr("app.routes.submit.reddit.send_message", lambda *a, **k: None)
+    csrf = get_csrf(client)
+    for i in range(3):  # distinct accounts, same IP
+        assert client.post("/submit",
+                           data=form(csrf) | {"reddit_username": f"user{i}"}).status_code == 200
+    r = client.post("/submit", data=form(csrf) | {"reddit_username": "user9"})
+    get_settings.cache_clear()
+    assert r.status_code == 429  # 4th from this IP today is blocked
 
 
 @respx.mock
@@ -378,7 +400,9 @@ def test_retry_after_minutes(db_conn):
 
 
 @respx.mock
-def test_second_submit_same_user_shows_throttled_message(client, app_db, monkeypatch):
+def test_second_submit_same_user_blocked_same_day(client, app_db, monkeypatch):
+    """One sighting per account per day — the second same-user submit is blocked
+    outright (no second row, no second DM)."""
     monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "bot-tok")
     dm = respx.post("https://oauth.reddit.com/api/compose").mock(
         return_value=httpx.Response(200, json={"json": {"errors": []}}))
@@ -386,11 +410,10 @@ def test_second_submit_same_user_shows_throttled_message(client, app_db, monkeyp
     r1 = client.post("/submit", data=form(csrf), follow_redirects=False)
     assert r1.status_code == 200 and "chat" in r1.text.lower()
     r2 = client.post("/submit", data=form(csrf), follow_redirects=False)
-    assert r2.status_code == 200
-    # honest copy: don't imply a fresh DM; point them at chat requests + a wait
-    assert "chat requests" in r2.text.lower() and "another" in r2.text.lower()
+    assert r2.status_code == 422
+    assert "already submitted" in r2.text.lower()
     assert dm.call_count == 1                                   # no second DM sent
-    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 2
+    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 1
 
 
 @respx.mock
@@ -514,3 +537,23 @@ def test_ruled_out_confirm_required_even_for_shared(client, app_db):
                                confirm_ruled_out=""),
                     cookies={"csrf": csrf})
     assert r.status_code == 422
+
+
+def test_nonexistent_username_rejected(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.submit.reddit.user_about", lambda u: None)  # 404
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=form(csrf), cookies={"csrf": csrf})
+    assert r.status_code == 422 and "check the spelling" in r.text.lower()
+    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 0
+
+
+def test_username_check_fails_open_on_api_error(client, app_db, monkeypatch):
+    from app import reddit
+    def boom(u):
+        raise reddit.RedditError("reddit down")
+    monkeypatch.setattr("app.routes.submit.reddit.user_about", boom)
+    monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "t")
+    monkeypatch.setattr("app.routes.submit.reddit.send_message", lambda *a, **k: None)
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=form(csrf), cookies={"csrf": csrf})
+    assert r.status_code == 200  # our API blip must not block a legit submit

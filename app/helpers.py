@@ -120,6 +120,17 @@ def from_utc(utc_str: str, tz_name: str) -> str:
     return dt.astimezone(ZoneInfo(tz_name)).strftime("%Y-%m-%d %H:%M")
 
 
+def sighting_time_display(utc_str: str, tz_name: str) -> str:
+    """Human time for the pinned comment's `Time:` line, e.g.
+    'July 15, 2026, 9:28 PM PDT'. The month name + 12-hour clock guarantee both
+    a date and a time-of-day component, which the r/UFOs Sighting guidelines (and
+    LocationStatementBot's validator) require — a bare 'YYYY-MM-DD HH:MM' does not
+    reliably parse as containing a date."""
+    dt = datetime.strptime(utc_str, ISO).replace(tzinfo=timezone.utc).astimezone(ZoneInfo(tz_name))
+    # %-d / %-I (no leading zero) are POSIX; prod + dev are Linux/macOS
+    return dt.strftime("%B %-d, %Y, %-I:%M %p %Z").strip()
+
+
 def iso_from_epoch(epoch) -> str | None:
     """Reddit created_utc (unix seconds) -> our stored ISO-UTC string, or None
     for missing/zero/invalid input. Shared by ingest, the posting flow, and the
@@ -153,9 +164,12 @@ def format_post_body(
 ) -> str:
     """The sighting details themselves. The caller prepends the attribution
     header and the horizontal rule (see posting.details_body)."""
-    facts = [f"**When:** {sighted_local} ({clean['tz_name']})"]
-    if location_line:
-        facts.append(f"**Where:** {location_line}")
+    # Lead with the exact r/UFOs Sighting-guideline format so the post is
+    # compliant AND LocationStatementBot validates it (otherwise it stickies a
+    # "missing Time/Location" warning that bumps this pinned comment). Plain
+    # "Time:"/"Location:" labels — not bold — so their parser matches cleanly.
+    facts = [f"Time: {sighted_local}",
+             f"Location: {location_line}" if location_line else "Location: not specified"]
     if clean.get("num_objects"):
         facts.append(f"**Objects:** {clean['num_objects']}")
     if clean.get("shape"):

@@ -70,8 +70,9 @@ def test_format_post_body_full():
         location_line="Lake Cowichan, BC, Canada",
         media_urls=["https://media.test/uploads/2026/07/aa.jpg"],
     )
-    assert "**When:** 2026-07-01 22:15 (America/Vancouver)" in body
-    assert "**Where:** Lake Cowichan, BC, Canada" in body
+    # exact r/UFOs Sighting-guideline format (plain labels, for LocationStatementBot)
+    assert "Time: 2026-07-01 22:15" in body
+    assert "Location: Lake Cowichan, BC, Canada" in body
     assert "**Objects:** 2" in body
     assert "**Shape:** sphere" in body
     assert "**Closest distance:** above the trees" in body
@@ -91,7 +92,9 @@ def test_format_post_body_skips_empty_fields():
         sighted_local="2026-07-01 22:15", location_line="",
         media_urls=[],
     )
-    for label in ("**Where:**", "**Objects:**", "**Shape:**", "**Movement:**",
+    # Location is always present for LocationStatementBot; falls back when empty
+    assert "Location: not specified" in body
+    for label in ("**Objects:**", "**Shape:**", "**Movement:**",
                   "**Features:**", "**Sensor detection:**", "**Media:**"):
         assert label not in body
 
@@ -136,3 +139,12 @@ def test_format_post_body_no_note_for_original_media():
         {"tz_name": "UTC", "description": "d"}, sighted_local="x", location_line="",
         media_urls=[], media_provenance=prov)
     assert "Media note" not in body
+
+
+def test_sighting_time_display_has_date_and_time_of_day():
+    # month name + 12-hour clock + tz, so LocationStatementBot's date AND
+    # time-of-day checks both pass (a bare ISO string does not)
+    out = helpers.sighting_time_display("2026-07-15T04:28:00Z", "America/Vancouver")
+    assert out.startswith("July 14") or out.startswith("July 15")  # tz-dependent day
+    assert "PDT" in out or "PST" in out
+    assert ":" in out and ("AM" in out or "PM" in out)

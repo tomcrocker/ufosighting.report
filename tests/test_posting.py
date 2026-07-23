@@ -444,8 +444,8 @@ def test_body_separates_header_from_details_with_a_rule(db_conn):
     head, sep, rest = body.partition("\n\n---\n\n")
     assert sep, "expected a markdown horizontal rule between header and details"
     assert "Reported by u/witness1" in head          # attribution above the rule
-    assert "**When:**" not in head                   # details below it
-    assert "**When:**" in rest
+    assert "Time:" not in head                        # details below it
+    assert "Time:" in rest
 
 
 # --- mixed media: Reddit carries one medium, the rest must stay visible ---

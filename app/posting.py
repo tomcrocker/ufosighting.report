@@ -201,7 +201,7 @@ def details_body(conn, sighting_id: int, *, verified: bool, native: bool,
         skycontext.links(row["lat"], row["lon"], row["sighted_at"]), sats)
     details = helpers.format_post_body(
         clean,
-        sighted_local=helpers.from_utc(row["sighted_at"], row["tz_name"]),
+        sighted_local=helpers.sighting_time_display(row["sighted_at"], row["tz_name"]),
         location_line=location_line,
         media_urls=[] if native else [r2.public_url(m["r2_key"]) for m in media],
         media_provenance=provenance,

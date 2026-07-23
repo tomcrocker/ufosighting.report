@@ -83,8 +83,12 @@
         </ul>
         <label>Report title <span class="req">*</span>
           <input name="title" required minlength="15" maxlength="300" value="{{ values.title or '' }}"
-                 placeholder="e.g. Three orange orbs in triangle formation over Victoria, BC">
+                 placeholder="e.g. Silent white light moving erratically over Victoria, BC">
         </label>
+        <p class="muted">Describe exactly what you saw: its appearance, colour, how it moved, and
+          the location. Please skip hype, all-caps, and vague labels like "orbs" or "UFO". Say what
+          it actually looked like, for example "bright white light moving erratically" or "dark
+          triangular shape with three steady lights".</p>
         <label>Your story <span class="req">*</span>
           <textarea name="description" required minlength="150"
                     placeholder="Tell us more about your sighting.">{{ values.description or '' }}</textarea>
@@ -94,17 +98,24 @@
           <input name="reddit_username" required value="{{ values.reddit_username or '' }}"
                  placeholder="e.g. your_reddit_name" autocomplete="off">
         </label>
-        <label>Why is this not a common object? <span class="req">*</span> <span class="muted">— one sentence is fine</span>
+        <label>Why is this not a common object? <span class="req">*</span> <span class="muted">— say which explanations you checked and ruled out</span>
           <textarea name="rule_out" required minlength="20" class="rule-out"
-                    placeholder="e.g. Checked FlightRadar24 — no aircraft in that direction; far too fast for a balloon.">{{ values.rule_out or '' }}</textarea>
+                    placeholder="e.g. Checked FlightRadar24, no aircraft in that direction. Compared against Starlink pass times on Heavens-Above, none scheduled. Too fast and silent for a drone or balloon.">{{ values.rule_out or '' }}</textarea>
         </label>
-        <p class="muted">Rule out aircraft, drones, satellites/Starlink, planets and stars,
-          balloons, lanterns, birds, contrails, or rocket launches. Helpful checks:
+        <p class="muted">Tell us the common explanations you actually checked and why each doesn't fit:
+          aircraft, drones, satellites/Starlink, planets and stars, balloons, lanterns, birds,
+          contrails, or rocket launches. Helpful checks:
           <a href="https://www.flightradar24.com" target="_blank" rel="noopener">FlightRadar24</a>,
           <a href="https://globe.adsbexchange.com" target="_blank" rel="noopener">ADS-B Exchange</a>,
           <a href="https://stellarium-web.org" target="_blank" rel="noopener">Stellarium</a>,
-          <a href="https://www.heavens-above.com" target="_blank" rel="noopener">Heavens-Above</a>
-          — or browse <a href="/investigate" target="_blank">commonly misidentified objects</a>.</p>
+          <a href="https://www.heavens-above.com" target="_blank" rel="noopener">Heavens-Above</a>,
+          or browse <a href="/investigate" target="_blank">commonly misidentified objects</a>.</p>
+        <label class="check">
+          <input type="checkbox" name="confirm_ruled_out" value="1" required
+                 {% if values.confirm_ruled_out %}checked{% endif %}>
+          I've reviewed the <a href="/investigate" target="_blank" rel="noopener">commonly
+          misidentified objects</a> and ruled out the common explanations above <span class="req">*</span>
+        </label>
         <label class="check" id="eyewitness-check">
           <input type="checkbox" name="confirm_eyewitness" value="1" required
                  {% if values.confirm_eyewitness %}checked{% endif %}>

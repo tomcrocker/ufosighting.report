@@ -265,9 +265,14 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
     clean["rule_out"] = (form.get("rule_out") or "").strip()
     if len(clean["rule_out"]) < 20:
         errors.append(
-            "Briefly rule out common explanations (aircraft, drone, Starlink, "
-            "planet, balloon…) — one sentence of at least 20 characters."
+            "Say which common explanations you checked and ruled out (aircraft, "
+            "drone, Starlink, planet, balloon, etc.), in at least a sentence."
         )
+    # Everyone, first-hand or sharing, must confirm they reviewed the common
+    # misidentifications before posting — this is the main quality gate.
+    if form.get("confirm_ruled_out") not in ("1", "on", "true"):
+        errors.append("Confirm you've reviewed the commonly misidentified objects "
+                      "and ruled them out.")
     # first-hand (own sighting) vs second-hand (sharing someone else's). A shared
     # report waives the eyewitness + capture confirmations but must name a source.
     clean["first_hand"] = 0 if form.get("is_shared") in ("1", "on", "true") else 1

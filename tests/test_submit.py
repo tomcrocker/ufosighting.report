@@ -27,9 +27,9 @@ def form(csrf):
         "obs_positive_lift": "unsure",
         "media_json": json.dumps([{"key": MEDIA_KEY, "kind": "image", "width": 100,
                                    "height": 80, "size_bytes": 1234}]),
-        "rule_out": "Checked FlightRadar24 and Stellarium — nothing matches; silent and too fast.",
-        "confirm_eyewitness": "1", "confirm_own_capture": "1", "confirm_no_fixed_cam": "1",
-        "confirm_not_screen": "1", "confirm_in_focus": "1",
+        "rule_out": "Checked FlightRadar24 and Stellarium; nothing matches, silent and too fast.",
+        "confirm_eyewitness": "1", "confirm_ruled_out": "1", "confirm_own_capture": "1",
+        "confirm_no_fixed_cam": "1", "confirm_not_screen": "1", "confirm_in_focus": "1",
     }
 
 
@@ -144,7 +144,7 @@ def gform(csrf, **over):
 def test_missing_rule_out_rejected(client, app_db):
     csrf = get_csrf(client)
     r = client.post("/submit", data=gform(csrf, rule_out=""), cookies={"csrf": csrf})
-    assert r.status_code == 422 and "rule out" in r.text.lower()
+    assert r.status_code == 422 and "explanations you checked" in r.text.lower()
 
 
 def test_short_rule_out_rejected(client, app_db):
@@ -498,3 +498,19 @@ def test_garbage_choice_falls_back_to_default(client, app_db):
                     cookies={"csrf": csrf})
     assert r.status_code == 200
     assert _last(app_db, "primary_media") is None
+
+
+def test_missing_ruled_out_confirm_rejected(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, confirm_ruled_out=""), cookies={"csrf": csrf})
+    assert r.status_code == 422 and "misidentified" in r.text.lower()
+
+
+def test_ruled_out_confirm_required_even_for_shared(client, app_db):
+    # a shared report waives eyewitness/capture confirms, but still must confirm review
+    csrf = get_csrf(client)
+    r = client.post("/submit",
+                    data=gform(csrf, is_shared="1", source_note="facebook.com/groups/x",
+                               confirm_ruled_out=""),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 422

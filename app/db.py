@@ -211,6 +211,9 @@ _MIGRATION_COLUMNS = [
     # Reddit posts can't mix video and photos, so when a reporter uploads both
     # they pick which one leads: 'video' | 'images' (NULL = video-first default)
     ("primary_media", "TEXT"),
+    # why a sighting was routed to the review queue (CQS-proxy gate, ban,
+    # moderation hold) — shown to the moderator on the review card
+    ("review_reason", "TEXT"),
 ]
 
 

@@ -42,6 +42,11 @@ class Settings:
     rate_geocode_per_hour: int
     verify_window_hours: int
     verify_dm_per_username_hours: int
+    cqs_min_account_age_days: int
+    cqs_min_karma: int
+    cqs_min_link_karma: int
+    cqs_min_comment_karma: int
+    cqs_require_verified_email: bool
     xai_api_key: str
     xai_model: str
     llm_base_url: str
@@ -107,6 +112,15 @@ def get_settings() -> Settings:
         rate_presign_per_hour=int(_env("RATE_PRESIGN_PER_HOUR", "40")),
         rate_geocode_per_hour=int(_env("RATE_GEOCODE_PER_HOUR", "60")),
         verify_window_hours=int(_env("VERIFY_WINDOW_HOURS", "6")),
+        # CQS-proxy gate: accounts below these auto-route to the review queue.
+        # Loose by default — target throwaways, not ordinary participants.
+        cqs_min_account_age_days=int(_env("CQS_MIN_ACCOUNT_AGE_DAYS", "30")),
+        cqs_min_karma=int(_env("CQS_MIN_KARMA", "50")),
+        # per-type floors default to 0 = "must not be negative"; raise either to
+        # demand a real track record in that kind of contribution
+        cqs_min_link_karma=int(_env("CQS_MIN_LINK_KARMA", "0")),
+        cqs_min_comment_karma=int(_env("CQS_MIN_COMMENT_KARMA", "0")),
+        cqs_require_verified_email=_env("CQS_REQUIRE_VERIFIED_EMAIL", "0") == "1",
         verify_dm_per_username_hours=int(_env("VERIFY_DM_PER_USERNAME_HOURS", "1")),
         xai_api_key=_env("XAI_API_KEY", ""),
         xai_model=_env("XAI_MODEL", "grok-3-mini"),

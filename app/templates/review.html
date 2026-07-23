@@ -7,8 +7,14 @@
 <article class="panel" style="margin-bottom:16px">
   <h3>{{ s.title }}</h3>
   <p class="muted">u/{{ s.reddit_username }} · {{ s.sighted_at[:10] }} · {{ s.location_text }}{% if s.country %}, {{ s.country }}{% endif %}{% if s.shape %} · {{ s.shape }}{% endif %}</p>
+  {% if s.review_reason %}
+  <p class="meta-warn" style="margin:6px 0">&#9873; <strong>Held:</strong> {{ s.review_reason }}
+    {% if s.username_verified %}<span class="muted">(account confirmed via verification link)</span>
+    {% endif %}</p>
+  {% endif %}
   <p class="muted" style="font-size:.85em">
-    Submitted {{ s.created_at[:16].replace('T', ' ') }} UTC · verify DM sent, never confirmed
+    Submitted {{ s.created_at[:16].replace('T', ' ') }} UTC
+    {% if not s.review_reason %}· verify DM sent, never confirmed{% endif %}
     {% if s.submitter_ip %} · IP <code>{{ s.submitter_ip }}</code>
       {% if ip_counts[s.submitter_ip] > 1 %}<strong style="color:var(--danger,#e06c75)">&#9888; shared with {{ ip_counts[s.submitter_ip] - 1 }} other submission(s) in this queue</strong>{% endif %}
     {% endif %}

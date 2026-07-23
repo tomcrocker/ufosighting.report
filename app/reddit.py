@@ -258,6 +258,40 @@ def list_new_flair_posts(access_token, *, subreddit, flair, limit=100):
             if (p.get("link_flair_text") or "").strip().lower() == want]
 
 
+def user_about(username: str) -> dict | None:
+    """Public account signals for a user: created_utc, karma, verified email,
+    is_suspended. None when the account can't be read (404 = deleted, suspended,
+    shadowbanned, or a typo'd name). Read via the durable personal token."""
+    try:
+        resp = httpx.get(
+            f"https://oauth.reddit.com/user/{username}/about",
+            headers=_headers(read_token()), timeout=10)
+    except httpx.HTTPError:
+        raise RedditError("user_about network error")
+    if resp.status_code == 404:
+        return None
+    if resp.status_code != 200:
+        raise RedditError(f"user_about HTTP {resp.status_code}")
+    return resp.json().get("data")
+
+
+def is_banned(username: str) -> bool:
+    """Is this user banned from the subreddit we post to? Uses the mod read
+    token (READ_USERNAME must be a moderator). The ?user= filter returns just
+    that user's ban entry, if any."""
+    s = get_settings()
+    try:
+        resp = httpx.get(
+            f"https://oauth.reddit.com/r/{s.subreddit}/about/banned",
+            params={"user": username}, headers=_headers(read_token()), timeout=10)
+    except httpx.HTTPError:
+        raise RedditError("is_banned network error")
+    if resp.status_code != 200:
+        raise RedditError(f"is_banned HTTP {resp.status_code}")
+    children = resp.json().get("data", {}).get("children", [])
+    return len(children) > 0
+
+
 def fetch_post(access_token, post_id):
     resp = httpx.get(
         INFO_URL,

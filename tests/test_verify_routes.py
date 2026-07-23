@@ -11,9 +11,10 @@ def _pending(app_db, token="tok-abc"):
     return sid
 
 
-def test_valid_token_queues_for_posting(client, app_db):
+def test_valid_token_queues_for_posting(client, app_db, monkeypatch):
     """The click no longer posts inline — it queues, so media processing (a
     video's poster frame especially) can finish before the post goes out."""
+    monkeypatch.setattr("app.routes.verify.quality.gate", lambda u: (True, ""))
     sid = _pending(app_db)
     r = client.get("/verify/tok-abc")
     assert r.status_code == 200
@@ -127,3 +128,51 @@ def test_queue_ignores_rows_predating_this_flow(app_db, monkeypatch):
     app_db.commit()
     assert posting.process_post_queue(app_db) == 0
     assert posted == []
+
+
+# --- CQS-proxy gate at verify time ---
+
+def test_good_account_auto_queues(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.verify.quality.gate", lambda u: (True, ""))
+    sid = _pending(app_db)
+    r = client.get("/verify/tok-abc")
+    assert "live shortly" in r.text.lower()
+    row = app_db.execute("SELECT status, review_reason FROM sightings WHERE id=?", (sid,)).fetchone()
+    assert row["status"] == "pending_post" and row["review_reason"] is None
+
+
+def test_low_cqs_account_routed_to_review(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.verify.quality.gate",
+                        lambda u: (False, "new account (2 days old)"))
+    sid = _pending(app_db)
+    r = client.get("/verify/tok-abc")
+    # honest, non-insulting message — never tells the reporter they're "low quality"
+    assert "review" in r.text.lower() and "low" not in r.text.lower()
+    row = app_db.execute("SELECT status, review_reason, username_verified FROM sightings WHERE id=?",
+                         (sid,)).fetchone()
+    assert row["status"] == "pending_review"
+    assert row["review_reason"] == "new account (2 days old)"
+    assert row["username_verified"] == 1  # identity still confirmed
+
+
+def test_banned_reporter_never_reaches_post_queue(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.verify.quality.gate",
+                        lambda u: (False, "🚫 BANNED on r/UFOs — do not approve (ban evasion)"))
+    sid = _pending(app_db)
+    client.get("/verify/tok-abc")
+    row = app_db.execute("SELECT status, review_reason FROM sightings WHERE id=?", (sid,)).fetchone()
+    assert row["status"] == "pending_review" and "BANNED" in row["review_reason"]
+
+
+def test_global_hold_skips_the_gate(client, app_db, monkeypatch):
+    from app import appsettings
+    called = []
+    monkeypatch.setattr("app.routes.verify.quality.gate",
+                        lambda u: called.append(u) or (True, ""))
+    appsettings.set(app_db, appsettings.HOLD_POSTS, "1")
+    sid = _pending(app_db)
+    client.get("/verify/tok-abc")
+    row = app_db.execute("SELECT status, review_reason FROM sightings WHERE id=?", (sid,)).fetchone()
+    assert row["status"] == "pending_review"
+    assert "moderation hold" in row["review_reason"]
+    assert called == []  # hold short-circuits before any Reddit API call

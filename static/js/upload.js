@@ -155,22 +155,12 @@
       // Record provenance on the item so media_json carries it and syncState can
       // toggle the mandatory "explain why not original" gate. Default to original
       // unless the check explicitly says otherwise.
+      // Provenance drives the mandatory original-media gate (the single amber
+      // box + required textbox that syncState toggles). No separate per-file
+      // nudge here — it duplicated that box.
       item.original = !(data.provenance && data.provenance.original === false);
       syncState();
       let anchor = row;
-      // Provenance nudge: warn (before the metadata table) if this doesn't look
-      // like an original camera file — this must run even when there are no rows
-      // to show, because a screenshot / stripped file is exactly the case to flag.
-      if (data.provenance && !data.provenance.original) {
-        const warn = document.createElement("div");
-        warn.className = "meta-warn";
-        warn.innerHTML =
-          "<strong>⚠️ This may not be an original camera file.</strong> " +
-          data.provenance.detail +
-          " If you still have the original photo or video straight from your camera, please upload that instead.";
-        anchor.after(warn);
-        anchor = warn;
-      }
       if (!data.rows.length) return;
       item.exif = { device: true, time: true, location: true };
       const box = document.createElement("div");

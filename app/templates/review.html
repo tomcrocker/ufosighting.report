@@ -23,7 +23,7 @@
       {% if ai.exists == false %}<span class="vpill vpill-no">does not exist</span>
       {% elif ai.flags %}<span class="vpill vpill-no">{{ ai.flags|length }} flag(s)</span>
       {% else %}<span class="vpill vpill-ok">clean</span>{% endif %}</summary>
-    {% if ai.summary %}<p class="intel-ai">&ldquo;{{ ai.summary }}&rdquo;</p>{% endif %}
+    {% if ai.summary %}<div class="intel-ai">{{ ai.summary }}</div>{% endif %}
     {% if ai.flags %}<ul class="intel-flags">{% for f in ai.flags %}<li>&#9873; {{ f }}</li>{% endfor %}</ul>{% endif %}
     <p class="muted intel-nums">
       {% if ai.age_days is not none %}Age: <strong>{{ (ai.age_days / 365)|round(1) }}y</strong> · {% endif %}
@@ -117,7 +117,8 @@
   .vpill-no { background:rgba(255,170,0,.13); color:#ffb020; }
   .intel { margin:8px 0; padding:8px 12px; border-radius:8px;
            background:rgba(122,162,255,.07); border:1px solid rgba(122,162,255,.25); }
-  .intel-ai { margin:8px 0; font-style:italic; }
+  .intel-ai { margin:8px 0; white-space:pre-line; line-height:1.45;
+              padding:8px 10px; border-left:3px solid rgba(122,162,255,.5); }
   .intel-flags { margin:6px 0; padding-left:18px; color:#ffb020; }
   .intel-nums { font-size:.82em; margin:4px 0; }
 </style>

@@ -82,26 +82,30 @@ def _ai_summary(intel: dict, activity: list[dict]) -> str:
              f"largest_dormancy_gap_days={intel.get('dormancy_gap_days')}, "
              f"days_since_last_activity={intel.get('days_since_last')}")
     system = (
-        "You are a Reddit moderation assistant for r/UFOs. Given an account's "
-        "signals and a sample of its recent activity, write 2-3 short, factual "
-        "sentences summarising the account for a human moderator. Call out any "
-        "signs of a reactivated aged account (long dormancy then a recent burst), "
-        "karma farming, bot/spam behaviour, or coordinated/disinformation posting. "
-        "Stay neutral and do not invent facts not supported by the data."
+        "You are a Reddit moderation assistant for r/UFOs assessing whether an "
+        "account submitting a UFO sighting is trustworthy. Given the account's "
+        "signals and a sample of its recent activity, write a concise but "
+        "thorough assessment for a human moderator. Summarise the account, then "
+        "call out any signs of: a reactivated aged account (long dormancy then a "
+        "recent burst), karma farming, self-promotion, cross-posting/spam, "
+        "bot behaviour, or coordinated or disinformation posting. Finish with a "
+        "one-line bottom-line read (for example 'likely genuine reporter' or "
+        "'reactivated farming account, scrutinise'). Stay neutral and factual; "
+        "never invent anything the data does not support."
         + (" /no_think" if s.llm_reasoning_off else ""))
     user = f"Signals: {facts}\n\nTop subreddits: {subs}\n\nRecent activity:\n{samples}"
     try:
         resp = httpx.post(
             s.llm_base_url.rstrip("/") + "/chat/completions",
             headers={"Authorization": f"Bearer {s.llm_api_key}"},
-            json={"model": s.llm_model, "temperature": 0.2, "max_tokens": 220,
+            json={"model": s.llm_model, "temperature": 0.2, "max_tokens": 700,
                   "messages": [{"role": "system", "content": system},
                                {"role": "user", "content": user}]},
-            timeout=30)
+            timeout=45)
         if resp.status_code != 200:
             return ""
         content = resp.json()["choices"][0]["message"].get("content") or ""
-        return content.strip()[:800]
+        return content.strip()[:3500]
     except Exception as exc:  # noqa: BLE001
         print(f"accountintel: AI summary failed: {exc}")
         return ""

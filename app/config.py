@@ -30,6 +30,7 @@ class Settings:
     sighting_flair_id: str
     admin_users: tuple[str, ...]
     admin_password: str
+    admin_credentials: dict[str, str]  # username(lower) -> password
     user_agent: str
     session_ttl_seconds: int
     max_image_bytes: int
@@ -82,9 +83,31 @@ def _env(name: str, default: str | None = None) -> str:
     return val
 
 
+def _parse_admin_credentials(admin_users: tuple[str, ...], shared_pw: str) -> dict[str, str]:
+    """username(lower) -> password. Per-user pairs in ADMIN_CREDENTIALS
+    ('user:pw,user2:pw2') take precedence; any ADMIN_USERS without their own
+    entry fall back to the shared ADMIN_PASSWORD (backward compatible).
+    Note: passwords may contain ':' but not ',' (the pair separator)."""
+    creds: dict[str, str] = {}
+    for pair in _env("ADMIN_CREDENTIALS", "").split(","):
+        pair = pair.strip()
+        if ":" in pair:
+            user, _, pw = pair.partition(":")
+            user, pw = user.strip().lower(), pw.strip()
+            if user and pw:
+                creds[user] = pw
+    if shared_pw:
+        for user in admin_users:
+            creds.setdefault(user, shared_pw)
+    return creds
+
+
 @lru_cache
 def get_settings() -> Settings:
     subreddit = _env("SUBREDDIT")
+    admin_users = tuple(
+        u.strip().lower() for u in _env("ADMIN_USERS", "").split(",") if u.strip())
+    admin_password = _env("ADMIN_PASSWORD", "")
     return Settings(
         base_url=_env("BASE_URL", "http://localhost:8010").rstrip("/"),
         db_path=_env("DB_PATH", "data/sightings.db"),
@@ -105,10 +128,9 @@ def get_settings() -> Settings:
         read_password=_env("READ_PASSWORD", ""),
         subreddit=subreddit,
         sighting_flair_id=_env("SIGHTING_FLAIR_ID", ""),
-        admin_users=tuple(
-            u.strip().lower() for u in _env("ADMIN_USERS", "").split(",") if u.strip()
-        ),
-        admin_password=_env("ADMIN_PASSWORD", ""),
+        admin_users=admin_users,
+        admin_password=admin_password,
+        admin_credentials=_parse_admin_credentials(admin_users, admin_password),
         user_agent="web:report.ufosighting:v1.0 (by /u/tmosh)",
         session_ttl_seconds=int(_env("SESSION_TTL_SECONDS", "2592000")),  # 30d default
         max_image_bytes=25 * 1024 * 1024,

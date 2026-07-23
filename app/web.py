@@ -51,7 +51,14 @@ def current_user(request: Request, conn=Depends(db.get_db)) -> auth.Session | No
 
 
 def is_admin(user: auth.Session | None) -> bool:
-    return bool(user) and user.username.lower() in get_settings().admin_users
+    # who counts as an admin for an existing session: anyone listed in
+    # ADMIN_USERS (shared password) or ADMIN_CREDENTIALS (own password). The
+    # basic-auth LOGIN in require_admin is what checks the per-user password.
+    if not user:
+        return False
+    u = user.username.lower()
+    s = get_settings()
+    return u in s.admin_users or u in s.admin_credentials
 
 
 def require_admin(request: Request, response: Response,
@@ -64,7 +71,7 @@ def require_admin(request: Request, response: Response,
     if is_admin(user):
         return user
     s = get_settings()
-    if not s.admin_password:
+    if not s.admin_credentials:
         raise HTTPException(status_code=404)
     header = request.headers.get("authorization", "")
     if header.lower().startswith("basic "):
@@ -75,9 +82,9 @@ def require_admin(request: Request, response: Response,
             username, _, password = decoded.partition(":")
         except (ValueError, UnicodeDecodeError):
             username, password = "", ""
-        if (username.lower() in s.admin_users
-                and _secrets.compare_digest(password, s.admin_password)):
-            sid = auth.create_session(conn, username, "basic", s.session_ttl_seconds)
+        stored = s.admin_credentials.get(username.lower())
+        if stored is not None and _secrets.compare_digest(password, stored):
+            sid = auth.create_session(conn, username.lower(), "basic", s.session_ttl_seconds)
             # routes return TemplateResponses, which discard cookies set on
             # the injected Response — the app middleware applies this instead
             request.state.set_sid = sid

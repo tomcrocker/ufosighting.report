@@ -330,3 +330,28 @@ def test_status_page_shows_awaiting_verify_count(client, app_db, monkeypatch):
     seed(app_db, status="pending_verify")
     _admin(client, app_db)
     assert "Awaiting reporter verification" in client.get("/admin/status").text
+
+
+def test_per_user_admin_credentials(client, app_db, monkeypatch):
+    """A second admin logs in with their OWN password via ADMIN_CREDENTIALS,
+    while tmosh's shared ADMIN_PASSWORD still works."""
+    import base64
+    from app.config import get_settings
+    monkeypatch.setenv("ADMIN_PASSWORD", "tmosh-shared-pw")
+    monkeypatch.setenv("ADMIN_CREDENTIALS", "AmazonIsDeclining:amz-secret-pw")
+    get_settings.cache_clear()
+
+    def _get(user, pw):
+        creds = base64.b64encode(f"{user}:{pw}".encode()).decode()
+        return client.get("/admin", headers={"Authorization": f"Basic {creds}"})
+
+    # new admin, own password -> in
+    r = _get("AmazonIsDeclining", "amz-secret-pw")
+    assert r.status_code == 200 and "sid" in r.cookies
+    # new admin, wrong password -> rejected
+    client.cookies.clear()
+    assert _get("AmazonIsDeclining", "tmosh-shared-pw").status_code == 401
+    # tmosh still works on the shared password
+    client.cookies.clear()
+    assert _get("tmosh", "tmosh-shared-pw").status_code == 200
+    get_settings.cache_clear()

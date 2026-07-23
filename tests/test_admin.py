@@ -298,3 +298,35 @@ def test_review_lists_prior_reports_from_same_ip(client, app_db):
     assert "Old junk" in r.text and "Older live one" in r.text
     # the unrelated card has no history line
     assert "earlier report(s) from this IP</strong>\n      (198.51.100.1)" not in r.text
+
+
+def test_review_shows_verified_vs_not_verified_badges(client, app_db):
+    v = seed(app_db, title="Confirmed report", status="pending_review", reddit_username="a")
+    app_db.execute("UPDATE sightings SET username_verified=1 WHERE id=?", (v,))
+    seed(app_db, title="Lapsed report", status="pending_review", reddit_username="b")
+    app_db.commit()
+    _admin(client, app_db)
+    r = client.get("/admin/review").text
+    assert "Verified" in r and "Not verified" in r
+
+
+def test_awaiting_verification_section_and_no_approve(client, app_db):
+    seed(app_db, title="Review me now", status="pending_review", reddit_username="x")
+    seed(app_db, title="Not yet confirmed", status="pending_verify", reddit_username="carlos")
+    _admin(client, app_db)
+    r = client.get("/admin/review")
+    assert r.status_code == 200
+    assert "Awaiting reporter verification" in r.text
+    assert "Not yet confirmed" in r.text and "Review me now" in r.text
+    # only the pending_review card is approvable; awaiting items are reject-only
+    assert r.text.count("Approve &amp; post") == 1
+
+
+def test_status_page_shows_awaiting_verify_count(client, app_db, monkeypatch):
+    from app import reddit
+    monkeypatch.setattr(reddit, "script_token", lambda: "tok")
+    monkeypatch.setattr(reddit, "read_token", lambda: "tok")
+    monkeypatch.setattr("app.extract.extract_fields", lambda text: {})
+    seed(app_db, status="pending_verify")
+    _admin(client, app_db)
+    assert "Awaiting reporter verification" in client.get("/admin/status").text

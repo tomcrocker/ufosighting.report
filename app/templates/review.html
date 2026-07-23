@@ -1,22 +1,19 @@
 {% extends "base.html" %}
 {% block title %}Review queue — ufosighting.report{% endblock %}
 {% block content %}
-<h1>Review queue</h1>
-<p class="muted">Submissions awaiting manual approval. Approving posts them to r/UFOs as ufosightingsbot. A reporter who confirmed their account is credited as verified; one whose confirmation link lapsed is credited as self-reported.</p>
-{% for s in rows %}
-<article class="panel" style="margin-bottom:16px">
-  <h3>{{ s.title }}</h3>
+
+{% macro vbadge(s) %}{% if s.username_verified %}<span class="vpill vpill-ok">&#10003; Verified</span>{% else %}<span class="vpill vpill-no">&#9675; Not verified</span>{% endif %}{% endmacro %}
+
+{% macro cardbody(s) %}
+  <h3 style="display:inline; margin-right:8px">{{ s.title }}</h3>{{ vbadge(s) }}
   <p class="muted">u/{{ s.reddit_username }} · {{ s.sighted_at[:10] }} · {{ s.location_text }}{% if s.country %}, {{ s.country }}{% endif %}{% if s.shape %} · {{ s.shape }}{% endif %}</p>
   {% if s.review_reason %}
-  <p class="meta-warn" style="margin:6px 0">&#9873; <strong>Held:</strong> {{ s.review_reason }}
-    {% if s.username_verified %}<span class="muted">(account confirmed via verification link)</span>
-    {% endif %}</p>
+  <p class="meta-warn" style="margin:6px 0">&#9873; <strong>Held:</strong> {{ s.review_reason }}</p>
   {% endif %}
   <p class="muted" style="font-size:.85em">
     Submitted {{ s.created_at[:16].replace('T', ' ') }} UTC
-    {% if not s.review_reason %}· verify DM sent, never confirmed{% endif %}
     {% if s.submitter_ip %} · IP <code>{{ s.submitter_ip }}</code>
-      {% if ip_counts[s.submitter_ip] > 1 %}<strong style="color:var(--danger,#e06c75)">&#9888; shared with {{ ip_counts[s.submitter_ip] - 1 }} other submission(s) in this queue</strong>{% endif %}
+      {% if ip_counts[s.submitter_ip] > 1 %}<strong style="color:var(--danger,#e06c75)">&#9888; shared with {{ ip_counts[s.submitter_ip] - 1 }} other submission(s) shown here</strong>{% endif %}
     {% endif %}
   </p>
   {% set history = ip_history[s.submitter_ip] if s.submitter_ip else [] %}
@@ -39,24 +36,50 @@
     {% for m in media[s.id] %}<img src="{{ media_url(m.thumb_key or m.r2_key) }}" alt="">{% endfor %}
   </div>
   {% endif %}
+{% endmacro %}
+
+{% macro rejectform(s) %}
+  <form method="post" action="/admin/review/{{ s.id }}/reject"
+        style="display:flex; gap:6px; align-items:center; flex:1; min-width:280px">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="text" name="reason" list="reject-reasons" style="flex:1"
+           placeholder="{% if s.username_verified %}Rejection reason (DM'd to reporter){% else %}Rejection reason (not DM'd — account unconfirmed){% endif %}">
+    <button class="btn danger">Reject</button>
+  </form>
+{% endmacro %}
+
+<h1>Review queue</h1>
+<p class="muted">Submissions awaiting a decision. Approving posts them to r/UFOs as ufosightingsbot; a <strong>verified</strong> reporter is credited as verified, a <strong>not-verified</strong> one (confirmation link lapsed) as self-reported.</p>
+{% for s in rows %}
+<article class="panel" style="margin-bottom:16px">
+  {{ cardbody(s) }}
   <div style="display:flex; gap:10px; margin-top:12px; align-items:center; flex-wrap:wrap">
     <form method="post" action="/admin/review/{{ s.id }}/approve">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button class="btn primary">Approve &amp; post</button>
     </form>
     <a class="btn" href="/sighting/{{ s.id }}" target="_blank" rel="noopener">View full submission &#8599;</a>
-    <form method="post" action="/admin/review/{{ s.id }}/reject"
-          style="display:flex; gap:6px; align-items:center; flex:1; min-width:280px">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="text" name="reason" list="reject-reasons" style="flex:1"
-             placeholder="{% if s.username_verified %}Rejection reason (DM'd to reporter){% else %}Rejection reason (not DM'd — account unconfirmed){% endif %}">
-      <button class="btn danger">Reject</button>
-    </form>
+    {{ rejectform(s) }}
   </div>
 </article>
 {% else %}
-<p class="empty">Queue is empty.</p>
+<p class="empty">Nothing awaiting a decision.</p>
 {% endfor %}
+
+<h2 style="margin-top:32px">Awaiting reporter verification</h2>
+<p class="muted">Submitted through the form, but the reporter hasn't clicked their verification link yet, so nothing is posted. No action needed: each moves into the queue above once confirmed, or after {{ verify_hours }} hours if the link is never clicked. You can reject obvious junk early.</p>
+{% for s in awaiting %}
+<article class="panel" style="margin-bottom:16px; opacity:.92">
+  {{ cardbody(s) }}
+  <div style="display:flex; gap:10px; margin-top:12px; align-items:center; flex-wrap:wrap">
+    <a class="btn" href="/sighting/{{ s.id }}" target="_blank" rel="noopener">View full submission &#8599;</a>
+    {{ rejectform(s) }}
+  </div>
+</article>
+{% else %}
+<p class="empty">Nothing awaiting verification.</p>
+{% endfor %}
+
 <datalist id="reject-reasons">
   <option value="Post does not follow the r/UFOs sighting guidelines.">
   <option value="Common object not adequately ruled out (aircraft, satellite, Starlink, planet, etc.).">
@@ -65,4 +88,11 @@
   <option value="Suspected duplicate or repost.">
   <option value="Media appears unrelated, edited, or not original.">
 </datalist>
+
+<style>
+  .vpill { display:inline-block; font-size:.75rem; font-weight:600; padding:2px 9px;
+           border-radius:999px; vertical-align:middle; }
+  .vpill-ok { background:rgba(110,231,160,.15); color:#6ee7a0; }
+  .vpill-no { background:rgba(255,170,0,.13); color:#ffb020; }
+</style>
 {% endblock %}

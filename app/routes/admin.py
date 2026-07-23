@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from app import appsettings, auth, db, notify, orphans, posting, r2, search
+from app.config import get_settings
 from app.web import require_admin, templates
 
 router = APIRouter()
@@ -119,9 +120,12 @@ def system_status(request: Request, conn=Depends(db.get_db), user=Depends(requir
     row = conn.execute("SELECT MAX(created_at) AS latest FROM sightings WHERE source='reddit'").fetchone()
     yt = dict(conn.execute("SELECT status, COUNT(*) FROM yt_jobs GROUP BY status"))
     pending = conn.execute("SELECT COUNT(*) FROM sightings WHERE status='pending_review'").fetchone()[0]
+    awaiting_verify = conn.execute(
+        "SELECT COUNT(*) FROM sightings WHERE status='pending_verify'").fetchone()[0]
     facts = [
         ("Last ingested sighting", row["latest"] or "never"),
         ("Pending mod review", pending),
+        ("Awaiting reporter verification", awaiting_verify),
         ("YouTube queue", f"{yt.get('pending', 0)} pending / {yt.get('failed', 0)} failed"),
         ("Public sightings", conn.execute(
             "SELECT COUNT(*) FROM sightings WHERE status IN "
@@ -166,38 +170,48 @@ def analytics_page(request: Request, conn=Depends(db.get_db), user=Depends(requi
 
 @router.get("/admin/review")
 def review_queue(request: Request, conn=Depends(db.get_db), user=Depends(require_admin)):
+    # pending_review = needs a decision now; pending_verify = submitted but the
+    # reporter hasn't confirmed their account yet (limbo — no action needed, but
+    # worth eyeballing during an abuse wave). Newest-first for the limbo list.
     rows = conn.execute(
         "SELECT * FROM sightings WHERE status='pending_review' ORDER BY created_at"
     ).fetchall()
-    # Flag submissions that share a submitter IP — a quick tell for one person
-    # filing under several throwaway usernames (the queue only holds unverified
-    # submissions, so this is where sockpuppets surface).
-    ip_counts = Counter(r["submitter_ip"] for r in rows if r["submitter_ip"])
-    # Past submissions from the same IP, across the WHOLE archive (any status,
-    # not just this queue). Catches someone who keeps abusing the form even after
-    # earlier reports were rejected or already posted under another name.
-    ips = {r["submitter_ip"] for r in rows if r["submitter_ip"]}
+    awaiting = conn.execute(
+        "SELECT * FROM sightings WHERE status='pending_verify' ORDER BY created_at DESC"
+    ).fetchall()
+    both = list(rows) + list(awaiting)
+
+    # Flag submissions that share a submitter IP among everything shown here
+    # (both sections) — a quick tell for one person filing under several
+    # throwaway usernames, even across the verified/unverified split.
+    ip_counts = Counter(r["submitter_ip"] for r in both if r["submitter_ip"])
+    # Past submissions from the same IP, across the WHOLE archive (any status).
+    # Catches someone who keeps abusing the form even after earlier reports were
+    # rejected or already posted under another name.
+    ips = {r["submitter_ip"] for r in both if r["submitter_ip"]}
     ip_history: dict[str, list] = {}
     if ips:
         marks = ",".join("?" * len(ips))
-        queue_ids = {r["id"] for r in rows}
+        shown_ids = {r["id"] for r in both}
         for h in conn.execute(
             f"""SELECT id, submitter_ip, reddit_username, title, status, created_at
                   FROM sightings WHERE submitter_ip IN ({marks})
                   ORDER BY created_at DESC""", list(ips)):
-            if h["id"] not in queue_ids:  # only PRIOR reports, not the card itself
+            if h["id"] not in shown_ids:  # only PRIOR reports, not a card itself
                 ip_history.setdefault(h["submitter_ip"], []).append(h)
 
     media = {}
-    for row in rows:
+    for row in both:
         media[row["id"]] = conn.execute(
             "SELECT r2_key, thumb_key, kind FROM media WHERE sighting_id=? ORDER BY sort_order",
             (row["id"],),
         ).fetchall()
     return templates.TemplateResponse(
         request, "review.html",
-        {"user": user, "rows": rows, "media": media, "ip_counts": ip_counts,
-         "ip_history": ip_history, "csrf_token": auth.csrf_for(user.id)},
+        {"user": user, "rows": rows, "awaiting": awaiting, "media": media,
+         "ip_counts": ip_counts, "ip_history": ip_history,
+         "verify_hours": get_settings().verify_window_hours,
+         "csrf_token": auth.csrf_for(user.id)},
     )
 
 

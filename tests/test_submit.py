@@ -42,6 +42,8 @@ def _stubs(monkeypatch):
     monkeypatch.setattr("app.routes.submit.reddit.user_about", lambda u: {"name": u})
     # keep the reporter's title in tests (no LLM); a dedicated test exercises AI titling
     monkeypatch.setattr("app.routes.submit.titlegen.generate", lambda user_title, clean: user_title)
+    # no Discord webhook in tests (dedicated test covers it)
+    monkeypatch.setattr("app.routes.submit.discordhook.notify_new_sighting", lambda conn, sid: False)
     from app.routes import submit as sm
     sm._geocode_cache.clear()
 

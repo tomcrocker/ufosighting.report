@@ -7,8 +7,8 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from app import (db, geocode, helpers, mediameta, orphans, r2, ratelimit, reddit,
-                 titlegen, turnstile, verify)
+from app import (db, discordhook, geocode, helpers, mediameta, orphans, r2, ratelimit,
+                 reddit, titlegen, turnstile, verify)
 from app.countries import COUNTRY_NAMES
 from app.config import get_settings
 from app.web import client_ip, new_csrf, templates
@@ -592,6 +592,10 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
     # know which reporter and sighting it belonged to
     orphans.warn_for_submission(
         conn, ip=ip, attached=[m["key"] for m in clean["media"]], sighting_id=sighting_id)
+    try:
+        discordhook.notify_new_sighting(conn, sighting_id)  # best-effort mod ping
+    except Exception as exc:  # noqa: BLE001 — never let a notification break submit
+        print(f"discord notify failed: {exc}")
     dm_status = _try_send_verify_dm(conn, username, token)
     return _render_submitted(request, conn, username, dm_status, token)
 

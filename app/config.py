@@ -51,6 +51,7 @@ class Settings:
     cqs_require_verified_email: bool
     ai_titles_enabled: bool
     account_intel_enabled: bool
+    discord_webhook_url: str
     intel_dormancy_gap_days: int
     intel_reactivation_recent_days: int
     intel_min_karma_per_year: int
@@ -136,6 +137,7 @@ def get_settings() -> Settings:
         # long silence then a recent burst is the reactivated-account tell.
         ai_titles_enabled=_env("AI_TITLES_ENABLED", "1") == "1",
         account_intel_enabled=_env("ACCOUNT_INTEL_ENABLED", "1") == "1",
+        discord_webhook_url=_env("DISCORD_WEBHOOK_URL", ""),
         intel_dormancy_gap_days=int(_env("INTEL_DORMANCY_GAP_DAYS", "180")),
         intel_reactivation_recent_days=int(_env("INTEL_REACTIVATION_RECENT_DAYS", "45")),
         intel_min_karma_per_year=int(_env("INTEL_MIN_KARMA_PER_YEAR", "15")),

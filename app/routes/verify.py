@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 
-from app import db
+from app import appsettings, db
 from app.web import templates
 
 router = APIRouter()
@@ -30,5 +30,7 @@ def verify_click(request: Request, token: str, conn=Depends(db.get_db)):
     )
     conn.commit()
     return templates.TemplateResponse(
-        request, "verify_result.html", {"user": None, "ok": True, "queued": True}
+        request, "verify_result.html",
+        {"user": None, "ok": True, "queued": True,
+         "held": appsettings.hold_posts(conn)}
     )

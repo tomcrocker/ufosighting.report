@@ -446,3 +446,72 @@ def test_body_separates_header_from_details_with_a_rule(db_conn):
     assert "Reported by u/witness1" in head          # attribution above the rule
     assert "**When:**" not in head                   # details below it
     assert "**When:**" in rest
+
+
+# --- mixed media: Reddit carries one medium, the rest must stay visible ---
+
+def _m(kind, key, thumb="thumbs/t.jpg"):
+    return {"kind": kind, "r2_key": key, "thumb_key": thumb, "display_key": None}
+
+
+def test_video_leads_by_default_over_photos():
+    vid, a, b = _m("video", "v.mp4"), _m("image", "a.jpg"), _m("image", "b.jpg")
+    kind, chosen = posting.select_post_media([a, b, vid])
+    assert kind == "video" and chosen == [vid]
+
+
+def test_reporter_can_choose_photos_instead():
+    vid, a, b = _m("video", "v.mp4"), _m("image", "a.jpg"), _m("image", "b.jpg")
+    kind, chosen = posting.select_post_media([a, b, vid], prefer="images")
+    assert kind == "gallery" and chosen == [a, b]
+
+
+def test_choice_is_ignored_when_there_is_nothing_to_choose_between():
+    vid = _m("video", "v.mp4")
+    # asking for photos when none were uploaded must not produce an empty post
+    assert posting.select_post_media([vid], prefer="images") == ("video", [vid])
+    a = _m("image", "a.jpg")
+    assert posting.select_post_media([a], prefer="video") == ("image", [a])
+
+
+def test_video_without_poster_cannot_lead():
+    vid, a = _m("video", "v.mp4", thumb=None), _m("image", "a.jpg")
+    kind, chosen = posting.select_post_media([vid, a])
+    assert kind == "image" and chosen == [a]
+
+
+def test_left_out_line_lists_the_photos_a_video_post_dropped():
+    vid, a, b = _m("video", "v.mp4"), _m("image", "a.jpg"), _m("image", "b.jpg")
+    line = posting._left_out_line([vid, a, b], None)
+    assert "Also submitted" in line and "2 photos" in line
+    assert "a.jpg" in line and "b.jpg" in line
+    assert "never both" in line  # explains the Reddit limitation
+
+
+def test_left_out_line_lists_the_video_a_gallery_dropped():
+    vid, a, b = _m("video", "v.mp4"), _m("image", "a.jpg"), _m("image", "b.jpg")
+    line = posting._left_out_line([vid, a, b], "images")
+    assert "1 video" in line and "v.mp4" in line
+    assert "a.jpg" not in line  # the photos are in the post itself
+
+
+def test_left_out_line_empty_when_everything_is_in_the_post():
+    assert posting._left_out_line([_m("image", "a.jpg")], None) == ""
+    assert posting._left_out_line([_m("video", "v.mp4")], None) == ""
+
+
+def test_comment_mentions_dropped_media(db_conn):
+    sid = _seed_ready(db_conn)
+    _mk_media(db_conn, sid, ("uploads/v.mp4", "video", "thumbs/v.jpg"),
+              ("uploads/a.jpg", "image", "thumbs/a.jpg"))
+    body = posting.details_body(db_conn, sid, verified=True, native=True)
+    assert "Also submitted" in body and "1 photo" in body
+
+
+def test_self_post_fallback_has_no_dropped_media_note(db_conn):
+    """A self post lists every file inline, so nothing is left out."""
+    sid = _seed_ready(db_conn)
+    _mk_media(db_conn, sid, ("uploads/v.mp4", "video", "thumbs/v.jpg"),
+              ("uploads/a.jpg", "image", "thumbs/a.jpg"))
+    body = posting.details_body(db_conn, sid, verified=True, native=False)
+    assert "Also submitted" not in body

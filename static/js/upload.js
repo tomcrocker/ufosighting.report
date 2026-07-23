@@ -25,6 +25,13 @@
     // section, which would silently kill native form validation on submit.
     const nextBtn = document.getElementById("nextbtn");
     if (nextBtn) nextBtn.disabled = inflight > 0;
+    // Reddit posts are single-medium, so only ask which one leads when the
+    // reporter has actually uploaded both kinds
+    const choice = document.getElementById("media-choice");
+    if (choice) {
+      const kinds = new Set(media.map((m) => m.kind));
+      choice.hidden = !(kinds.has("video") && kinds.has("image"));
+    }
     // guideline confirmations apply only when media is attached
     const confirms = document.getElementById("media-confirms");
     if (confirms) {

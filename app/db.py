@@ -83,6 +83,14 @@ CREATE TABLE IF NOT EXISTS rate_events (
 -- Every key we hand out a presigned upload URL for. A file the browser
 -- uploads but never attaches to a submission leaves no other trace, so this
 -- is what makes orphaned uploads findable (see app/orphans.py).
+-- Runtime, admin-toggleable settings (e.g. the moderation hold). Kept in the
+-- DB, not env, so a moderator can flip them from /admin with no restart.
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+
 CREATE TABLE IF NOT EXISTS upload_keys (
   key TEXT PRIMARY KEY,
   ip TEXT NOT NULL,
@@ -200,6 +208,9 @@ _MIGRATION_COLUMNS = [
     # inline, so media processing (video posters especially) can finish first.
     ("pending_post_at", "TEXT"),      # when it entered the post queue
     ("post_attempts", "INTEGER NOT NULL DEFAULT 0"),
+    # Reddit posts can't mix video and photos, so when a reporter uploads both
+    # they pick which one leads: 'video' | 'images' (NULL = video-first default)
+    ("primary_media", "TEXT"),
 ]
 
 

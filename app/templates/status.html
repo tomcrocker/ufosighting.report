@@ -4,6 +4,29 @@
 {% block content %}
 <h1>System status</h1>
 <p class="muted src-note"><a href="/admin/analytics">Visitor analytics &rarr;</a></p>
+
+<div class="panel" style="margin:0 0 18px; border-color: {% if hold_posts %}#e0a800{% else %}var(--border, #2a3350){% endif %}">
+  <h3 style="margin-top:0">Moderation hold
+    {% if hold_posts %}<span class="bad">&#9679; ON</span>{% else %}<span class="ok">&#9679; off</span>{% endif %}
+  </h3>
+  {% if hold_posts %}
+  <p>New submissions are <strong>held for manual approval</strong>. Nothing posts to r/UFOs until
+     you approve it in the <a href="/admin/review">review queue</a>.</p>
+  <form method="post" action="/admin/hold-posts">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="on" value="0">
+    <button class="btn">Turn hold OFF (resume auto-posting)</button>
+  </form>
+  {% else %}
+  <p class="muted">Verified submissions post to r/UFOs automatically. Turn this on to route every
+     new submission into the review queue instead, so you approve each one by hand.</p>
+  <form method="post" action="/admin/hold-posts">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="on" value="1">
+    <button class="btn danger">Turn hold ON (require manual approval)</button>
+  </form>
+  {% endif %}
+</div>
 <table class="facts status-checks">
   {% for name, ok, detail in checks %}
   <tr>

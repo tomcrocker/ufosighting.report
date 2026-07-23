@@ -1,6 +1,6 @@
 import json
 
-from app import helpers, mediameta, r2, reddit, reddit_media, search, skycontext
+from app import appsettings, helpers, mediameta, r2, reddit, reddit_media, search, skycontext
 from app.config import get_settings
 
 _MIME = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
@@ -35,17 +35,42 @@ def _reddit_safe_key(m) -> str:
     return m["display_key"] or m["r2_key"]
 
 
-def _post_native(token: str, media: list, title: str) -> str | None:
+def select_post_media(media: list, prefer: str | None = None) -> tuple[str, list]:
+    """Decide what the Reddit post itself carries.
+
+    A Reddit post is single-medium: one video, one image, or an images-only
+    gallery. Galleries reject video, so when a reporter uploads both something
+    has to sit out. `prefer` is their choice ('video' | 'images'); without one
+    the video leads, since motion and duration carry more than a still.
+
+    Returns (kind, files). Whatever isn't selected is listed in the pinned
+    comment and kept on the archive page — it must never just disappear.
+    """
+    videos = [m for m in media if m["kind"] == "video" and m["thumb_key"]]
+    images = [m for m in media if m["kind"] == "image"]
+    if videos and images and prefer == "images":
+        videos = []  # reporter asked for the photos to lead
+    if videos:
+        return "video", [videos[0]]
+    if len(images) == 1:
+        return "image", images[:1]
+    if images:
+        return "gallery", images[:20]
+    return "none", []
+
+
+def _post_native(token: str, media: list, title: str,
+                 prefer: str | None = None) -> str | None:
     """Try a native media post. Returns the post id, None to request the
     self-post fallback, and raises RedditError only after Reddit accepted an
     async submit but the post never showed up in the poll window (no fallback
     then — it may still be transcoding; a retry adopts it by title)."""
     s = get_settings()
-    videos = [m for m in media if m["kind"] == "video" and m["thumb_key"]]
-    images = [m for m in media if m["kind"] == "image"]
+    kind, chosen = select_post_media(media, prefer)
+    images = chosen if kind in ("image", "gallery") else []
     try:
-        if videos:
-            v = videos[0]
+        if kind == "video":
+            v = chosen[0]
             video = _upload(token, v["r2_key"])
             poster = reddit_media.upload_asset(
                 token, "poster.jpg", "image/jpeg", _fetch_r2(v["thumb_key"]))
@@ -53,14 +78,14 @@ def _post_native(token: str, media: list, title: str) -> str | None:
                                       video_url=video.url, poster_url=poster.url,
                                       flair_id=s.sighting_flair_id)
             timeout = reddit_media.VIDEO_POLL_TIMEOUT
-        elif len(images) == 1:
+        elif kind == "image":
             asset = _upload(token, _reddit_safe_key(images[0]))
             reddit_media.submit_image(token, subreddit=s.subreddit, title=title,
                                       image_url=asset.url,
                                       flair_id=s.sighting_flair_id)
             timeout = reddit_media.IMAGE_POLL_TIMEOUT
-        elif images:
-            assets = [_upload(token, _reddit_safe_key(m)) for m in images[:20]]
+        elif kind == "gallery":
+            assets = [_upload(token, _reddit_safe_key(m)) for m in images]
             return reddit_media.submit_gallery(
                 token, subreddit=s.subreddit, title=title,
                 asset_ids=[a.asset_id for a in assets],
@@ -93,7 +118,20 @@ def process_post_queue(conn, limit: int = 1) -> int:
     poster frame Reddit needs, and the thing whose absence used to make
     _post_native silently drop the video. Falls through after the timeout so a
     failed thumbnail delays a post instead of losing it.
+
+    While the moderation hold is on, queued sightings are diverted into the
+    review queue instead of posting, so nothing reaches r/UFOs without a
+    moderator's approval.
     """
+    if appsettings.hold_posts(conn):
+        held = conn.execute(
+            """UPDATE sightings SET status='pending_review'
+                 WHERE status='pending_post' AND pending_post_at IS NOT NULL"""
+        ).rowcount
+        conn.commit()
+        if held:
+            print(f"post-queue: moderation hold ON — {held} sighting(s) diverted to review")
+        return 0
     rows = conn.execute(
         """SELECT id, username_verified, title FROM sightings
              WHERE status='pending_post'
@@ -147,7 +185,8 @@ def details_body(conn, sighting_id: int, *, verified: bool, native: bool,
     for f in ("movement", "sensors", "witness_background"):
         clean[f] = json.loads(row[f]) if row[f] else []
     media = conn.execute(
-        "SELECT r2_key, exif_json FROM media WHERE sighting_id=? ORDER BY sort_order",
+        "SELECT r2_key, kind, thumb_key, exif_json FROM media "
+        "WHERE sighting_id=? ORDER BY sort_order",
         (sighting_id,),
     ).fetchall()
     provenance = None  # flag the primary file if it doesn't look like an original
@@ -166,9 +205,35 @@ def details_body(conn, sighting_id: int, *, verified: bool, native: bool,
         media_provenance=provenance,
         sky=sky,
     )
-    return "\n\n".join([_attribution_header(row, verified=verified,
-                                            gallery_url=gallery_url),
-                        "---", details])
+    blocks = [_attribution_header(row, verified=verified, gallery_url=gallery_url)]
+    if native:
+        # Reddit carries one medium; say out loud what it couldn't carry, so
+        # the thread never quietly hides evidence the reporter submitted.
+        left_out = _left_out_line(media, row["primary_media"])
+        if left_out:
+            blocks.append(left_out)
+    blocks += ["---", details]
+    return "\n\n".join(blocks)
+
+
+def _left_out_line(media: list, prefer: str | None) -> str:
+    """Name the files the Reddit post couldn't include, with direct links."""
+    _, chosen = select_post_media(media, prefer)
+    taken = {m["r2_key"] for m in chosen}
+    rest = [m for m in media if m["r2_key"] not in taken]
+    if not rest:
+        return ""
+    vids = [m for m in rest if m["kind"] == "video"]
+    imgs = [m for m in rest if m["kind"] == "image"]
+    bits = []
+    for group, noun in ((vids, "video"), (imgs, "photo")):
+        if group:
+            links = ", ".join(f"[{i}]({r2.public_url(m['r2_key'])})"
+                              for i, m in enumerate(group, 1))
+            bits.append(f"{len(group)} {noun}{'s' if len(group) > 1 else ''} ({links})")
+    return (f"📎 **Also submitted:** {' and '.join(bits)}. A Reddit post can only carry "
+            f"one video *or* photos, never both, so the rest lives on the archive page "
+            f"linked above.")
 
 
 def _attribution_header(row, *, verified: bool, gallery_url: str) -> str:
@@ -248,7 +313,9 @@ def post_sighting(conn, sighting_id: int, *, verified: bool) -> str:
         post_id = reddit_media.find_recent_post_id(
             token, username=s.script_username, title=title)
         if post_id is None:
-            post_id = _post_native(token, media, title)  # may raise; None = fallback
+            # may raise; None = fallback. primary_media is the reporter's pick
+            # when they uploaded both a video and photos.
+            post_id = _post_native(token, media, title, row["primary_media"])
     native = post_id is not None
 
     # sky_events is still NULL here (the row isn't live yet, and only live rows

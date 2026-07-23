@@ -459,3 +459,42 @@ def test_own_sighting_still_requires_eyewitness(client, app_db):
     r = client.post("/submit", data=f)
     assert r.status_code == 422
     assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 0
+
+
+# --- mixed-media choice ---
+
+MIXED = json.dumps([
+    {"key": "uploads/2026/07/" + "a" * 32 + ".jpg", "kind": "image"},
+    {"key": "uploads/2026/07/" + "b" * 32 + ".mp4", "kind": "video"},
+])
+
+
+def _last(app_db, col):
+    return app_db.execute(
+        f"SELECT {col} FROM sightings ORDER BY id DESC LIMIT 1").fetchone()[0]
+
+
+def test_mixed_media_choice_is_stored(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, media_json=MIXED, primary_media="images"),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+    assert _last(app_db, "primary_media") == "images"
+
+
+def test_choice_ignored_without_mixed_media(client, app_db):
+    """Only meaningful when both kinds were uploaded — otherwise there's no
+    choice to make and the default selection applies."""
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, primary_media="images"),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+    assert _last(app_db, "primary_media") is None
+
+
+def test_garbage_choice_falls_back_to_default(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, media_json=MIXED, primary_media="../etc"),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+    assert _last(app_db, "primary_media") is None

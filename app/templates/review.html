@@ -2,7 +2,7 @@
 {% block title %}Review queue — ufosighting.report{% endblock %}
 {% block content %}
 <h1>Review queue</h1>
-<p class="muted">Unverified submissions awaiting approval. Approving posts them to the subreddit as ufosightingsbot, crediting the reporter as self-reported.</p>
+<p class="muted">Submissions awaiting manual approval. Approving posts them to r/UFOs as ufosightingsbot. A reporter who confirmed their account is credited as verified; one whose confirmation link lapsed is credited as self-reported.</p>
 {% for s in rows %}
 <article class="panel" style="margin-bottom:16px">
   <h3>{{ s.title }}</h3>

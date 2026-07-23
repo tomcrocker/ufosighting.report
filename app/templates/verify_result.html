@@ -3,7 +3,15 @@
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <section class="panel narrow">
-{% if ok and queued %}
+{% if ok and queued and held %}
+  <h1>You're verified &#128760;</h1>
+  <p>Thanks for confirming. Your sighting has been sent to our moderators for a quick review
+     before it's posted.</p>
+  <p class="muted">We're reviewing new sightings by hand right now, so it won't appear on r/UFOs
+     instantly. Once a moderator approves it, it posts automatically and joins the gallery.
+     Nothing else for you to do.</p>
+  <a class="btn" href="/">Browse the gallery</a>
+{% elif ok and queued %}
   <h1>You're verified &#128760;</h1>
   <p>Thanks for confirming. Your sighting will be live shortly.</p>
   <p class="muted">We're finishing up your photos and video first, usually a couple of minutes,

@@ -205,6 +205,24 @@
         <input type="file" id="filepick" multiple hidden
                accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,video/mp4,video/quicktime,video/webm">
         <div class="filelist" id="filelist"></div>
+        <div id="media-choice" hidden>
+          <p class="meta-warn" style="margin-bottom:8px">&#9888;&#65039; <strong>You've uploaded
+            both video and photos.</strong> A Reddit post can only carry one video
+            <em>or</em> photos, never both, so please choose what the r/UFOs post should show.</p>
+          <label class="check">
+            <input type="radio" name="primary_media" value="video" checked>
+            <span><strong>Post the video</strong> <span class="muted">(recommended: movement and
+              duration usually show more than a still)</span></span>
+          </label>
+          <label class="check">
+            <input type="radio" name="primary_media" value="images">
+            <span><strong>Post the photos</strong> <span class="muted">(as a gallery, if your
+              stills show the object better)</span></span>
+          </label>
+          <p class="muted" style="margin-top:6px">Either way, <strong>everything you uploaded
+            stays on your sighting page</strong> in the archive at full quality, and the bot's
+            comment links to whatever the post couldn't include.</p>
+        </div>
         <div id="media-confirms" hidden>
           <label style="margin-top:14px">What device captured this footage? <span class="muted">— optional</span>
             <input name="capture_device" maxlength="100" autocomplete="off"

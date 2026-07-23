@@ -4,7 +4,7 @@ from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from app import auth, db, orphans, posting, r2, search
+from app import appsettings, auth, db, orphans, posting, r2, search
 from app.web import require_admin, templates
 
 router = APIRouter()
@@ -130,7 +130,22 @@ def system_status(request: Request, conn=Depends(db.get_db), user=Depends(requir
     return templates.TemplateResponse(
         request, "status.html",
         {"user": user, "checks": checks, "facts": facts,
+         "hold_posts": appsettings.hold_posts(conn),
          "csrf_token": auth.csrf_for(user.id)})
+
+
+@router.post("/admin/hold-posts")
+async def toggle_hold_posts(request: Request, conn=Depends(db.get_db),
+                            user=Depends(require_admin)):
+    """Flip the moderation hold. While on, verified submissions wait in the
+    review queue instead of auto-posting to r/UFOs."""
+    form = await request.form()
+    if not hmac.compare_digest(str(form.get("csrf_token", "")), auth.csrf_for(user.id)):
+        raise HTTPException(status_code=403, detail="Bad CSRF token")
+    on = str(form.get("on")) == "1"
+    appsettings.set(conn, appsettings.HOLD_POSTS, "1" if on else "0")
+    print(f"admin: moderation hold turned {'ON' if on else 'OFF'} by {user.id}")
+    return RedirectResponse("/admin/status", status_code=303)
 
 
 @router.get("/admin/analytics")
@@ -168,8 +183,13 @@ async def review_approve(request: Request, sighting_id: int,
     form = await request.form()
     if not hmac.compare_digest(str(form.get("csrf_token", "")), auth.csrf_for(user.id)):
         raise HTTPException(status_code=403, detail="Bad CSRF token")
+    row = conn.execute("SELECT username_verified FROM sightings WHERE id=?",
+                       (sighting_id,)).fetchone()
     try:
-        posting.post_sighting(conn, sighting_id, verified=False)
+        # A submission held by the moderation hold already confirmed its account,
+        # so it posts as "verified"; one that only reached review because its
+        # verify window lapsed stays "self-reported".
+        posting.post_sighting(conn, sighting_id, verified=bool(row and row["username_verified"]))
     except Exception as exc:
         print(f"approve post failed for {sighting_id}: {exc}")
     return RedirectResponse("/admin/review", status_code=303)

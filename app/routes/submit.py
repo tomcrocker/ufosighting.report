@@ -359,6 +359,14 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
                 },
             }
         )
+    # Reddit can't carry a video and photos in one post. When the reporter
+    # uploaded both they choose which leads; anything else stays on the archive.
+    kinds = {m["kind"] for m in clean["media"]}
+    clean["primary_media"] = (
+        form.get("primary_media") if {"video", "image"} <= kinds else None)
+    if clean["primary_media"] not in ("video", "images"):
+        clean["primary_media"] = None  # unset/garbage falls back to video-first
+
     if clean["media"] and clean["first_hand"] == 1:  # shared reports skip capture confirms
         confirms = (
             ("confirm_own_capture",
@@ -492,9 +500,9 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
               has_wings, has_rotors, has_plume, makes_noise, sensors, witness_background,
               location_text, city, country, lat, lon, location_obscured, rule_out,
               capture_device, obs_accel, obs_no_signature, obs_low_observability,
-              obs_transmedium, obs_positive_lift, first_hand, source_note,
+              obs_transmedium, obs_positive_lift, first_hand, source_note, primary_media,
               submitter_ip, verify_token, verify_sent_at, status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
                    strftime('%Y-%m-%dT%H:%M:%SZ','now'),'pending_verify')""",
         (
             username, clean["title"], clean["description"], clean["sighted_at"],
@@ -509,6 +517,7 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
             clean["capture_device"], clean["obs_accel"], clean["obs_no_signature"],
             clean["obs_low_observability"], clean["obs_transmedium"],
             clean["obs_positive_lift"], clean["first_hand"], clean["source_note"],
+            clean["primary_media"],
             ip, token,
         ),
     )

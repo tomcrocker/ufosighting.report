@@ -120,7 +120,7 @@ def get_settings() -> Settings:
         # demand a real track record in that kind of contribution
         cqs_min_link_karma=int(_env("CQS_MIN_LINK_KARMA", "0")),
         cqs_min_comment_karma=int(_env("CQS_MIN_COMMENT_KARMA", "0")),
-        cqs_require_verified_email=_env("CQS_REQUIRE_VERIFIED_EMAIL", "0") == "1",
+        cqs_require_verified_email=_env("CQS_REQUIRE_VERIFIED_EMAIL", "1") == "1",
         verify_dm_per_username_hours=int(_env("VERIFY_DM_PER_USERNAME_HOURS", "1")),
         xai_api_key=_env("XAI_API_KEY", ""),
         xai_model=_env("XAI_MODEL", "grok-3-mini"),

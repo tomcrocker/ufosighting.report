@@ -64,19 +64,20 @@ def test_suspended_account_blocked(stub):
     assert not ok and "suspended" in reason
 
 
-def test_email_gate_off_by_default(stub):
-    stub["about"] = _about(has_verified_email=False)
-    assert quality.gate("noemail")[0] is True
-
-
-def test_email_gate_when_enabled(stub, monkeypatch):
-    from app.config import get_settings
-    monkeypatch.setenv("CQS_REQUIRE_VERIFIED_EMAIL", "1")
-    get_settings.cache_clear()
+def test_email_gate_on_by_default(stub):
     stub["about"] = _about(has_verified_email=False)
     ok, reason = quality.gate("noemail")
-    get_settings.cache_clear()
     assert not ok and "email not verified" in reason
+
+
+def test_email_gate_can_be_disabled(stub, monkeypatch):
+    from app.config import get_settings
+    monkeypatch.setenv("CQS_REQUIRE_VERIFIED_EMAIL", "0")
+    get_settings.cache_clear()
+    stub["about"] = _about(has_verified_email=False)
+    ok, _ = quality.gate("noemail")
+    get_settings.cache_clear()
+    assert ok is True
 
 
 def test_per_type_floor_when_configured(stub, monkeypatch):

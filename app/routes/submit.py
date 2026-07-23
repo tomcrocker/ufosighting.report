@@ -376,15 +376,18 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
     if clean["media"] and clean["first_hand"] == 1:  # shared reports skip capture confirms
         confirms = (
             ("confirm_own_capture",
-             "Confirm you took this photo/video yourself and saw it with "
-             "your own eyes."),
+             "Confirm you took this photo/video yourself and saw it with your "
+             "own eyes at the time."),
             ("confirm_no_fixed_cam",
-             "Confirm this isn't trail-camera or doorbell-camera footage."),
+             "Confirm this isn't unattended camera footage (trail, security, "
+             "beach, doorbell) unless witnessed simultaneously and independent "
+             "of the camera."),
             ("confirm_not_screen",
-             "Confirm this isn't a recording of another screen or a repost "
-             "(TV, TikTok, screenshots)."),
+             "Confirm this isn't a cell-phone video of a TV/display, a "
+             "social-media repost, or a screenshot of an image."),
             ("confirm_in_focus",
-             "Confirm the imagery is in focus most of the time."),
+             "Confirm the imagery is in focus most of the time (no blurry dots "
+             "or out-of-focus stars)."),
         )
         for field, msg in confirms:
             if form.get(field) not in ("1", "on", "true"):

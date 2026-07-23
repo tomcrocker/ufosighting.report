@@ -243,7 +243,7 @@
           <label>Why can't you upload the original, unedited file? <span class="req">*</span>
             <textarea name="original_media_note" id="original_media_note" minlength="15" maxlength="1000"
                       class="rule-out"
-                      placeholder="e.g. This is a screen recording from my security-camera app; the original clip was too large to upload; a friend filmed it and this is the only copy I have.">{{ values.original_media_note or '' }}</textarea>
+                      placeholder="e.g. The original clip was too large to upload, so this is a compressed export; my phone backed it up and only kept a re-saved copy that stripped the metadata; I have a still I grabbed from my own footage and can send the full original if asked.">{{ values.original_media_note or '' }}</textarea>
           </label>
         </div>
         <div id="media-confirms" hidden>
@@ -253,27 +253,31 @@
                    value="{{ values.capture_device or '' }}">
           </label>
           <div id="capture-confirms">
-          <p class="muted">A few confirmations about your media (r/UFOs guidelines) — all required:</p>
+          <p class="muted">A few confirmations about your media, per the
+            <a href="https://www.reddit.com/r/UFOs/about/rules" target="_blank" rel="noopener">r/UFOs
+            Sighting Post Guidelines</a> — all required:</p>
           <label class="check">
             <input type="checkbox" name="confirm_own_capture" value="1" required
                    {% if values.confirm_own_capture %}checked{% endif %}>
-            I took this photo/video and saw it with my own eyes <span class="req">*</span>
+            I took this photo/video and saw it with my own eyes at the time (not something I found
+            later in my footage) <span class="req">*</span>
           </label>
           <label class="check">
             <input type="checkbox" name="confirm_no_fixed_cam" value="1" required
                    {% if values.confirm_no_fixed_cam %}checked{% endif %}>
-            This is not trail-camera or doorbell-camera footage <span class="req">*</span>
+            This is not unattended camera footage (trail, security, beach, or doorbell cameras),
+            unless I witnessed it simultaneously and independent of the camera <span class="req">*</span>
           </label>
           <label class="check">
             <input type="checkbox" name="confirm_not_screen" value="1" required
                    {% if values.confirm_not_screen %}checked{% endif %}>
-            This is not a recording of a TV or other screen, a TikTok/social-media
-            repost, or a screenshot of an image <span class="req">*</span>
+            This is not a cell-phone video of content on a TV or display, a social-media repost,
+            or a screenshot of an image <span class="req">*</span>
           </label>
           <label class="check">
             <input type="checkbox" name="confirm_in_focus" value="1" required
                    {% if values.confirm_in_focus %}checked{% endif %}>
-            The imagery is in focus most of the time <span class="req">*</span>
+            The imagery is in focus most of the time (no blurry dots or out-of-focus stars) <span class="req">*</span>
           </label>
           </div>
         </div>

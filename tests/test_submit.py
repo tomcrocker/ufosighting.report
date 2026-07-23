@@ -578,11 +578,11 @@ def test_non_original_media_accepted_with_explanation(client, app_db, monkeypatc
     csrf = get_csrf(client)
     r = client.post("/submit",
                     data=gform(csrf, media_json=NONORIG,
-                               original_media_note="Screen recording from my doorbell camera app."),
+                               original_media_note="The original clip was too large to upload, so this is a compressed export."),
                     cookies={"csrf": csrf})
     assert r.status_code == 200
     note = app_db.execute("SELECT media_note FROM sightings ORDER BY id DESC LIMIT 1").fetchone()[0]
-    assert "doorbell" in note
+    assert "compressed export" in note
 
 
 @respx.mock

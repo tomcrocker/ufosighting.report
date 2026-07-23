@@ -43,6 +43,24 @@ def admin_home(request: Request, conn=Depends(db.get_db), user=Depends(require_a
     )
 
 
+def _purge_r2_media(conn, sighting_id: int) -> int:
+    """Delete every R2 object backing a sighting's media (original, thumbnail,
+    display derivative). Best-effort per key; returns how many were removed."""
+    media = conn.execute(
+        "SELECT r2_key, thumb_key, display_key FROM media WHERE sighting_id=?",
+        (sighting_id,)).fetchall()
+    removed = 0
+    for m in media:
+        for key in (m["r2_key"], m["thumb_key"], m["display_key"]):
+            if key:
+                try:
+                    r2.delete_key(key)
+                    removed += 1
+                except Exception as exc:
+                    print(f"purge media: R2 key {key} failed: {exc}")
+    return removed
+
+
 @router.post("/admin/sighting/{sighting_id}/delete")
 async def admin_delete(
     request: Request, sighting_id: int,
@@ -56,16 +74,7 @@ async def admin_delete(
     row = conn.execute("SELECT id FROM sightings WHERE id=?", (sighting_id,)).fetchone()
     if row is None:
         raise HTTPException(status_code=404)
-    media = conn.execute(
-        "SELECT r2_key, thumb_key, display_key FROM media WHERE sighting_id=?",
-        (sighting_id,)).fetchall()
-    for m in media:
-        for key in (m["r2_key"], m["thumb_key"], m["display_key"]):
-            if key:
-                try:
-                    r2.delete_key(key)
-                except Exception as exc:
-                    print(f"admin delete: R2 key {key} failed: {exc}")
+    _purge_r2_media(conn, sighting_id)
     conn.execute("DELETE FROM sightings WHERE id=?", (sighting_id,))
     conn.commit()
     search.delete_sightings([sighting_id])
@@ -201,9 +210,16 @@ async def review_reject(request: Request, sighting_id: int,
     form = await request.form()
     if not hmac.compare_digest(str(form.get("csrf_token", "")), auth.csrf_for(user.id)):
         raise HTTPException(status_code=403, detail="Bad CSRF token")
+    # Purge the uploaded media (R2 objects + media rows) — a rejected submission
+    # is never published, so its files shouldn't linger in storage. Keep the
+    # sighting row marked 'rejected' as a lightweight audit trail (username, IP,
+    # title, time) for spotting repeat offenders.
+    n = _purge_r2_media(conn, sighting_id)
+    conn.execute("DELETE FROM media WHERE sighting_id=?", (sighting_id,))
     conn.execute("UPDATE sightings SET status='rejected' WHERE id=?", (sighting_id,))
     conn.commit()
     search.delete_sightings([sighting_id])
+    print(f"review reject: sighting {sighting_id} rejected, purged {n} R2 object(s)")
     return RedirectResponse("/admin/review", status_code=303)
 
 

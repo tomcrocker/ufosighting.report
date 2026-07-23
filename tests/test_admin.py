@@ -183,3 +183,44 @@ def test_admin_can_view_pending_review_detail(client, app_db):
     r = client.get(f"/sighting/{sid}")  # 301 -> canonical slug, then 200 for admin
     assert r.status_code == 200
     assert "Queued detail" in r.text
+
+
+def test_reject_purges_media_but_keeps_audit_stub(client, app_db, monkeypatch):
+    from app import auth
+    deleted_keys = []
+    monkeypatch.setattr("app.routes.admin.r2.delete_key", lambda k: deleted_keys.append(k))
+    unindexed = []
+    monkeypatch.setattr("app.routes.admin.search.delete_sightings",
+                        lambda ids: unindexed.extend(ids))
+    sid = seed(app_db, title="Troll spam", status="pending_review",
+               reddit_username="throwaway", submitter_ip="203.0.113.9")
+    app_db.execute("INSERT INTO media (sighting_id, r2_key, kind, thumb_key, display_key) "
+                   "VALUES (?, 'uploads/t.mp4', 'video', 'thumbs/t.jpg', NULL)", (sid,))
+    app_db.commit()
+    tok = _admin(client, app_db)
+    r = client.post(f"/admin/review/{sid}/reject",
+                    data={"csrf_token": auth.csrf_for(tok)}, follow_redirects=False)
+    assert r.status_code == 303
+    # every R2 object for the media is gone
+    assert sorted(deleted_keys) == ["thumbs/t.jpg", "uploads/t.mp4"]
+    # media rows are gone too, so nothing points at the deleted objects
+    assert app_db.execute("SELECT COUNT(*) FROM media WHERE sighting_id=?", (sid,)).fetchone()[0] == 0
+    # the sighting row survives as a rejected audit stub (IP/username kept)
+    row = app_db.execute("SELECT status, reddit_username, submitter_ip FROM sightings WHERE id=?",
+                         (sid,)).fetchone()
+    assert row["status"] == "rejected"
+    assert row["reddit_username"] == "throwaway" and row["submitter_ip"] == "203.0.113.9"
+    assert unindexed == [sid]
+
+
+def test_reject_needs_csrf(client, app_db):
+    from app import auth
+    sid = seed(app_db, status="pending_review")
+    app_db.execute("INSERT INTO media (sighting_id, r2_key, kind) VALUES (?, 'uploads/z.jpg', 'image')", (sid,))
+    app_db.commit()
+    _admin(client, app_db)
+    r = client.post(f"/admin/review/{sid}/reject", data={"csrf_token": "wrong"})
+    assert r.status_code == 403
+    # nothing purged on a rejected CSRF
+    assert app_db.execute("SELECT COUNT(*) FROM media WHERE sighting_id=?", (sid,)).fetchone()[0] == 1
+    assert app_db.execute("SELECT status FROM sightings WHERE id=?", (sid,)).fetchone()[0] == "pending_review"

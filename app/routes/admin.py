@@ -4,7 +4,7 @@ from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from app import appsettings, auth, db, orphans, posting, r2, search
+from app import appsettings, auth, db, notify, orphans, posting, r2, search
 from app.web import require_admin, templates
 
 router = APIRouter()
@@ -173,6 +173,21 @@ def review_queue(request: Request, conn=Depends(db.get_db), user=Depends(require
     # filing under several throwaway usernames (the queue only holds unverified
     # submissions, so this is where sockpuppets surface).
     ip_counts = Counter(r["submitter_ip"] for r in rows if r["submitter_ip"])
+    # Past submissions from the same IP, across the WHOLE archive (any status,
+    # not just this queue). Catches someone who keeps abusing the form even after
+    # earlier reports were rejected or already posted under another name.
+    ips = {r["submitter_ip"] for r in rows if r["submitter_ip"]}
+    ip_history: dict[str, list] = {}
+    if ips:
+        marks = ",".join("?" * len(ips))
+        queue_ids = {r["id"] for r in rows}
+        for h in conn.execute(
+            f"""SELECT id, submitter_ip, reddit_username, title, status, created_at
+                  FROM sightings WHERE submitter_ip IN ({marks})
+                  ORDER BY created_at DESC""", list(ips)):
+            if h["id"] not in queue_ids:  # only PRIOR reports, not the card itself
+                ip_history.setdefault(h["submitter_ip"], []).append(h)
+
     media = {}
     for row in rows:
         media[row["id"]] = conn.execute(
@@ -182,7 +197,7 @@ def review_queue(request: Request, conn=Depends(db.get_db), user=Depends(require
     return templates.TemplateResponse(
         request, "review.html",
         {"user": user, "rows": rows, "media": media, "ip_counts": ip_counts,
-         "csrf_token": auth.csrf_for(user.id)},
+         "ip_history": ip_history, "csrf_token": auth.csrf_for(user.id)},
     )
 
 
@@ -198,7 +213,9 @@ async def review_approve(request: Request, sighting_id: int,
         # A submission held by the moderation hold already confirmed its account,
         # so it posts as "verified"; one that only reached review because its
         # verify window lapsed stays "self-reported".
-        posting.post_sighting(conn, sighting_id, verified=bool(row and row["username_verified"]))
+        post_id = posting.post_sighting(
+            conn, sighting_id, verified=bool(row and row["username_verified"]))
+        notify.approval_dm(conn, sighting_id, post_id)  # "your sighting is live"
     except Exception as exc:
         print(f"approve post failed for {sighting_id}: {exc}")
     return RedirectResponse("/admin/review", status_code=303)
@@ -214,12 +231,18 @@ async def review_reject(request: Request, sighting_id: int,
     # is never published, so its files shouldn't linger in storage. Keep the
     # sighting row marked 'rejected' as a lightweight audit trail (username, IP,
     # title, time) for spotting repeat offenders.
+    reason = (str(form.get("reason", "")) or "").strip()
+    # DM the reporter their reason before we purge — but only a confirmed
+    # account, and only if a reason was given (notify checks both).
+    notify.rejection_dm(conn, sighting_id, reason)
     n = _purge_r2_media(conn, sighting_id)
     conn.execute("DELETE FROM media WHERE sighting_id=?", (sighting_id,))
-    conn.execute("UPDATE sightings SET status='rejected' WHERE id=?", (sighting_id,))
+    conn.execute("UPDATE sightings SET status='rejected', review_reason=? WHERE id=?",
+                 (reason or None, sighting_id))
     conn.commit()
     search.delete_sightings([sighting_id])
-    print(f"review reject: sighting {sighting_id} rejected, purged {n} R2 object(s)")
+    print(f"review reject: sighting {sighting_id} rejected"
+          f"{' (reason DM sent)' if reason else ''}, purged {n} R2 object(s)")
     return RedirectResponse("/admin/review", status_code=303)
 
 

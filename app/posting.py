@@ -155,9 +155,11 @@ def process_post_queue(conn, limit: int = 1) -> int:
                      (r["id"],))
         conn.commit()
         try:
-            post_sighting(conn, r["id"], verified=bool(r["username_verified"]))
+            post_id = post_sighting(conn, r["id"], verified=bool(r["username_verified"]))
             print(f"post-queue: posted sighting {r['id']}")
             done += 1
+            from app import notify  # tell a verified reporter it's live
+            notify.approval_dm(conn, r["id"], post_id)
             try:  # brand-new URL — nudge IndexNow (best-effort)
                 from app import indexnow
                 slug = helpers.slugify(r["title"])

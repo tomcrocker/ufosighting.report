@@ -19,25 +19,50 @@
       {% if ip_counts[s.submitter_ip] > 1 %}<strong style="color:var(--danger,#e06c75)">&#9888; shared with {{ ip_counts[s.submitter_ip] - 1 }} other submission(s) in this queue</strong>{% endif %}
     {% endif %}
   </p>
+  {% set history = ip_history[s.submitter_ip] if s.submitter_ip else [] %}
+  {% if history %}
+  <details class="meta-warn" style="margin:6px 0">
+    <summary>&#128269; <strong>{{ history|length }} earlier report(s) from this IP</strong>
+      ({{ s.submitter_ip }}) — possible repeat submitter</summary>
+    <ul style="margin:8px 0 0; padding-left:18px">
+      {% for h in history[:12] %}
+      <li><a href="/sighting/{{ h.id }}" target="_blank" rel="noopener">{{ h.title|truncate(70) }}</a>
+        <span class="muted">— u/{{ h.reddit_username }} · {{ h.status }} · {{ h.created_at[:10] }}</span></li>
+      {% endfor %}
+      {% if history|length > 12 %}<li class="muted">…and {{ history|length - 12 }} more</li>{% endif %}
+    </ul>
+  </details>
+  {% endif %}
   <p style="white-space:pre-line">{{ s.description }}</p>
   {% if media[s.id] %}
   <div class="thumbstrip">
     {% for m in media[s.id] %}<img src="{{ media_url(m.thumb_key or m.r2_key) }}" alt="">{% endfor %}
   </div>
   {% endif %}
-  <div style="display:flex; gap:10px; margin-top:12px; align-items:center">
+  <div style="display:flex; gap:10px; margin-top:12px; align-items:center; flex-wrap:wrap">
     <form method="post" action="/admin/review/{{ s.id }}/approve">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <button class="btn primary">Approve &amp; post</button>
     </form>
-    <form method="post" action="/admin/review/{{ s.id }}/reject">
+    <a class="btn" href="/sighting/{{ s.id }}" target="_blank" rel="noopener">View full submission &#8599;</a>
+    <form method="post" action="/admin/review/{{ s.id }}/reject"
+          style="display:flex; gap:6px; align-items:center; flex:1; min-width:280px">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="text" name="reason" list="reject-reasons" style="flex:1"
+             placeholder="{% if s.username_verified %}Rejection reason (DM'd to reporter){% else %}Rejection reason (not DM'd — account unconfirmed){% endif %}">
       <button class="btn danger">Reject</button>
     </form>
-    <a class="btn" href="/sighting/{{ s.id }}" target="_blank" rel="noopener">View full submission &#8599;</a>
   </div>
 </article>
 {% else %}
 <p class="empty">Queue is empty.</p>
 {% endfor %}
+<datalist id="reject-reasons">
+  <option value="Post does not follow the r/UFOs sighting guidelines.">
+  <option value="Common object not adequately ruled out (aircraft, satellite, Starlink, planet, etc.).">
+  <option value="Low-quality or low-effort submission.">
+  <option value="Insufficient detail to assess the sighting.">
+  <option value="Suspected duplicate or repost.">
+  <option value="Media appears unrelated, edited, or not original.">
+</datalist>
 {% endblock %}

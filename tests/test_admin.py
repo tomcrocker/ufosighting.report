@@ -224,3 +224,77 @@ def test_reject_needs_csrf(client, app_db):
     # nothing purged on a rejected CSRF
     assert app_db.execute("SELECT COUNT(*) FROM media WHERE sighting_id=?", (sid,)).fetchone()[0] == 1
     assert app_db.execute("SELECT status FROM sightings WHERE id=?", (sid,)).fetchone()[0] == "pending_review"
+
+
+def test_approve_dms_verified_reporter_with_link(client, app_db, monkeypatch):
+    from app import auth
+    monkeypatch.setattr("app.routes.admin.posting.post_sighting",
+                        lambda conn, sid, *, verified: "pid99")
+    sent = []
+    monkeypatch.setattr("app.notify.reddit.script_token", lambda: "tok")
+    monkeypatch.setattr("app.notify.reddit.send_message",
+                        lambda tok, *, to, subject, text: sent.append((to, text)))
+    sid = seed(app_db, status="pending_review", reddit_username="witness1")
+    app_db.execute("UPDATE sightings SET username_verified=1 WHERE id=?", (sid,))
+    app_db.commit()
+    tok = _admin(client, app_db)
+    r = client.post(f"/admin/review/{sid}/approve",
+                    data={"csrf_token": auth.csrf_for(tok)}, follow_redirects=False)
+    assert r.status_code == 303
+    assert sent and sent[0][0] == "witness1" and "reddit.com/comments/pid99" in sent[0][1]
+
+
+def test_reject_dms_verified_reporter_with_reason(client, app_db, monkeypatch):
+    from app import auth
+    monkeypatch.setattr("app.routes.admin.r2.delete_key", lambda k: None)
+    sent = []
+    monkeypatch.setattr("app.notify.reddit.script_token", lambda: "tok")
+    monkeypatch.setattr("app.notify.reddit.send_message",
+                        lambda tok, *, to, subject, text: sent.append((to, text)))
+    sid = seed(app_db, status="pending_review", reddit_username="witness1")
+    app_db.execute("UPDATE sightings SET username_verified=1 WHERE id=?", (sid,))
+    app_db.commit()
+    tok = _admin(client, app_db)
+    client.post(f"/admin/review/{sid}/reject",
+                data={"csrf_token": auth.csrf_for(tok), "reason": "Does not follow guidelines"},
+                follow_redirects=False)
+    assert sent and sent[0][0] == "witness1" and "Does not follow guidelines" in sent[0][1]
+    # reason is also kept on the rejected audit stub
+    assert app_db.execute("SELECT review_reason FROM sightings WHERE id=?", (sid,)).fetchone()[0] \
+        == "Does not follow guidelines"
+
+
+def test_reject_unverified_or_no_reason_sends_no_dm(client, app_db, monkeypatch):
+    from app import auth
+    monkeypatch.setattr("app.routes.admin.r2.delete_key", lambda k: None)
+    sent = []
+    monkeypatch.setattr("app.notify.reddit.send_message", lambda *a, **k: sent.append(1))
+    # verified but no reason -> no DM
+    a = seed(app_db, status="pending_review", reddit_username="a")
+    app_db.execute("UPDATE sightings SET username_verified=1 WHERE id=?", (a,))
+    # reason given but account unconfirmed -> no DM
+    b = seed(app_db, status="pending_review", reddit_username="b")
+    app_db.commit()
+    tok = _admin(client, app_db)
+    client.post(f"/admin/review/{a}/reject", data={"csrf_token": auth.csrf_for(tok)})
+    client.post(f"/admin/review/{b}/reject",
+                data={"csrf_token": auth.csrf_for(tok), "reason": "spam"})
+    assert sent == []
+
+
+def test_review_lists_prior_reports_from_same_ip(client, app_db):
+    seed(app_db, title="Old junk", status="rejected", reddit_username="alt1",
+         submitter_ip="203.0.113.50")
+    seed(app_db, title="Older live one", status="live", reddit_username="alt2",
+         submitter_ip="203.0.113.50")
+    seed(app_db, title="New under review", status="pending_review", reddit_username="alt3",
+         submitter_ip="203.0.113.50")
+    seed(app_db, title="Unrelated", status="pending_review", reddit_username="z",
+         submitter_ip="198.51.100.1")
+    _admin(client, app_db)
+    r = client.get("/admin/review")
+    assert r.status_code == 200
+    assert "2 earlier report(s) from this IP" in r.text  # rejected + live, across all statuses
+    assert "Old junk" in r.text and "Older live one" in r.text
+    # the unrelated card has no history line
+    assert "earlier report(s) from this IP</strong>\n      (198.51.100.1)" not in r.text

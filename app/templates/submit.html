@@ -234,6 +234,18 @@
             stays on your sighting page</strong> in the archive at full quality, and the bot's
             comment links to whatever the post couldn't include.</p>
         </div>
+        <div id="media-original-note" hidden>
+          <p class="meta-warn" style="margin-bottom:8px">&#9888;&#65039; <strong>This doesn't look
+            like an original camera file.</strong> r/UFOs values original, unedited media.
+            Screenshots, re-uploads, and edited images are much lower quality evidence and are far
+            more likely to be removed. <strong>Please upload the original file straight from the
+            device that recorded it.</strong> If you genuinely can't, you must explain why below.</p>
+          <label>Why can't you upload the original, unedited file? <span class="req">*</span>
+            <textarea name="original_media_note" id="original_media_note" minlength="15" maxlength="1000"
+                      class="rule-out"
+                      placeholder="e.g. This is a screen recording from my security-camera app; the original clip was too large to upload; a friend filmed it and this is the only copy I have.">{{ values.original_media_note or '' }}</textarea>
+          </label>
+        </div>
         <div id="media-confirms" hidden>
           <label style="margin-top:14px">What device captured this footage? <span class="muted">— optional</span>
             <input name="capture_device" maxlength="100" autocomplete="off"

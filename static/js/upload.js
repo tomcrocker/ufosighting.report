@@ -34,14 +34,24 @@
     }
     // guideline confirmations apply only when media is attached
     const confirms = document.getElementById("media-confirms");
+    const shared = !!(document.getElementById("is_shared") || {}).checked;
     if (confirms) {
       const hasMedia = media.length > 0;
-      const shared = !!(document.getElementById("is_shared") || {}).checked;
       confirms.hidden = !hasMedia;
       // capture confirms don't apply to a shared (second-hand) report
       confirms.querySelectorAll("input[type=checkbox]").forEach((cb) => {
         cb.required = hasMedia && !shared;
       });
+    }
+    // Mandatory original-media gate: if a first-hand reporter's file doesn't look
+    // like an original camera file, make them justify it. Waived for shared
+    // reports (they've already declared it's someone else's footage + a source).
+    const origNote = document.getElementById("media-original-note");
+    if (origNote) {
+      const needsNote = !shared && media.some((m) => m.original === false);
+      origNote.hidden = !needsNote;
+      const ta = document.getElementById("original_media_note");
+      if (ta) ta.required = needsNote;
     }
   }
 
@@ -142,6 +152,11 @@
       });
       if (!resp.ok) return;
       const data = await resp.json();
+      // Record provenance on the item so media_json carries it and syncState can
+      // toggle the mandatory "explain why not original" gate. Default to original
+      // unless the check explicitly says otherwise.
+      item.original = !(data.provenance && data.provenance.original === false);
+      syncState();
       let anchor = row;
       // Provenance nudge: warn (before the metadata table) if this doesn't look
       // like an original camera file — this must run even when there are no rows

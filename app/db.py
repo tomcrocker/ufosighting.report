@@ -217,6 +217,9 @@ _MIGRATION_COLUMNS = [
     # JSON account intel (age, karma/yr, dormancy, subreddits, AI summary)
     # captured at verify time, rendered in the review panel
     ("account_intel", "TEXT"),
+    # reporter's required explanation when their first-hand media doesn't look
+    # like an original camera file (screenshot / edited / stripped metadata)
+    ("media_note", "TEXT"),
 ]
 
 

@@ -189,6 +189,8 @@ def format_post_body(
         facts.append(f"**Captured on:** {clean['capture_device']}")
     if media_provenance and not media_provenance.get("original"):
         facts.append(f"**⚠️ Media note:** {media_provenance['detail']}")
+    if clean.get("media_note"):
+        facts.append(f"**Reporter's note on media:** {clean['media_note']}")
     if clean.get("sensors"):
         facts.append("**Sensor detection:** " + ", ".join(clean["sensors"]))
     if clean.get("witness_background"):

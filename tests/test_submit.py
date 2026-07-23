@@ -557,3 +557,52 @@ def test_username_check_fails_open_on_api_error(client, app_db, monkeypatch):
     csrf = get_csrf(client)
     r = client.post("/submit", data=form(csrf), cookies={"csrf": csrf})
     assert r.status_code == 200  # our API blip must not block a legit submit
+
+
+# --- original-media gate ---
+
+NONORIG = json.dumps([{"key": MEDIA_KEY, "kind": "image", "original": False}])
+
+
+def test_non_original_media_requires_explanation(client, app_db):
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=gform(csrf, media_json=NONORIG), cookies={"csrf": csrf})
+    assert r.status_code == 422 and "original camera file" in r.text.lower()
+    assert app_db.execute("SELECT COUNT(*) FROM sightings").fetchone()[0] == 0
+
+
+@respx.mock
+def test_non_original_media_accepted_with_explanation(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "t")
+    monkeypatch.setattr("app.routes.submit.reddit.send_message", lambda *a, **k: None)
+    csrf = get_csrf(client)
+    r = client.post("/submit",
+                    data=gform(csrf, media_json=NONORIG,
+                               original_media_note="Screen recording from my doorbell camera app."),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+    note = app_db.execute("SELECT media_note FROM sightings ORDER BY id DESC LIMIT 1").fetchone()[0]
+    assert "doorbell" in note
+
+
+@respx.mock
+def test_shared_report_waives_original_media_gate(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "t")
+    monkeypatch.setattr("app.routes.submit.reddit.send_message", lambda *a, **k: None)
+    csrf = get_csrf(client)
+    # shared second-hand report: non-original media + no note is fine, the source
+    # note already explains it's someone else's footage
+    r = client.post("/submit",
+                    data=gform(csrf, media_json=NONORIG, is_shared="1",
+                               source_note="facebook.com/groups/x", original_media_note=""),
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+
+
+def test_original_media_needs_no_note(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "t")
+    monkeypatch.setattr("app.routes.submit.reddit.send_message", lambda *a, **k: None)
+    csrf = get_csrf(client)
+    # default media_json carries no original:false flag -> gate stays dormant
+    r = client.post("/submit", data=gform(csrf), cookies={"csrf": csrf})
+    assert r.status_code == 200

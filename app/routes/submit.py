@@ -333,6 +333,7 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
             clean["location_text"] = ", ".join(obscured_parts)
 
     clean["media"] = []
+    clean["media_note"] = None  # reporter's reason when first-hand media isn't original
     raw = form.get("media_json") or "[]"
     try:
         items = json.loads(raw)
@@ -388,6 +389,19 @@ def validate_submission(form: dict) -> tuple[dict, list[str]]:
         for field, msg in confirms:
             if form.get(field) not in ("1", "on", "true"):
                 errors.append(msg)
+        # Original-media gate: edited/screenshot/stripped files are our #1
+        # low-quality signal, so if the provenance check (client-side, from
+        # /api/media-meta) flagged any file as non-original, require a written
+        # justification. Waived for shared reports (handled above — they never
+        # reach this first_hand block).
+        note = (form.get("original_media_note") or "").strip()[:1000]
+        if any(it.get("original") is False for it in items):
+            if len(note) < 15:
+                errors.append(
+                    "One or more of your files doesn't look like an original camera "
+                    "file. Upload the original straight from the device that recorded "
+                    "it, or explain below why you can't (at least a sentence).")
+            clean["media_note"] = note or None
     return clean, errors
 
 
@@ -532,8 +546,8 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
               location_text, city, country, lat, lon, location_obscured, rule_out,
               capture_device, obs_accel, obs_no_signature, obs_low_observability,
               obs_transmedium, obs_positive_lift, first_hand, source_note, primary_media,
-              submitter_ip, verify_token, verify_sent_at, status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+              media_note, submitter_ip, verify_token, verify_sent_at, status)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
                    strftime('%Y-%m-%dT%H:%M:%SZ','now'),'pending_verify')""",
         (
             username, clean["title"], clean["description"], clean["sighted_at"],
@@ -548,7 +562,7 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
             clean["capture_device"], clean["obs_accel"], clean["obs_no_signature"],
             clean["obs_low_observability"], clean["obs_transmedium"],
             clean["obs_positive_lift"], clean["first_hand"], clean["source_note"],
-            clean["primary_media"],
+            clean["primary_media"], clean["media_note"],
             ip, token,
         ),
     )

@@ -49,6 +49,7 @@ class Settings:
     cqs_min_link_karma: int
     cqs_min_comment_karma: int
     cqs_require_verified_email: bool
+    ai_titles_enabled: bool
     account_intel_enabled: bool
     intel_dormancy_gap_days: int
     intel_reactivation_recent_days: int
@@ -133,6 +134,7 @@ def get_settings() -> Settings:
         cqs_require_verified_email=_env("CQS_REQUIRE_VERIFIED_EMAIL", "1") == "1",
         # Aged-account deep dive: age passes CQS, so also look at activity. A
         # long silence then a recent burst is the reactivated-account tell.
+        ai_titles_enabled=_env("AI_TITLES_ENABLED", "1") == "1",
         account_intel_enabled=_env("ACCOUNT_INTEL_ENABLED", "1") == "1",
         intel_dormancy_gap_days=int(_env("INTEL_DORMANCY_GAP_DAYS", "180")),
         intel_reactivation_recent_days=int(_env("INTEL_REACTIVATION_RECENT_DAYS", "45")),

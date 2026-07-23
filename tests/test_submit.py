@@ -40,6 +40,8 @@ def _stubs(monkeypatch):
     # by default the claimed username exists on Reddit (override to None to test
     # the "doesn't exist" path); keeps the existence check off the network
     monkeypatch.setattr("app.routes.submit.reddit.user_about", lambda u: {"name": u})
+    # keep the reporter's title in tests (no LLM); a dedicated test exercises AI titling
+    monkeypatch.setattr("app.routes.submit.titlegen.generate", lambda user_title, clean: user_title)
     from app.routes import submit as sm
     sm._geocode_cache.clear()
 
@@ -606,3 +608,18 @@ def test_original_media_needs_no_note(client, app_db, monkeypatch):
     # default media_json carries no original:false flag -> gate stays dormant
     r = client.post("/submit", data=gform(csrf), cookies={"csrf": csrf})
     assert r.status_code == 200
+
+
+@respx.mock
+def test_submit_stores_ai_title_and_keeps_original(client, app_db, monkeypatch):
+    monkeypatch.setattr("app.routes.submit.reddit.script_token", lambda: "t")
+    monkeypatch.setattr("app.routes.submit.reddit.send_message", lambda *a, **k: None)
+    monkeypatch.setattr("app.routes.submit.titlegen.generate",
+                        lambda user_title, clean: "Clean standardized title — Jul 1, 2026, 10:15 PM")
+    csrf = get_csrf(client)
+    r = client.post("/submit", data=form(csrf) | {"title": "OMG ORBS you wont believe!!!"},
+                    cookies={"csrf": csrf})
+    assert r.status_code == 200
+    row = app_db.execute("SELECT title, original_title FROM sightings ORDER BY id DESC LIMIT 1").fetchone()
+    assert row["title"] == "Clean standardized title — Jul 1, 2026, 10:15 PM"
+    assert row["original_title"] == "OMG ORBS you wont believe!!!"

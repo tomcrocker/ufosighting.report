@@ -220,6 +220,9 @@ _MIGRATION_COLUMNS = [
     # reporter's required explanation when their first-hand media doesn't look
     # like an original camera file (screenshot / edited / stripped metadata)
     ("media_note", "TEXT"),
+    # the reporter's own title, kept for reference — `title` holds the
+    # AI-standardized version actually posted (see app/titlegen.py)
+    ("original_title", "TEXT"),
 ]
 
 

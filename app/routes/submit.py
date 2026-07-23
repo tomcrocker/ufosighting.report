@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app import (db, geocode, helpers, mediameta, orphans, r2, ratelimit, reddit,
-                 turnstile, verify)
+                 titlegen, turnstile, verify)
 from app.countries import COUNTRY_NAMES
 from app.config import get_settings
 from app.web import client_ip, new_csrf, templates
@@ -540,20 +540,27 @@ async def submit_create(request: Request, conn=Depends(db.get_db)):
     if errors:
         return _render_form(request, form, errors, csrf=cookie_csrf, status_code=422)
 
+    # Standardize the title with AI (clean description + location + date), keeping
+    # the reporter's original for reference. Best-effort — falls back to theirs.
+    clean["original_title"] = clean["title"]
+    clean["title"] = titlegen.generate(clean["title"], clean)
+
     token = verify.new_token()
     cur = conn.execute(
         """INSERT INTO sightings
-             (reddit_username, title, description, sighted_at, tz_name, duration_seconds,
+             (reddit_username, title, original_title, description, sighted_at, tz_name,
+              duration_seconds,
               shape, witnesses, num_objects, distance, apparent_size, movement,
               has_wings, has_rotors, has_plume, makes_noise, sensors, witness_background,
               location_text, city, country, lat, lon, location_obscured, rule_out,
               capture_device, obs_accel, obs_no_signature, obs_low_observability,
               obs_transmedium, obs_positive_lift, first_hand, source_note, primary_media,
               media_note, submitter_ip, verify_token, verify_sent_at, status)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
                    strftime('%Y-%m-%dT%H:%M:%SZ','now'),'pending_verify')""",
         (
-            username, clean["title"], clean["description"], clean["sighted_at"],
+            username, clean["title"], clean["original_title"], clean["description"],
+            clean["sighted_at"],
             clean["tz_name"], clean["duration_seconds"], clean["shape"], clean["witnesses"],
             clean["num_objects"], clean["distance"], clean["apparent_size"],
             json.dumps(clean["movement"]) if clean["movement"] else None,

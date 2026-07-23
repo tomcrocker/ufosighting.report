@@ -120,6 +120,17 @@ def from_utc(utc_str: str, tz_name: str) -> str:
     return dt.astimezone(ZoneInfo(tz_name)).strftime("%Y-%m-%d %H:%M")
 
 
+def sighting_title_date(utc_str: str, tz_name: str) -> str:
+    """Compact local date/time for the end of a standardized title, e.g.
+    'Jul 15, 2026, 9:28 PM'. No timezone (kept short; the pinned comment carries
+    the full timezone-qualified Time)."""
+    try:
+        dt = datetime.strptime(utc_str, ISO).replace(tzinfo=timezone.utc).astimezone(ZoneInfo(tz_name))
+    except (ValueError, TypeError, KeyError):
+        return ""
+    return dt.strftime("%b %-d, %Y, %-I:%M %p")
+
+
 def sighting_time_display(utc_str: str, tz_name: str) -> str:
     """Human time for the pinned comment's `Time:` line, e.g.
     'July 15, 2026, 9:28 PM PDT'. The month name + 12-hour clock guarantee both

@@ -123,6 +123,9 @@
     <div class="noimg" style="aspect-ratio: 16/9; border-radius: 10px;">&#128760; No media captured</div>
     {% endif %}
     <h1>{{ s.title }}</h1>
+    {% if s.likely_identified %}
+    <p class="flash identified-note">&#9989; <strong>Likely Identified</strong> — moderators have flagged this sighting as most likely a conventional object or known phenomenon. See the discussion on the <a href="{{ reddit_url }}">Reddit post</a>.</p>
+    {% endif %}
     {% if s.status == 'deleted_by_user' %}
     <p class="flash archive-note">&#128274; The author deleted the original Reddit post, so this sighting is hidden from the public archive. It is retained here for moderators only.</p>
     {% elif s.status == 'removed_on_reddit' %}

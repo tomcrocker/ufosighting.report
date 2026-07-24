@@ -430,6 +430,13 @@ span.flatpickr-weekday { color: var(--muted) !important; }
 .archive-note { background: #1c2438; border: 1px solid var(--accent2); color: var(--text);
   padding: 10px 14px; border-radius: var(--radius); font-size: .9rem; }
 
+/* mod resolution: sighting explained as a known object/phenomenon */
+.identified-note { background: rgba(110,231,160,.1); border: 1px solid rgba(110,231,160,.4);
+  color: var(--text); padding: 10px 14px; border-radius: var(--radius); font-size: .9rem; }
+.badge-identified { position: absolute; top: 8px; left: 8px; z-index: 2;
+  background: rgba(11,14,20,.82); color: #6ee7a0; font-size: .72rem; font-weight: 600;
+  padding: 3px 8px; border-radius: 999px; backdrop-filter: blur(2px); }
+
 /* --- brand + header polish --- */
 .brand { display: inline-flex; align-items: center; gap: 9px; }
 .brand-mark { width: 30px; height: 30px; flex: none; }

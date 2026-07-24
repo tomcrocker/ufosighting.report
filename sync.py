@@ -13,6 +13,7 @@ state and is never auto-changed.
 """
 import sys
 import time
+from dataclasses import replace
 
 from app import comments, db, reddit, search, verify
 from app.config import get_settings
@@ -33,6 +34,7 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
     if not rows:
         return {"checked": 0, "updated": 0, "comments": 0}
     infos = reddit.fetch_posts_info([r["reddit_post_id"] for r in rows])
+    li_flair = get_settings().likely_identified_flair_id
     updated = 0
     touched = []
     live_rows = []
@@ -53,7 +55,7 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
                     approve_token = reddit.read_token()
                 if info.removed_by_category == "reddit":
                     reddit.approve(approve_token, post_id=r["reddit_post_id"])
-                    info = reddit.PostInfo(None, info.score, info.num_comments)
+                    info = replace(info, removed_by_category=None)  # keep flair etc.
                     print(f"sync: self-approved spam-removed post {r['reddit_post_id']}")
                 # the bot's pinned details comment gets spam-filtered too
                 for cid in reddit.fetch_removed_bot_comments(
@@ -65,10 +67,14 @@ def sync_once(conn, *, window_hours: int = HOT_WINDOW_HOURS,
             except reddit.RedditError as exc:
                 print(f"sync: self-approve of {r['reddit_post_id']} failed: {exc}")
         new_status = reddit.status_from_removed_by_category(info.removed_by_category)
+        # mirror the mods' "Likely Identified" re-flair onto the archive (and
+        # clear it if they flair it back to something else)
+        likely = 1 if (li_flair and info.flair_template_id == li_flair) else 0
         conn.execute(
             "UPDATE sightings SET reddit_score=?, reddit_num_comments=?, status=?, "
-            "removed_by_category=? WHERE id=?",
-            (info.score, info.num_comments, new_status, info.removed_by_category, r["id"]),
+            "removed_by_category=?, likely_identified=? WHERE id=?",
+            (info.score, info.num_comments, new_status, info.removed_by_category,
+             likely, r["id"]),
         )
         touched.append(r["id"])
         if new_status == "live":

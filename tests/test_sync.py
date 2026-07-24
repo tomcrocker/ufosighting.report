@@ -211,3 +211,33 @@ def test_sync_rescues_removed_bot_comment(db_conn, monkeypatch):
                         approved.append(comment_id or post_id))
     sync.sync_once(db_conn, comment_sleep=lambda s: None)
     assert "cmtX" in approved
+
+
+LIKELY_ID = "4288aad0-c903-11eb-8d14-0e4c1f8ec6d1"
+
+
+def test_likely_identified_flair_synced(db_conn, monkeypatch):
+    sid = _seed(db_conn, "lid1", "live")
+    _fake_infos(monkeypatch, {"lid1": reddit.PostInfo(None, 8, 3, flair_template_id=LIKELY_ID)})
+    sync.sync_once(db_conn)
+    assert db_conn.execute("SELECT likely_identified FROM sightings WHERE id=?",
+                           (sid,)).fetchone()[0] == 1
+
+
+def test_likely_identified_cleared_when_reflaired(db_conn, monkeypatch):
+    sid = _seed(db_conn, "lid2", "live")
+    db_conn.execute("UPDATE sightings SET likely_identified=1 WHERE id=?", (sid,))
+    db_conn.commit()
+    # mods flair it back to the Sighting flair -> the flag clears
+    _fake_infos(monkeypatch, {"lid2": reddit.PostInfo(None, 8, 3, flair_template_id="de39d1a0")})
+    sync.sync_once(db_conn)
+    assert db_conn.execute("SELECT likely_identified FROM sightings WHERE id=?",
+                           (sid,)).fetchone()[0] == 0
+
+
+def test_no_flair_stays_not_identified(db_conn, monkeypatch):
+    sid = _seed(db_conn, "lid3", "live")
+    _fake_infos(monkeypatch, {"lid3": reddit.PostInfo(None, 8, 3)})
+    sync.sync_once(db_conn)
+    assert db_conn.execute("SELECT likely_identified FROM sightings WHERE id=?",
+                           (sid,)).fetchone()[0] == 0

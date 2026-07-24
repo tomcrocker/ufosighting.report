@@ -28,6 +28,7 @@ class Settings:
     read_password: str
     subreddit: str
     sighting_flair_id: str
+    likely_identified_flair_id: str
     admin_users: tuple[str, ...]
     admin_password: str
     admin_credentials: dict[str, str]  # username(lower) -> password
@@ -128,6 +129,10 @@ def get_settings() -> Settings:
         read_password=_env("READ_PASSWORD", ""),
         subreddit=subreddit,
         sighting_flair_id=_env("SIGHTING_FLAIR_ID", ""),
+        # mods re-flair a resolved sighting to "Likely Identified"; the sync
+        # mirrors that onto the archive
+        likely_identified_flair_id=_env(
+            "LIKELY_IDENTIFIED_FLAIR_ID", "4288aad0-c903-11eb-8d14-0e4c1f8ec6d1"),
         admin_users=admin_users,
         admin_password=admin_password,
         admin_credentials=_parse_admin_credentials(admin_users, admin_password),

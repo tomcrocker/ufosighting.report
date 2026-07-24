@@ -4,6 +4,7 @@
     {% if c.thumb_url %}<img loading="lazy" src="{{ c.thumb_url }}" alt="{{ c.title }}">
     {% else %}<div class="noimg">&#128760;</div>{% endif %}
     {% if c.kind == 'video' %}<span class="badge-video">&#9654;</span>{% endif %}
+    {% if c.likely_identified %}<span class="badge-identified">&#9989; Likely Identified</span>{% endif %}
     <div class="meta">
       <h3>{{ c.title }}</h3>
       <p>{{ c.location_text }}{% if c.country and c.country not in c.location_text %} · {{ c.country }}{% endif %}</p>

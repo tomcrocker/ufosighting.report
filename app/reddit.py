@@ -106,6 +106,8 @@ class PostInfo:
     score: int
     num_comments: int
     created_utc: int | None = None  # default keeps positional callers working
+    flair_template_id: str | None = None  # mods re-flair resolved sightings
+    flair_text: str | None = None
 
 
 def fetch_posts_info(post_ids: list[str]) -> dict[str, PostInfo]:
@@ -130,6 +132,8 @@ def fetch_posts_info(post_ids: list[str]) -> dict[str, PostInfo]:
                 score=int(d.get("score", 0)),
                 num_comments=int(d.get("num_comments", 0)),
                 created_utc=int(d["created_utc"]) if d.get("created_utc") else None,
+                flair_template_id=d.get("link_flair_template_id"),
+                flair_text=d.get("link_flair_text"),
             )
     return out
 

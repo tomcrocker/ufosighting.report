@@ -223,6 +223,8 @@ _MIGRATION_COLUMNS = [
     # the reporter's own title, kept for reference — `title` holds the
     # AI-standardized version actually posted (see app/titlegen.py)
     ("original_title", "TEXT"),
+    # 1 when mods re-flaired the Reddit post to "Likely Identified" (synced)
+    ("likely_identified", "INTEGER NOT NULL DEFAULT 0"),
 ]
 
 
